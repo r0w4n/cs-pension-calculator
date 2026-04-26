@@ -6,10 +6,8 @@ export type PensionSettings = {
   lifeExpectancy: number;
   normalPensionAge: number;
   earlyRetirementAge: number;
-  targetPension: number;
   currentStatePension: number;
   statePensionDrawDate: string;
-  sippPensionDrawAge: number;
   alphaPensionAbsDate: string;
   alphaAddedPensionMonthly: number;
   alphaPensionLeaveAge: number;
@@ -24,9 +22,7 @@ const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
   normalPensionAge: { min: 65, max: 70, step: 1 },
   earlyRetirementAge: { min: 55, max: 85, step: 1 },
-  targetPension: { min: 12000, max: 90000, step: 500 },
   currentStatePension: { min: 0, max: 15000, step: 50 },
-  sippPensionDrawAge: { min: 55, max: 85, step: 1 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
   alphaPensionLeaveAge: { min: 55, max: 85, step: 1 },
   accruedPensionAtLastAbs: { min: 0, max: 50000, step: 250 },
@@ -42,10 +38,8 @@ export const defaultSettings: PensionSettings = {
   lifeExpectancy: 88,
   normalPensionAge: 68,
   earlyRetirementAge: 60,
-  targetPension: 30000,
   currentStatePension: 11500,
   statePensionDrawDate: "2055-06-15",
-  sippPensionDrawAge: 60,
   alphaPensionAbsDate: "2025-03-31",
   alphaAddedPensionMonthly: 150,
   alphaPensionLeaveAge: 60,
@@ -122,10 +116,8 @@ function coerceSettings(
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
     normalPensionAge: coerceNumber(input.normalPensionAge),
     earlyRetirementAge: coerceNumber(input.earlyRetirementAge),
-    targetPension: coerceNumber(input.targetPension),
     currentStatePension: coerceNumber(input.currentStatePension),
     statePensionDrawDate: coerceString(input.statePensionDrawDate),
-    sippPensionDrawAge: coerceNumber(input.sippPensionDrawAge),
     alphaPensionAbsDate: coerceString(input.alphaPensionAbsDate),
     alphaAddedPensionMonthly: coerceNumber(input.alphaAddedPensionMonthly),
     alphaPensionLeaveAge: coerceNumber(input.alphaPensionLeaveAge),
@@ -170,7 +162,6 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     lifeExpectancy: normalizeSetting("lifeExpectancy", settings.lifeExpectancy),
     normalPensionAge: normalizeSetting("normalPensionAge", settings.normalPensionAge),
     earlyRetirementAge: normalizeSetting("earlyRetirementAge", settings.earlyRetirementAge),
-    targetPension: normalizeSetting("targetPension", settings.targetPension),
     currentStatePension: normalizeSetting(
       "currentStatePension",
       settings.currentStatePension,
@@ -179,7 +170,6 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "statePensionDrawDate",
       settings.statePensionDrawDate,
     ),
-    sippPensionDrawAge: normalizeSetting("sippPensionDrawAge", settings.sippPensionDrawAge),
     alphaPensionAbsDate: normalizeSetting(
       "alphaPensionAbsDate",
       settings.alphaPensionAbsDate,

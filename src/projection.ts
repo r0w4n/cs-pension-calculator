@@ -27,6 +27,30 @@ export type ProjectionRow = {
   totalMonthlyPensionTakeHomePay: number;
 };
 
+export type PensionSummary = {
+  keyDates: {
+    stopsAlphaAccrual: string;
+    startsAlphaPension: string;
+    startsStatePension: string;
+  };
+  alphaPension: {
+    annualAtDraw: number;
+    monthlyAtDraw: number;
+    maximumAnnualAccrued: number;
+    totalAddedAfterToday: number;
+  };
+  incomeOverTime: {
+    monthlyAtAlphaStart: number;
+    monthlyAtStateStart: number;
+    monthlyAfterStatePension: number;
+    monthlyStatePension: number;
+  };
+  transitions: {
+    yearsBetweenStoppingAccrualAndDrawingPension: number;
+    yearsBetweenAlphaPensionAndStatePension: number;
+  };
+};
+
 const MONTHLY_ALPHA_ACCRUAL_RATE = 0.0232 / 12;
 const STOPS_ALPHA_ACCRUAL_LABEL = "Stops Alpha accrual";
 const STARTS_ALPHA_PENSION_LABEL = "Starts Alpha pension";
@@ -111,6 +135,59 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       totalMonthlyPensionTakeHomePay,
     };
   });
+}
+
+export function generatePensionSummary(
+  tableData: ProjectionRow[],
+  settings: PensionSettings,
+): PensionSummary {
+  const alphaPensionDrawDate = addYears(
+    settings.dateOfBirth,
+    settings.alphaPensionDrawAge,
+  );
+  const alphaAccrualStopDate = minIsoDate(
+    alphaPensionDrawDate,
+    addYears(settings.dateOfBirth, settings.alphaPensionLeaveAge),
+  );
+  const statePensionStartDate = settings.statePensionDrawDate;
+  const alphaDrawRow =
+    findFirstRowAtOrAfterDate(tableData, alphaPensionDrawDate) ?? tableData.at(-1);
+  const statePensionRow =
+    findFirstRowAtOrAfterDate(tableData, statePensionStartDate) ?? tableData.at(-1);
+  const maximumAnnualAccrued = Math.max(
+    ...tableData.map((row) => row.annualAccruedAlphaPension),
+  );
+  const totalAddedAfterToday = maximumAnnualAccrued - settings.accruedPensionAtLastAbs;
+
+  return {
+    keyDates: {
+      stopsAlphaAccrual: alphaAccrualStopDate,
+      startsAlphaPension: alphaPensionDrawDate,
+      startsStatePension: statePensionStartDate,
+    },
+    alphaPension: {
+      annualAtDraw: alphaDrawRow?.annualAlphaPensionIncludingReduction ?? 0,
+      monthlyAtDraw: alphaDrawRow?.monthlyAlphaPensionTakeHome ?? 0,
+      maximumAnnualAccrued,
+      totalAddedAfterToday,
+    },
+    incomeOverTime: {
+      monthlyAtAlphaStart: alphaDrawRow?.totalMonthlyPensionTakeHomePay ?? 0,
+      monthlyAtStateStart: statePensionRow?.totalMonthlyPensionTakeHomePay ?? 0,
+      monthlyAfterStatePension: statePensionRow?.totalMonthlyPensionTakeHomePay ?? 0,
+      monthlyStatePension: statePensionRow?.monthlyStatePension ?? 0,
+    },
+    transitions: {
+      yearsBetweenStoppingAccrualAndDrawingPension: calculateYearDifference(
+        alphaAccrualStopDate,
+        alphaPensionDrawDate,
+      ),
+      yearsBetweenAlphaPensionAndStatePension: calculateYearDifference(
+        alphaPensionDrawDate,
+        statePensionStartDate,
+      ),
+    },
+  };
 }
 
 export function generateMonthlyDateRange(startDate: string, endDate: string) {
@@ -335,6 +412,21 @@ export function addMonths(date: string, months: number) {
 
 function minIsoDate(firstDate: string, secondDate: string) {
   return firstDate <= secondDate ? firstDate : secondDate;
+}
+
+function findFirstRowAtOrAfterDate(tableData: ProjectionRow[], milestoneDate: string) {
+  return tableData.find((row) => row.date >= milestoneDate);
+}
+
+function calculateYearDifference(startDate: string, endDate: string) {
+  const start = parseIsoDate(startDate);
+  const end = parseIsoDate(endDate);
+  const monthDifference =
+    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    (end.getUTCMonth() - start.getUTCMonth());
+  const dayAdjustment = (end.getUTCDate() - start.getUTCDate()) / 30;
+
+  return Number(((monthDifference + dayAdjustment) / 12).toFixed(1));
 }
 
 function parseIsoDate(value: string) {

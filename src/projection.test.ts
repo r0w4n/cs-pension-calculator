@@ -12,6 +12,7 @@ import {
   calculateMonthlyStatePension,
   calculateTotalGrossMonthlyPension,
   createProjectionTable,
+  generatePensionSummary,
   generateMonthlyDateRange,
   generateMilestoneDefinitions,
   getAddedPensionFactorForAge,
@@ -245,5 +246,117 @@ describe("projection calculations", () => {
       "Starts Alpha pension",
       "Starts State Pension",
     ]);
+  });
+
+  it("selects the first row on or after the Alpha pension draw date for the summary", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-04-15",
+      dateOfBirth: "1987-06-20",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      lifeExpectancy: 61,
+    };
+
+    const rows = createProjectionTable(settings);
+    const summary = generatePensionSummary(rows, settings);
+
+    expect(summary.keyDates.startsAlphaPension).toBe("2047-06-20");
+    expect(rows[2]?.date).toBe("2047-06-15");
+    expect(rows[3]?.date).toBe("2047-07-15");
+    expect(summary.alphaPension.monthlyAtDraw).toBeCloseTo(
+      rows[3]?.monthlyAlphaPensionTakeHome ?? 0,
+      6,
+    );
+  });
+
+  it("selects the first row on or after the state pension start date for the summary", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2055-04-15",
+      dateOfBirth: "1987-06-20",
+      statePensionDrawDate: "2055-06-20",
+      lifeExpectancy: 69,
+    };
+
+    const rows = createProjectionTable(settings);
+    const summary = generatePensionSummary(rows, settings);
+
+    expect(rows[2]?.date).toBe("2055-06-15");
+    expect(rows[3]?.date).toBe("2055-07-15");
+    expect(summary.incomeOverTime.monthlyAtStateStart).toBeCloseTo(
+      rows[3]?.totalMonthlyPensionTakeHomePay ?? 0,
+      6,
+    );
+    expect(summary.incomeOverTime.monthlyAfterStatePension).toBeCloseTo(
+      rows[3]?.totalMonthlyPensionTakeHomePay ?? 0,
+      6,
+    );
+  });
+
+  it("identifies the maximum accrued Alpha pension from the projection table", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-05-15",
+      dateOfBirth: "1987-06-15",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 61,
+      lifeExpectancy: 61,
+      accruedPensionAtLastAbs: 8250,
+      pensionableEarnings: 42000,
+    };
+
+    const rows = createProjectionTable(settings);
+    const summary = generatePensionSummary(rows, settings);
+
+    expect(summary.alphaPension.maximumAnnualAccrued).toBeCloseTo(8412.4, 6);
+    expect(summary.alphaPension.totalAddedAfterToday).toBeCloseTo(162.4, 6);
+  });
+
+  it("derives monthly totals from the projection rows", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2055-04-15",
+      dateOfBirth: "1987-06-15",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      statePensionDrawDate: "2055-06-15",
+      lifeExpectancy: 68,
+    };
+
+    const rows = createProjectionTable(settings);
+    const summary = generatePensionSummary(rows, settings);
+    const stateRow = rows.find((row) => row.date === "2055-06-15");
+
+    expect(summary.incomeOverTime.monthlyAtStateStart).toBeCloseTo(
+      (stateRow?.monthlyAlphaPensionTakeHome ?? 0) +
+        (stateRow?.monthlyStatePension ?? 0),
+      6,
+    );
+    expect(summary.incomeOverTime.monthlyStatePension).toBeCloseTo(
+      stateRow?.monthlyStatePension ?? 0,
+      6,
+    );
+  });
+
+  it("updates the summary when pension parameters change", () => {
+    const baseRows = createProjectionTable(defaultSettings);
+    const baseSummary = generatePensionSummary(baseRows, defaultSettings);
+    const updatedSettings: PensionSettings = {
+      ...defaultSettings,
+      currentStatePension: 12000,
+      alphaPensionDrawAge: 61,
+      alphaPensionLeaveAge: 61,
+    };
+    const updatedRows = createProjectionTable(updatedSettings);
+    const updatedSummary = generatePensionSummary(updatedRows, updatedSettings);
+
+    expect(updatedSummary.alphaPension.monthlyAtDraw).not.toBe(
+      baseSummary.alphaPension.monthlyAtDraw,
+    );
+    expect(updatedSummary.incomeOverTime.monthlyAtStateStart).not.toBe(
+      baseSummary.incomeOverTime.monthlyAtStateStart,
+    );
+    expect(updatedSummary.keyDates.startsAlphaPension).toBe("2048-06-15");
   });
 });

@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { createProjectionTable, type ProjectionRow } from "./projection";
 import {
-  createDefaultSettings,
+  createProjectionTable,
+  generatePensionSummary,
+  type PensionSummary,
+} from "./projection";
+import {
   formatCurrency,
   loadStoredSettings,
   normalizeSetting,
@@ -24,9 +27,7 @@ type RangeField = {
     | "lifeExpectancy"
     | "normalPensionAge"
     | "earlyRetirementAge"
-    | "targetPension"
     | "currentStatePension"
-    | "sippPensionDrawAge"
     | "alphaAddedPensionMonthly"
     | "alphaPensionLeaveAge"
     | "accruedPensionAtLastAbs"
@@ -101,15 +102,6 @@ const fieldGroups: FieldGroup[] = [
         step: 1,
       },
       {
-        id: "targetPension",
-        label: "Target Total Pension Income (£ per year)",
-        type: "range",
-        min: 12000,
-        max: 90000,
-        step: 500,
-        format: "currency",
-      },
-      {
         id: "currentStatePension",
         label: "Current Full State Pension (£ per year)",
         type: "range",
@@ -122,14 +114,6 @@ const fieldGroups: FieldGroup[] = [
         id: "statePensionDrawDate",
         label: "State Pension Start Date",
         type: "date",
-      },
-      {
-        id: "sippPensionDrawAge",
-        label: "Planned SIPP Draw Age",
-        type: "range",
-        min: 55,
-        max: 85,
-        step: 1,
       },
     ],
   },
@@ -197,7 +181,7 @@ type SettingsKey = keyof PensionSettings;
 function App() {
   const [settings, setSettings] = useState<PensionSettings>(loadStoredSettings);
   const projectionRows = createProjectionTable(settings);
-  const latestProjectionRow = projectionRows.at(-1);
+  const pensionSummary = generatePensionSummary(projectionRows, settings);
 
   useEffect(() => {
     saveSettings(settings);
@@ -210,38 +194,37 @@ function App() {
     }));
   }
 
-  function resetSettings() {
-    setSettings(createDefaultSettings());
-  }
-
   return (
     <main className="app-shell">
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">Civil Service Alpha</p>
-          <h1>Saved pension settings</h1>
+          <h1>Pension Summary</h1>
           <p className="lead">
-            Capture the baseline profile once, keep it on this device, and use it
-            as the starting point for future calculator journeys.
+            A concise read-out of what you are projected to receive, when key
+            pension milestones land, and how monthly income changes across
+            retirement phases.
           </p>
         </div>
 
         <div className="hero-actions">
           <article className="summary-card summary-card--accent">
-            <p className="card-label">Storage</p>
-            <h2>Saved in your browser</h2>
+            <p className="card-label">At Alpha pension draw date</p>
+            <h2>{formatCurrencyDetailed(pensionSummary.alphaPension.monthlyAtDraw)}</h2>
             <p>
-              Changes are written to local storage automatically, so the same
-              device comes back with the latest settings already filled in.
+              Monthly Alpha pension after reduction from{" "}
+              {formatDate(pensionSummary.keyDates.startsAlphaPension)}.
             </p>
           </article>
 
           <article className="summary-card">
-            <p className="card-label">Latest gross monthly pension</p>
-            <h2>{formatCurrencyDetailed(latestProjectionRow?.totalMonthlyPensionTakeHomePay ?? 0)}</h2>
+            <p className="card-label">At State Pension start</p>
+            <h2>
+              {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyAtStateStart)}
+            </h2>
             <p>
-              Final row reaches age {latestProjectionRow?.age ?? settings.lifeExpectancy} on{" "}
-              {formatDate(latestProjectionRow?.date ?? settings.startDate)}.
+              Total monthly pension from{" "}
+              {formatDate(pensionSummary.keyDates.startsStatePension)}.
             </p>
           </article>
         </div>
@@ -284,39 +267,15 @@ function App() {
 
         <aside className="panel side-panel">
           <div className="panel-heading">
-            <p className="eyebrow">Snapshot</p>
-            <h2>Current assumptions</h2>
+            <p className="eyebrow">Summary</p>
+            <h2>Pension Summary</h2>
             <p className="section-copy">
-              A quick read-out so it is easy to sense-check what is stored.
+              The headline outcomes below are all derived from the same monthly
+              projection rows shown in the table.
             </p>
           </div>
 
-          <dl className="snapshot-list">
-            <div>
-              <dt>Calculation Start Date</dt>
-              <dd>{formatDate(settings.startDate)}</dd>
-            </div>
-            <div>
-              <dt>Your Date of Birth</dt>
-              <dd>{formatDate(settings.dateOfBirth)}</dd>
-            </div>
-            <div>
-              <dt>State Pension Start Date</dt>
-              <dd>{formatDate(settings.statePensionDrawDate)}</dd>
-            </div>
-            <div>
-              <dt>Current Full State Pension</dt>
-              <dd>{formatCurrency(settings.currentStatePension)}</dd>
-            </div>
-            <div>
-              <dt>Current Pensionable Earnings</dt>
-              <dd>{formatCurrency(settings.pensionableEarnings)}</dd>
-            </div>
-          </dl>
-
-          <button className="secondary-button" onClick={resetSettings} type="button">
-            Reset to defaults
-          </button>
+          <PensionSummaryPanel summary={pensionSummary} />
         </aside>
       </section>
 
@@ -333,6 +292,92 @@ function App() {
         <ProjectionTable rows={projectionRows} />
       </section>
     </main>
+  );
+}
+
+type PensionSummaryPanelProps = {
+  summary: PensionSummary;
+};
+
+function PensionSummaryPanel({ summary }: PensionSummaryPanelProps) {
+  return (
+    <div className="summary-sections">
+      <SummarySection
+        title="Alpha Pension"
+        items={[
+          [
+            "Annual Alpha Pension at retirement",
+            formatCurrencyDetailed(summary.alphaPension.annualAtDraw),
+          ],
+          [
+            "Monthly Alpha Pension at retirement",
+            formatCurrencyDetailed(summary.alphaPension.monthlyAtDraw),
+          ],
+          [
+            "Maximum Annual Alpha Pension Accrued",
+            formatCurrencyDetailed(summary.alphaPension.maximumAnnualAccrued),
+          ],
+          [
+            "Total Alpha pension added after today",
+            formatCurrencyDetailed(summary.alphaPension.totalAddedAfterToday),
+          ],
+          [
+            "Monthly income at Alpha pension start",
+            formatCurrencyDetailed(summary.incomeOverTime.monthlyAtAlphaStart),
+          ],
+          [
+            "Monthly State Pension",
+            formatCurrencyDetailed(summary.incomeOverTime.monthlyStatePension),
+          ],
+          [
+            "Total Monthly Pension at State Pension start",
+            formatCurrencyDetailed(summary.incomeOverTime.monthlyAtStateStart),
+          ],
+          [
+            "Monthly income after State Pension",
+            formatCurrencyDetailed(summary.incomeOverTime.monthlyAfterStatePension),
+          ],
+        ]}
+      />
+
+      <SummarySection
+        title="Key Dates"
+        items={[
+          ["Stops Alpha accrual", formatDate(summary.keyDates.stopsAlphaAccrual)],
+          ["Starts Alpha pension", formatDate(summary.keyDates.startsAlphaPension)],
+          ["Starts State Pension", formatDate(summary.keyDates.startsStatePension)],
+          [
+            "Years between stopping accrual and drawing pension",
+            formatYears(summary.transitions.yearsBetweenStoppingAccrualAndDrawingPension),
+          ],
+          [
+            "Years between Alpha pension and State pension",
+            formatYears(summary.transitions.yearsBetweenAlphaPensionAndStatePension),
+          ],
+        ]}
+      />
+    </div>
+  );
+}
+
+type SummarySectionProps = {
+  title: string;
+  items: Array<[label: string, value: string]>;
+};
+
+function SummarySection({ title, items }: SummarySectionProps) {
+  return (
+    <section className="summary-section">
+      <h3>{title}</h3>
+      <dl className="snapshot-list">
+        {items.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
@@ -483,6 +528,10 @@ function formatCurrencyDetailed(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatYears(value: number) {
+  return `${value.toFixed(1)} years`;
 }
 
 export default App;

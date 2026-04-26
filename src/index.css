@@ -239,10 +239,28 @@ h3 {
   align-self: start;
 }
 
+.summary-sections {
+  display: grid;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-section {
+  padding: 1rem 1rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.summary-section h3 {
+  margin-bottom: 1rem;
+}
+
 .snapshot-list {
   display: grid;
   gap: 0.9rem;
-  margin: 0 0 1.5rem;
+  margin: 0 0 1rem;
 }
 
 .snapshot-list div {

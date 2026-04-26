@@ -29,7 +29,6 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("lifeExpectancy", 120)).toBe(100);
     expect(normalizeSetting("normalPensionAge", 120)).toBe(70);
     expect(normalizeSetting("earlyRetirementAge", 40)).toBe(55);
-    expect(normalizeSetting("targetPension", 45123)).toBe(45000);
     expect(normalizeSetting("currentStatePension", -10)).toBe(0);
     expect(normalizeSetting("alphaAddedPensionMonthly", 233)).toBe(225);
     expect(normalizeSetting("pensionableEarnings", 56321)).toBe(56500);
@@ -47,7 +46,6 @@ describe("settings unit tests", () => {
     const settings: PensionSettings = {
       ...createDefaultSettings(),
       startDate: "2026-05-01",
-      targetPension: 45123,
       alphaAddedPensionMonthly: 233,
     };
 
@@ -58,10 +56,8 @@ describe("settings unit tests", () => {
       lifeExpectancy: defaultSettings.lifeExpectancy,
       normalPensionAge: defaultSettings.normalPensionAge,
       earlyRetirementAge: defaultSettings.earlyRetirementAge,
-      targetPension: 45000,
       currentStatePension: defaultSettings.currentStatePension,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
-      sippPensionDrawAge: defaultSettings.sippPensionDrawAge,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: 225,
       alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
@@ -79,10 +75,8 @@ describe("settings unit tests", () => {
         lifeExpectancy: 120,
         normalPensionAge: 120,
         earlyRetirementAge: 40,
-        targetPension: 45123,
         currentStatePension: -10,
         statePensionDrawDate: "bad-date",
-        sippPensionDrawAge: 999,
         alphaPensionAbsDate: "bad-date",
         alphaAddedPensionMonthly: 233,
         alphaPensionLeaveAge: 10,
@@ -98,10 +92,8 @@ describe("settings unit tests", () => {
       lifeExpectancy: 100,
       normalPensionAge: 70,
       earlyRetirementAge: 55,
-      targetPension: 45000,
       currentStatePension: 0,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
-      sippPensionDrawAge: 85,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: 225,
       alphaPensionLeaveAge: 55,
