@@ -60,18 +60,27 @@ describe("App settings form", () => {
   it("updates settings and saves to local storage", () => {
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText("Calculation Start Date"), {
+    const startDateInput = screen.getByLabelText("Calculation Start Date");
+    const birthDateInput = screen.getByLabelText("Your Date of Birth");
+    const statePensionDateInput = screen.getByLabelText("State Pension Start Date");
+    const absDateInput = screen.getByLabelText("Alpha Annual Benefit Statement Date");
+
+    fireEvent.change(startDateInput, {
       target: { value: "2020-04-01" },
     });
-    fireEvent.change(screen.getByLabelText("Your Date of Birth"), {
+    fireEvent.blur(startDateInput);
+    fireEvent.change(birthDateInput, {
       target: { value: "1990-02-14" },
     });
-    fireEvent.change(screen.getByLabelText("State Pension Start Date"), {
+    fireEvent.blur(birthDateInput);
+    fireEvent.change(statePensionDateInput, {
       target: { value: "2058-02-14" },
     });
-    fireEvent.change(screen.getByLabelText("Alpha Annual Benefit Statement Date"), {
+    fireEvent.blur(statePensionDateInput);
+    fireEvent.change(absDateInput, {
       target: { value: "2026-03-31" },
     });
+    fireEvent.blur(absDateInput);
     fireEvent.change(screen.getByLabelText("Current Full State Pension (£ per year)"), {
       target: { value: "11800" },
     });
@@ -107,6 +116,49 @@ describe("App settings form", () => {
       accruedPensionAtLastAbs: 12500,
       pensionableEarnings: 56000,
       alphaPensionDrawAge: 63,
+    });
+  });
+
+  it("only commits date normalization after the field loses focus", () => {
+    render(<App />);
+
+    const birthDateInput = screen.getByLabelText("Your Date of Birth");
+
+    fireEvent.change(birthDateInput, {
+      target: { value: "1977-04-10" },
+    });
+
+    expect(birthDateInput).toHaveValue("1977-04-10");
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual({
+      dateOfBirth: defaultSettings.dateOfBirth,
+      lifeExpectancy: defaultSettings.lifeExpectancy,
+      normalPensionAge: defaultSettings.normalPensionAge,
+      earlyRetirementAge: defaultSettings.earlyRetirementAge,
+      currentStatePension: defaultSettings.currentStatePension,
+      statePensionDrawDate: defaultSettings.statePensionDrawDate,
+      alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
+      alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
+      alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
+      accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
+      pensionableEarnings: defaultSettings.pensionableEarnings,
+      alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
+    });
+
+    fireEvent.blur(birthDateInput);
+
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual({
+      dateOfBirth: "1977-04-10",
+      lifeExpectancy: defaultSettings.lifeExpectancy,
+      normalPensionAge: defaultSettings.normalPensionAge,
+      earlyRetirementAge: defaultSettings.earlyRetirementAge,
+      currentStatePension: defaultSettings.currentStatePension,
+      statePensionDrawDate: defaultSettings.statePensionDrawDate,
+      alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
+      alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
+      alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
+      accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
+      pensionableEarnings: defaultSettings.pensionableEarnings,
+      alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
     });
   });
 

@@ -410,20 +410,39 @@ type FieldProps = {
 
 function Field({ field, value, onChange }: FieldProps) {
   if (field.type === "date") {
+    const [draftValue, setDraftValue] = useState(value as string);
+
+    useEffect(() => {
+      setDraftValue(value as string);
+    }, [value]);
+
+    function commitDateValue(nextValue: string) {
+      const normalizedValue = normalizeSetting(
+        field.id,
+        nextValue as PensionSettings[typeof field.id],
+      ) as string;
+
+      setDraftValue(normalizedValue);
+      onChange(field.id, normalizedValue as PensionSettings[typeof field.id]);
+    }
+
     return (
       <label className="field-card">
         <span className="field-header">
           <span className="field-label">{field.label}</span>
-          <span className="field-value">{formatDate(value as string)}</span>
+          <span className="field-value">{formatDate(draftValue)}</span>
         </span>
         <input
           aria-label={field.label}
           className="date-input"
           type="date"
-          value={value as string}
-          onChange={(event) =>
-            onChange(field.id, event.target.value as PensionSettings[typeof field.id])
-          }
+          value={draftValue}
+          onChange={(event) => {
+            setDraftValue(event.target.value);
+          }}
+          onBlur={(event) => {
+            commitDateValue(event.target.value);
+          }}
         />
       </label>
     );
