@@ -175,7 +175,7 @@ describe("App settings form", () => {
     render(<App />);
 
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
-    expect(screen.getByLabelText("Your Normal Pension Age")).toHaveValue("69");
+    expect(screen.getByLabelText("Your Normal Pension Age")).toHaveValue("68");
     expect(screen.getAllByText(/At State Pension start/i).length).toBeGreaterThan(0);
   });
 
@@ -199,18 +199,18 @@ describe("App settings form", () => {
     render(<App />);
 
     expect(screen.getByLabelText("Assumed Life Expectancy (Age)")).toHaveValue("100");
-    expect(screen.getByLabelText("Your Normal Pension Age")).toHaveValue("70");
-    expect(screen.getByLabelText("Planned Early Retirement Age")).toHaveValue("55");
+    expect(screen.getByLabelText("Your Normal Pension Age")).toHaveValue("68");
+    expect(screen.getByLabelText("Planned Early Retirement Age")).toHaveValue("45");
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue("0");
     expect(screen.getByLabelText("Added Alpha Pension (£ per month)")).toHaveValue("225");
-    expect(screen.getByLabelText("Age You Leave Alpha Pensionable Service")).toHaveValue("55");
+    expect(screen.getByLabelText("Age You Leave Alpha Pensionable Service")).toHaveValue("40");
     expect(
       screen.getByLabelText("Alpha Pension Accrued at Last Statement (£ per year)"),
     ).toHaveValue("12500");
     expect(screen.getByLabelText("Current Pensionable Earnings (£ per year)")).toHaveValue(
       "56500",
     );
-    expect(screen.getByLabelText("Planned Alpha Pension Draw Age")).toHaveValue("85");
+    expect(screen.getByLabelText("Planned Alpha Pension Draw Age")).toHaveValue("70");
   });
 
   it("shows validation guidance and pauses the projection when stored settings are inconsistent", () => {

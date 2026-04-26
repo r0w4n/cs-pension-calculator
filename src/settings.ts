@@ -25,14 +25,14 @@ type StoredPensionSettings = Omit<PensionSettings, "startDate">;
 
 const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
-  normalPensionAge: { min: 65, max: 70, step: 1 },
-  earlyRetirementAge: { min: 55, max: 85, step: 1 },
+  normalPensionAge: { min: 65, max: 68, step: 1 },
+  earlyRetirementAge: { min: 45, max: 70, step: 1 },
   currentStatePension: { min: 0, max: 15000, step: 50 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
-  alphaPensionLeaveAge: { min: 55, max: 85, step: 1 },
+  alphaPensionLeaveAge: { min: 40, max: 70, step: 1 },
   accruedPensionAtLastAbs: { min: 0, max: 50000, step: 250 },
   pensionableEarnings: { min: 10000, max: 150000, step: 500 },
-  alphaPensionDrawAge: { min: 55, max: 85, step: 1 },
+  alphaPensionDrawAge: { min: 55, max: 70, step: 1 },
 } as const;
 
 type NumericSettingKey = keyof typeof numericSettingRules;

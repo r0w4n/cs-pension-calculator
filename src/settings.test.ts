@@ -29,11 +29,13 @@ describe("settings unit tests", () => {
 
   it("normalizes numeric settings to allowed ranges and steps", () => {
     expect(normalizeSetting("lifeExpectancy", 120)).toBe(100);
-    expect(normalizeSetting("normalPensionAge", 120)).toBe(70);
-    expect(normalizeSetting("earlyRetirementAge", 40)).toBe(55);
+    expect(normalizeSetting("normalPensionAge", 120)).toBe(68);
+    expect(normalizeSetting("earlyRetirementAge", 40)).toBe(45);
     expect(normalizeSetting("currentStatePension", -10)).toBe(0);
     expect(normalizeSetting("alphaAddedPensionMonthly", 233)).toBe(225);
     expect(normalizeSetting("pensionableEarnings", 56321)).toBe(56500);
+    expect(normalizeSetting("alphaPensionLeaveAge", 20)).toBe(40);
+    expect(normalizeSetting("alphaPensionDrawAge", 200)).toBe(70);
   });
 
   it("normalizes invalid dates back to defaults", () => {
@@ -100,16 +102,16 @@ describe("settings unit tests", () => {
       startDate: "2026-04-25",
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: 100,
-      normalPensionAge: 70,
-      earlyRetirementAge: 55,
+      normalPensionAge: 68,
+      earlyRetirementAge: 45,
       currentStatePension: 0,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: 225,
-      alphaPensionLeaveAge: 55,
+      alphaPensionLeaveAge: 40,
       accruedPensionAtLastAbs: 12500,
       pensionableEarnings: 56500,
-      alphaPensionDrawAge: 85,
+      alphaPensionDrawAge: 70,
     });
   });
 
