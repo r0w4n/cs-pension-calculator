@@ -6,3 +6,4 @@ dist
 .yarn/unplugged
 .yarn/install-state.gz
 .pnp.*
+coverage

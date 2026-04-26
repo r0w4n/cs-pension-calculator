@@ -1,4 +1,5 @@
 import {
+  addMonths,
   addYears,
   buildMilestoneMap,
   calculateAccruedAlphaPension,
@@ -12,6 +13,7 @@ import {
   calculateMonthlyStatePension,
   calculateTotalGrossMonthlyPension,
   createProjectionTable,
+  deriveProjectionInputs,
   generatePensionSummary,
   generateMonthlyDateRange,
   generateMilestoneDefinitions,
@@ -33,6 +35,12 @@ describe("projection calculations", () => {
       "2026-03-15",
       "2026-04-15",
     ]);
+  });
+
+  it("preserves month-end semantics across shorter months and leap years", () => {
+    expect(addMonths("2026-01-31", 1)).toBe("2026-02-28");
+    expect(addMonths("2024-01-31", 1)).toBe("2024-02-29");
+    expect(addYears("2024-02-29", 1)).toBe("2025-02-28");
   });
 
   it("calculates age in whole years before and after the birthday", () => {
@@ -116,6 +124,27 @@ describe("projection calculations", () => {
       958.333333,
       6,
     );
+  });
+
+  it("derives projection inputs from valid settings", () => {
+    expect(deriveProjectionInputs(defaultSettings)).toMatchObject({
+      endDate: "2075-06-15",
+      drawDate: "2047-06-15",
+      alphaStopDate: "2047-06-15",
+      accrualStopDate: "2047-06-15",
+      addedPensionStopDate: "2047-06-15",
+      npaDate: "2055-06-15",
+      reductionFactor: 0.648,
+    });
+  });
+
+  it("refuses to derive projection inputs when settings fail validation", () => {
+    expect(
+      deriveProjectionInputs({
+        ...defaultSettings,
+        startDate: "2076-01-01",
+      }),
+    ).toBeNull();
   });
 
   it("adds monthly alpha and state pension into gross monthly pension", () => {
@@ -358,5 +387,19 @@ describe("projection calculations", () => {
       baseSummary.incomeOverTime.monthlyAtStateStart,
     );
     expect(updatedSummary.keyDates.startsAlphaPension).toBe("2048-06-15");
+  });
+
+  it("returns no rows and a safe zeroed summary when settings are invalid", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2076-01-01",
+    };
+
+    const rows = createProjectionTable(settings);
+    const summary = generatePensionSummary(rows, settings);
+
+    expect(rows).toEqual([]);
+    expect(summary.alphaPension.maximumAnnualAccrued).toBe(0);
+    expect(summary.incomeOverTime.monthlyAtStateStart).toBe(0);
   });
 });

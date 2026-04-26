@@ -9,6 +9,7 @@ import {
   loadStoredSettings,
   normalizeSetting,
   saveSettings,
+  validateSettings,
   type PensionSettings,
 } from "./settings";
 
@@ -180,6 +181,7 @@ type SettingsKey = keyof PensionSettings;
 
 function App() {
   const [settings, setSettings] = useState<PensionSettings>(loadStoredSettings);
+  const validationIssues = validateSettings(settings);
   const projectionRows = createProjectionTable(settings);
   const pensionSummary = generatePensionSummary(projectionRows, settings);
 
@@ -242,6 +244,25 @@ function App() {
           </div>
 
           <div className="settings-sections">
+            {validationIssues.length > 0 ? (
+              <section className="settings-section" aria-live="polite">
+                <div className="section-heading">
+                  <p className="eyebrow">Validation</p>
+                  <h3>Check these assumptions</h3>
+                  <p className="section-copy">
+                    The projection is paused until these settings are brought back
+                    into a valid range.
+                  </p>
+                </div>
+
+                <ul className="section-copy">
+                  {validationIssues.map((issue) => (
+                    <li key={`${issue.field}-${issue.message}`}>{issue.message}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
             {fieldGroups.map((group) => (
               <section className="settings-section" key={group.id}>
                 <div className="section-heading">
@@ -450,6 +471,14 @@ type ProjectionTableProps = {
 };
 
 function ProjectionTable({ rows }: ProjectionTableProps) {
+  if (rows.length === 0) {
+    return (
+      <div className="table-shell">
+        <p>No projection rows are available for the current settings.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="table-shell">
       <table className="projection-table">

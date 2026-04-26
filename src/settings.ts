@@ -16,6 +16,11 @@ export type PensionSettings = {
   alphaPensionDrawAge: number;
 };
 
+export type PensionValidationIssue = {
+  field: keyof PensionSettings;
+  message: string;
+};
+
 type StoredPensionSettings = Omit<PensionSettings, "startDate">;
 
 const numericSettingRules = {
@@ -155,6 +160,83 @@ export function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function isValidIsoDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+  if (!match) {
+    return false;
+  }
+
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return false;
+  }
+
+  if (month < 1 || month > 12) {
+    return false;
+  }
+
+  const maxDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day >= 1 && day <= maxDay;
+}
+
+export function validateSettings(settings: PensionSettings): PensionValidationIssue[] {
+  const issues: PensionValidationIssue[] = [];
+  const lifeExpectancyDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.lifeExpectancy,
+  );
+  const alphaDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.alphaPensionDrawAge,
+  );
+  const alphaLeaveDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.alphaPensionLeaveAge,
+  );
+
+  if (settings.startDate > lifeExpectancyDate) {
+    issues.push({
+      field: "startDate",
+      message: "Calculation start date must be on or before the life expectancy date.",
+    });
+  }
+
+  if (settings.alphaPensionDrawAge < settings.earlyRetirementAge) {
+    issues.push({
+      field: "alphaPensionDrawAge",
+      message: "Alpha pension draw age cannot be earlier than planned early retirement age.",
+    });
+  }
+
+  if (settings.alphaPensionAbsDate > settings.startDate) {
+    issues.push({
+      field: "alphaPensionAbsDate",
+      message: "ABS date cannot be later than the calculation start date.",
+    });
+  }
+
+  if (settings.statePensionDrawDate < alphaDrawDate) {
+    issues.push({
+      field: "statePensionDrawDate",
+      message: "State pension start date cannot be earlier than Alpha pension draw date.",
+    });
+  }
+
+  if (alphaLeaveDate > lifeExpectancyDate) {
+    issues.push({
+      field: "alphaPensionLeaveAge",
+      message: "Alpha pensionable service leave age must be within life expectancy.",
+    });
+  }
+
+  return issues;
+}
+
 function normalizeSettings(settings: PensionSettings): PensionSettings {
   return {
     startDate: normalizeSetting("startDate", settings.startDate),
@@ -212,10 +294,14 @@ function normalizeNumericSetting(key: NumericSettingKey, value: unknown) {
 }
 
 function normalizeDate(value: string, fallback: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return fallback;
-  }
+  return isValidIsoDate(value) ? value : fallback;
+}
 
-  const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? fallback : value;
+function addYearsToIsoDate(value: string, years: number) {
+  const [year, month, day] = value.split("-").map(Number);
+  const nextYear = year + years;
+  const maxDay = new Date(Date.UTC(nextYear, month, 0)).getUTCDate();
+  const safeDay = Math.min(day, maxDay);
+
+  return new Date(Date.UTC(nextYear, month - 1, safeDay)).toISOString().slice(0, 10);
 }

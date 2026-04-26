@@ -1,6 +1,6 @@
 import addedPensionFactors from "./data/alpha_pension_added_pension_factors.json";
 import reductionFactors from "./data/alpha_pension_reduction_factors.json";
-import type { PensionSettings } from "./settings";
+import { validateSettings, type PensionSettings } from "./settings";
 
 type AddedPensionFactorRecord = {
   age: number;
@@ -61,7 +61,23 @@ type MilestoneDefinition = {
   label: string;
 };
 
-export function createProjectionTable(settings: PensionSettings): ProjectionRow[] {
+export type DerivedProjectionInputs = {
+  endDate: string;
+  drawDate: string;
+  alphaStopDate: string;
+  accrualStopDate: string;
+  addedPensionStopDate: string;
+  npaDate: string;
+  reductionFactor: number;
+};
+
+export function deriveProjectionInputs(
+  settings: PensionSettings,
+): DerivedProjectionInputs | null {
+  if (validateSettings(settings).length > 0) {
+    return null;
+  }
+
   const endDate = getLifeExpectancyDate(settings.dateOfBirth, settings.lifeExpectancy);
   const drawDate = addYears(settings.dateOfBirth, settings.alphaPensionDrawAge);
   const alphaStopDate = addYears(settings.dateOfBirth, settings.alphaPensionLeaveAge);
@@ -75,6 +91,33 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
           settings.normalPensionAge,
           settings.alphaPensionDrawAge,
         );
+
+  return {
+    endDate,
+    drawDate,
+    alphaStopDate,
+    accrualStopDate,
+    addedPensionStopDate,
+    npaDate,
+    reductionFactor,
+  };
+}
+
+export function createProjectionTable(settings: PensionSettings): ProjectionRow[] {
+  const derivedInputs = deriveProjectionInputs(settings);
+
+  if (!derivedInputs) {
+    return [];
+  }
+
+  const {
+    endDate,
+    drawDate,
+    accrualStopDate,
+    addedPensionStopDate,
+    npaDate,
+    reductionFactor,
+  } = derivedInputs;
 
   let cumulativeMonthlyAccrual = 0;
 
@@ -141,6 +184,47 @@ export function generatePensionSummary(
   tableData: ProjectionRow[],
   settings: PensionSettings,
 ): PensionSummary {
+  if (tableData.length === 0) {
+    const alphaPensionDrawDate = addYears(
+      settings.dateOfBirth,
+      settings.alphaPensionDrawAge,
+    );
+    const alphaAccrualStopDate = minIsoDate(
+      alphaPensionDrawDate,
+      addYears(settings.dateOfBirth, settings.alphaPensionLeaveAge),
+    );
+
+    return {
+      keyDates: {
+        stopsAlphaAccrual: alphaAccrualStopDate,
+        startsAlphaPension: alphaPensionDrawDate,
+        startsStatePension: settings.statePensionDrawDate,
+      },
+      alphaPension: {
+        annualAtDraw: 0,
+        monthlyAtDraw: 0,
+        maximumAnnualAccrued: 0,
+        totalAddedAfterToday: 0,
+      },
+      incomeOverTime: {
+        monthlyAtAlphaStart: 0,
+        monthlyAtStateStart: 0,
+        monthlyAfterStatePension: 0,
+        monthlyStatePension: 0,
+      },
+      transitions: {
+        yearsBetweenStoppingAccrualAndDrawingPension: calculateYearDifference(
+          alphaAccrualStopDate,
+          alphaPensionDrawDate,
+        ),
+        yearsBetweenAlphaPensionAndStatePension: calculateYearDifference(
+          alphaPensionDrawDate,
+          settings.statePensionDrawDate,
+        ),
+      },
+    };
+  }
+
   const alphaPensionDrawDate = addYears(
     settings.dateOfBirth,
     settings.alphaPensionDrawAge,

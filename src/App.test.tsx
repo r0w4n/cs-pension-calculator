@@ -160,4 +160,22 @@ describe("App settings form", () => {
     );
     expect(screen.getByLabelText("Planned Alpha Pension Draw Age")).toHaveValue("85");
   });
+
+  it("shows validation guidance and pauses the projection when stored settings are inconsistent", () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        startDate: "2076-01-01",
+        alphaPensionAbsDate: "2076-02-01",
+      }),
+    );
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Check these assumptions" })).toBeInTheDocument();
+    expect(
+      screen.getByText("No projection rows are available for the current settings."),
+    ).toBeInTheDocument();
+  });
 });

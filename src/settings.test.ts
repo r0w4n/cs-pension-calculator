@@ -3,9 +3,11 @@ import {
   createDefaultSettings,
   defaultSettings,
   getTodayIsoDate,
+  isValidIsoDate,
   loadStoredSettings,
   normalizeSetting,
   saveSettings,
+  validateSettings,
   type PensionSettings,
 } from "./settings";
 
@@ -37,9 +39,17 @@ describe("settings unit tests", () => {
   it("normalizes invalid dates back to defaults", () => {
     expect(normalizeSetting("startDate", "not-a-date")).toBe("2026-04-25");
     expect(normalizeSetting("dateOfBirth", "2026-99-99")).toBe(defaultSettings.dateOfBirth);
+    expect(normalizeSetting("dateOfBirth", "2026-02-31")).toBe(defaultSettings.dateOfBirth);
     expect(normalizeSetting("statePensionDrawDate", "")).toBe(
       defaultSettings.statePensionDrawDate,
     );
+  });
+
+  it("rejects impossible calendar dates during strict validation", () => {
+    expect(isValidIsoDate("2026-02-28")).toBe(true);
+    expect(isValidIsoDate("2024-02-29")).toBe(true);
+    expect(isValidIsoDate("2026-02-31")).toBe(false);
+    expect(isValidIsoDate("2025-02-29")).toBe(false);
   });
 
   it("does not persist the calculation start date", () => {
@@ -107,5 +117,25 @@ describe("settings unit tests", () => {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, "{not-json");
 
     expect(loadStoredSettings()).toEqual(createDefaultSettings());
+  });
+
+  it("reports relational validation issues for inconsistent pension settings", () => {
+    const issues = validateSettings({
+      ...defaultSettings,
+      startDate: "2076-01-01",
+      alphaPensionAbsDate: "2076-02-01",
+      earlyRetirementAge: 62,
+      alphaPensionDrawAge: 60,
+      statePensionDrawDate: "2046-01-01",
+    });
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "startDate" }),
+        expect.objectContaining({ field: "alphaPensionAbsDate" }),
+        expect.objectContaining({ field: "alphaPensionDrawAge" }),
+        expect.objectContaining({ field: "statePensionDrawDate" }),
+      ]),
+    );
   });
 });
