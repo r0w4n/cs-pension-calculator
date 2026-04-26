@@ -1,0 +1,249 @@
+import {
+  addYears,
+  buildMilestoneMap,
+  calculateAccruedAlphaPension,
+  calculateAge,
+  calculateAnnualAlphaPensionIncludingReduction,
+  calculateLumpSumAddedPension,
+  calculateMonthlyAddedPension,
+  calculateMonthlyAlphaAccrual,
+  calculateMonthlyAlphaPensionTakeHome,
+  calculateMonthlyAlphaPensionIncludingReduction,
+  calculateMonthlyStatePension,
+  calculateTotalGrossMonthlyPension,
+  createProjectionTable,
+  generateMonthlyDateRange,
+  generateMilestoneDefinitions,
+  getAddedPensionFactorForAge,
+  getEarlyRetirementReductionFactor,
+  getLifeExpectancyDate,
+} from "./projection";
+import { defaultSettings, type PensionSettings } from "./settings";
+
+describe("projection calculations", () => {
+  it("ends the table on the birthday at the selected life expectancy age", () => {
+    expect(getLifeExpectancyDate("1987-06-15", 88)).toBe("2075-06-15");
+  });
+
+  it("generates one row per month including the start and end dates", () => {
+    expect(generateMonthlyDateRange("2026-01-15", "2026-04-15")).toEqual([
+      "2026-01-15",
+      "2026-02-15",
+      "2026-03-15",
+      "2026-04-15",
+    ]);
+  });
+
+  it("calculates age in whole years before and after the birthday", () => {
+    expect(calculateAge("1987-06-15", "2026-06-14")).toBe(38);
+    expect(calculateAge("1987-06-15", "2026-06-15")).toBe(39);
+  });
+
+  it("calculates monthly alpha accrual at 2.32 percent divided by 12", () => {
+    expect(calculateMonthlyAlphaAccrual(42000)).toBeCloseTo(81.2, 6);
+  });
+
+  it("calculates accrued alpha pension cumulatively", () => {
+    expect(calculateAccruedAlphaPension(8250, 243.6)).toBeCloseTo(8493.6, 6);
+  });
+
+  it("loads the added pension factor from JSON", () => {
+    expect(getAddedPensionFactorForAge(60)).toBe(12.82);
+  });
+
+  it("handles blank added pension factors safely", () => {
+    expect(getAddedPensionFactorForAge(68)).toBe(0);
+    expect(
+      calculateMonthlyAddedPension({
+        rowDate: "2055-06-15",
+        stopDate: "2055-06-15",
+        dateOfBirth: "1987-06-15",
+        addedPensionMonthlyContribution: 150,
+      }),
+    ).toBe(0);
+  });
+
+  it("calculates monthly added pension while the added pension stop date has not passed", () => {
+    expect(
+      calculateMonthlyAddedPension({
+        rowDate: "2047-06-15",
+        stopDate: "2047-06-15",
+        dateOfBirth: "1987-06-15",
+        addedPensionMonthlyContribution: 150,
+      }),
+    ).toBeCloseTo(11.7004680187, 6);
+  });
+
+  it("returns the lump sum added pension placeholder value", () => {
+    expect(calculateLumpSumAddedPension()).toBe(0);
+  });
+
+  it("loads early retirement reduction factors from JSON", () => {
+    expect(getEarlyRetirementReductionFactor(68, 60)).toBe(0.648);
+  });
+
+  it("applies early retirement reduction when draw date is on or before NPA", () => {
+    expect(
+      calculateAnnualAlphaPensionIncludingReduction(
+        12000,
+        "2047-06-15",
+        "2055-06-15",
+        0.648,
+      ),
+    ).toBeCloseTo(7776, 6);
+  });
+
+  it("does not reduce alpha pension when draw date is after NPA", () => {
+    expect(
+      calculateAnnualAlphaPensionIncludingReduction(
+        12000,
+        "2056-06-15",
+        "2055-06-15",
+        0.648,
+      ),
+    ).toBe(12000);
+  });
+
+  it("returns zero monthly alpha take-home before draw date and annual divided by 12 afterwards", () => {
+    expect(calculateMonthlyAlphaPensionTakeHome("2047-06-14", "2047-06-15", 12000)).toBe(0);
+    expect(calculateMonthlyAlphaPensionTakeHome("2047-06-15", "2047-06-15", 12000)).toBe(1000);
+  });
+
+  it("starts state pension from the configured state pension date", () => {
+    expect(calculateMonthlyStatePension("2055-06-14", "2055-06-15", 11500)).toBe(0);
+    expect(calculateMonthlyStatePension("2055-06-15", "2055-06-15", 11500)).toBeCloseTo(
+      958.333333,
+      6,
+    );
+  });
+
+  it("adds monthly alpha and state pension into gross monthly pension", () => {
+    expect(calculateTotalGrossMonthlyPension(648, 958.33)).toBeCloseTo(1606.33, 6);
+  });
+
+  it("stops monthly alpha accrual after the earlier of draw date and leave date", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-05-15",
+      dateOfBirth: "1987-06-15",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 61,
+      lifeExpectancy: 61,
+      accruedPensionAtLastAbs: 8250,
+      pensionableEarnings: 42000,
+    };
+
+    const rows = createProjectionTable(settings);
+    expect(rows[0]?.annualAccruedAlphaPension).toBeCloseTo(8331.2, 6);
+    expect(rows[1]?.date).toBe("2047-06-15");
+    expect(rows[1]?.annualAccruedAlphaPension).toBeCloseTo(8412.4, 6);
+    expect(rows[2]?.date).toBe("2047-07-15");
+    expect(rows[2]?.annualAccruedAlphaPension).toBeCloseTo(8412.4, 6);
+  });
+
+  it("creates projection rows through the life expectancy birthday", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2074-12-15",
+      lifeExpectancy: 88,
+      dateOfBirth: "1987-06-15",
+    };
+
+    const rows = createProjectionTable(settings);
+    expect(rows.at(-1)?.date).toBe(addYears("1987-06-15", 88));
+  });
+
+  it("keeps annual alpha entitlement visible before draw date but only pays monthly alpha after draw date", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-05-15",
+      dateOfBirth: "1987-06-15",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 61,
+      lifeExpectancy: 61,
+      accruedPensionAtLastAbs: 8250,
+      pensionableEarnings: 42000,
+    };
+
+    const rows = createProjectionTable(settings);
+    expect(rows[0]?.annualAlphaPensionIncludingReduction).toBeCloseTo(5398.6176, 6);
+    expect(rows[0]?.monthlyAlphaPensionTakeHome).toBe(0);
+    expect(rows[1]?.monthlyAlphaPensionTakeHome).toBeCloseTo(454.2696, 6);
+    expect(rows[1]?.totalMonthlyPensionTakeHomePay).toBeCloseTo(454.2696, 6);
+  });
+
+  it("flags the correct row for the Alpha Pension Stop Date", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions("2047-05-15", "2047-06-15", "2055-06-15"),
+      "2047-04-15",
+      "2047-08-15",
+    );
+
+    expect(milestoneMap.get("2047-05-15")).toContain("Stops Alpha accrual");
+  });
+
+  it("flags the correct row for the Alpha Pension Draw Date", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions("2047-05-15", "2047-06-15", "2055-06-15"),
+      "2047-04-15",
+      "2047-08-15",
+    );
+
+    expect(milestoneMap.get("2047-06-15")).toContain("Starts Alpha pension");
+  });
+
+  it("flags the correct row for the State Pension Start Date", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions("2047-05-15", "2047-06-15", "2055-06-15"),
+      "2055-04-15",
+      "2055-08-15",
+    );
+
+    expect(milestoneMap.get("2055-06-15")).toContain("Starts State Pension");
+  });
+
+  it("flags the next row when a milestone falls between generated monthly rows", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions("2047-05-20", "2047-06-20", "2055-06-20"),
+      "2047-04-15",
+      "2055-08-15",
+    );
+
+    expect(milestoneMap.get("2047-06-15")).toContain("Stops Alpha accrual");
+    expect(milestoneMap.get("2047-07-15")).toContain("Starts Alpha pension");
+    expect(milestoneMap.get("2055-07-15")).toContain("Starts State Pension");
+  });
+
+  it("preserves multiple milestones when they land on the same row", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions("2047-06-15", "2047-06-15", "2047-06-15"),
+      "2047-04-15",
+      "2047-08-15",
+    );
+
+    expect(milestoneMap.get("2047-06-15")).toEqual([
+      "Stops Alpha accrual",
+      "Starts Alpha pension",
+      "Starts State Pension",
+    ]);
+  });
+
+  it("adds milestone labels to projection rows", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-05-15",
+      dateOfBirth: "1987-06-15",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      statePensionDrawDate: "2047-06-15",
+      lifeExpectancy: 61,
+    };
+
+    const rows = createProjectionTable(settings);
+    expect(rows[1]?.milestones).toEqual([
+      "Stops Alpha accrual",
+      "Starts Alpha pension",
+      "Starts State Pension",
+    ]);
+  });
+});

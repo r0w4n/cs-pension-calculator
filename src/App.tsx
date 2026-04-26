@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createProjectionTable, type ProjectionRow } from "./projection";
 import {
   createDefaultSettings,
   formatCurrency,
@@ -195,6 +196,8 @@ type SettingsKey = keyof PensionSettings;
 
 function App() {
   const [settings, setSettings] = useState<PensionSettings>(loadStoredSettings);
+  const projectionRows = createProjectionTable(settings);
+  const latestProjectionRow = projectionRows.at(-1);
 
   useEffect(() => {
     saveSettings(settings);
@@ -234,11 +237,11 @@ function App() {
           </article>
 
           <article className="summary-card">
-            <p className="card-label">Current target</p>
-            <h2>{formatCurrency(settings.targetPension)} a year</h2>
+            <p className="card-label">Latest gross monthly pension</p>
+            <h2>{formatCurrencyDetailed(latestProjectionRow?.totalMonthlyPensionTakeHomePay ?? 0)}</h2>
             <p>
-              Normal pension age {settings.normalPensionAge}, alpha draw age{" "}
-              {settings.alphaPensionDrawAge}, life expectancy {settings.lifeExpectancy}.
+              Final row reaches age {latestProjectionRow?.age ?? settings.lifeExpectancy} on{" "}
+              {formatDate(latestProjectionRow?.date ?? settings.startDate)}.
             </p>
           </article>
         </div>
@@ -316,6 +319,19 @@ function App() {
           </button>
         </aside>
       </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <p className="eyebrow">Projection</p>
+          <h2>Monthly pension projection table</h2>
+          <p className="section-copy">
+            The table is generated from the projection layer so each row stays
+            traceable back to the calculator inputs and factor tables.
+          </p>
+        </div>
+
+        <ProjectionTable rows={projectionRows} />
+      </section>
     </main>
   );
 }
@@ -384,6 +400,64 @@ function formatFieldValue(value: number, format?: "currency") {
   return value.toString();
 }
 
+type ProjectionTableProps = {
+  rows: ProjectionRow[];
+};
+
+function ProjectionTable({ rows }: ProjectionTableProps) {
+  return (
+    <div className="table-shell">
+      <table className="projection-table">
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Age</th>
+            <th scope="col">Monthly Added Pension</th>
+            <th scope="col">Lump sum added pension</th>
+            <th scope="col">Annual Accrued Alpha Pension</th>
+            <th scope="col">Annual Alpha Pension Including Reduction</th>
+            <th scope="col">Monthly Alpha Pension Take-Home</th>
+            <th scope="col">Monthly State pension</th>
+            <th scope="col">Total Monthly Pension Take home pay</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.date}
+              className={row.milestones.length > 0 ? "projection-row projection-row--milestone" : "projection-row"}
+              title={row.milestones.length > 0 ? row.milestones.join(", ") : undefined}
+            >
+              <td>
+                <div className="projection-date-cell">
+                  <span>{formatDate(row.date)}</span>
+                  {row.milestones.length > 0 ? (
+                    <span className="milestone-badges">
+                      {row.milestones.map((milestone) => (
+                        <span className="milestone-badge" key={`${row.date}-${milestone}`}>
+                          {milestone}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                </div>
+              </td>
+              <td>{row.age}</td>
+              <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
+              <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
+              <td>{formatCurrencyDetailed(row.annualAccruedAlphaPension)}</td>
+              <td>{formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction)}</td>
+              <td>{formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome)}</td>
+              <td>{formatCurrencyDetailed(row.monthlyStatePension)}</td>
+              <td>{formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function formatDate(value: string) {
   if (!value) {
     return "Not set";
@@ -400,6 +474,15 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(parsed);
+}
+
+function formatCurrencyDetailed(value: number) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 export default App;

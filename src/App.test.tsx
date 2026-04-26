@@ -42,6 +42,20 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Alpha Annual Benefit Statement Date")).toHaveValue(
       defaultSettings.alphaPensionAbsDate,
     );
+    expect(
+      screen.getByRole("heading", { name: "Monthly pension projection table" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", {
+        name: "Total Monthly Pension Take home pay",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", {
+        name: "Annual Alpha Pension Including Reduction",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Starts Alpha pension")).toBeInTheDocument();
   });
 
   it("updates every setting and saves to local storage", async () => {
@@ -135,7 +149,7 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
     expect(screen.getByLabelText("Target Total Pension Income (£ per year)")).toHaveValue("52000");
     expect(screen.getByLabelText("Your Normal Pension Age")).toHaveValue("69");
-    expect(screen.getByText("£52,000 a year")).toBeInTheDocument();
+    expect(screen.getByText(/Latest gross monthly pension/i)).toBeInTheDocument();
   });
 
   it("normalizes unexpected stored values back to allowed settings", () => {

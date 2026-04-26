@@ -263,6 +263,83 @@ h3 {
   text-align: right;
 }
 
+.table-shell {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.projection-table {
+  width: 100%;
+  min-width: 72rem;
+  border-collapse: collapse;
+}
+
+.projection-table th,
+.projection-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.projection-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f3f9f8;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.projection-table tbody tr:nth-child(even) {
+  background: rgba(17, 100, 102, 0.03);
+}
+
+.projection-table tbody tr:hover {
+  background: rgba(17, 100, 102, 0.08);
+}
+
+.projection-row--milestone {
+  background: rgba(255, 244, 214, 0.72);
+  box-shadow: inset 4px 0 0 #d28a00;
+}
+
+.projection-row--milestone:nth-child(even) {
+  background: rgba(255, 244, 214, 0.72);
+}
+
+.projection-date-cell {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.milestone-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.milestone-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  background: #fff3cf;
+  border: 1px solid rgba(210, 138, 0, 0.24);
+  color: #925d00;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.projection-table tbody td:not(:first-child) {
+  white-space: nowrap;
+}
+
 .secondary-button {
   border: 0;
   border-radius: 999px;
@@ -290,6 +367,10 @@ h3 {
   .layout {
     grid-template-columns: minmax(0, 1.8fr) minmax(18rem, 0.9fr);
     align-items: start;
+  }
+
+  .hero-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .side-panel {
