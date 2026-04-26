@@ -27,6 +27,16 @@ yarn install
 yarn dev
 ```
 
+## Run tests
+
+Use the Yarn scripts from the project root:
+
+```bash
+yarn test
+yarn test:coverage
+yarn test:watch
+```
+
 ## Current limitation in this workspace
 
 The Codex runtime available in this session exposes `node`, but not `npm`, `corepack`, or `yarn`, so I couldn't install dependencies or generate a lockfile from inside this environment.
