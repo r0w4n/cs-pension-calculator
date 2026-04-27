@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createProjectionTable,
   generatePensionSummary,
   type PensionSummary,
+  type ProjectionRow,
 } from "./projection";
 import {
   formatCurrency,
@@ -525,7 +526,31 @@ type ProjectionTableProps = {
   rows: ProjectionRow[];
 };
 
+const projectionTableColumns = [
+  { key: "date", label: "Date", width: "8rem" },
+  { key: "age", label: "Age", width: "3rem" },
+  { key: "monthlyAddedPension", label: "Monthly Added Pension", width: "6rem" },
+  { key: "lumpSumAddedPension", label: "Lump sum added pension", width: "6rem" },
+  { key: "annualAccruedAlphaPension", label: "Annual Accrued Alpha Pension", width: "7rem" },
+  {
+    key: "annualAlphaPensionIncludingReduction",
+    label: "Annual Alpha Pension Including Reduction",
+    width: "8rem",
+  },
+  { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha Pension Take-Home", width: "6rem" },
+  { key: "monthlyStatePension", label: "Monthly State pension", width: "5rem" },
+  { key: "totalMonthlyPensionTakeHomePay", label: "Total Monthly Pension Take home pay", width: "7rem" },
+] as const;
+
 function ProjectionTable({ rows }: ProjectionTableProps) {
+  const headerScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const syncHeaderScroll = (scrollLeft: number) => {
+    if (headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = scrollLeft;
+    }
+  };
+
   if (rows.length === 0) {
     return (
       <div className="table-shell">
@@ -536,53 +561,77 @@ function ProjectionTable({ rows }: ProjectionTableProps) {
 
   return (
     <div className="table-shell">
-      <table className="projection-table">
-        <thead>
-          <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Age</th>
-            <th scope="col">Monthly Added Pension</th>
-            <th scope="col">Lump sum added pension</th>
-            <th scope="col">Annual Accrued Alpha Pension</th>
-            <th scope="col">Annual Alpha Pension Including Reduction</th>
-            <th scope="col">Monthly Alpha Pension Take-Home</th>
-            <th scope="col">Monthly State pension</th>
-            <th scope="col">Total Monthly Pension Take home pay</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.date}
-              className={row.milestones.length > 0 ? "projection-row projection-row--milestone" : "projection-row"}
-              title={row.milestones.length > 0 ? row.milestones.join(", ") : undefined}
-            >
-              <td>
-                <div className="projection-date-cell">
-                  <span>{formatDate(row.date)}</span>
-                  {row.milestones.length > 0 ? (
-                    <span className="milestone-badges">
-                      {row.milestones.map((milestone) => (
-                        <span className="milestone-badge" key={`${row.date}-${milestone}`}>
-                          {milestone}
-                        </span>
-                      ))}
-                    </span>
-                  ) : null}
-                </div>
-              </td>
-              <td>{row.age}</td>
-              <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
-              <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
-              <td>{formatCurrencyDetailed(row.annualAccruedAlphaPension)}</td>
-              <td>{formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction)}</td>
-              <td>{formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome)}</td>
-              <td>{formatCurrencyDetailed(row.monthlyStatePension)}</td>
-              <td>{formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay)}</td>
+      <div className="table-header-shell">
+        <div className="table-header-scroll" ref={headerScrollRef}>
+          <table className="projection-table projection-table--header" aria-hidden="true">
+            <colgroup>
+              {projectionTableColumns.map((column) => (
+                <col key={column.key} style={{ width: column.width }} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                {projectionTableColumns.map((column) => (
+                  <th key={column.key} scope="col">
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          </table>
+        </div>
+      </div>
+
+      <div className="table-body-shell" onScroll={(event) => syncHeaderScroll(event.currentTarget.scrollLeft)}>
+        <table className="projection-table projection-table--body">
+          <colgroup>
+            {projectionTableColumns.map((column) => (
+              <col key={column.key} style={{ width: column.width }} />
+            ))}
+          </colgroup>
+          <thead className="projection-table-sr-only">
+            <tr>
+              {projectionTableColumns.map((column) => (
+                <th key={column.key} scope="col">
+                  {column.label}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.date}
+                className={row.milestones.length > 0 ? "projection-row projection-row--milestone" : "projection-row"}
+                title={row.milestones.length > 0 ? row.milestones.join(", ") : undefined}
+              >
+                <td>
+                  <div className="projection-date-cell">
+                    <span>{formatDate(row.date)}</span>
+                    {row.milestones.length > 0 ? (
+                      <span className="milestone-badges">
+                        {row.milestones.map((milestone: string) => (
+                          <span className="milestone-badge" key={`${row.date}-${milestone}`}>
+                            {milestone}
+                          </span>
+                        ))}
+                      </span>
+                    ) : null}
+                  </div>
+                </td>
+                <td>{row.age}</td>
+                <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
+                <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
+                <td>{formatCurrencyDetailed(row.annualAccruedAlphaPension)}</td>
+                <td>{formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction)}</td>
+                <td>{formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome)}</td>
+                <td>{formatCurrencyDetailed(row.monthlyStatePension)}</td>
+                <td>{formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
