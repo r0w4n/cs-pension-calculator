@@ -35,8 +35,8 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Your Normal Pension Age")).toHaveValue(
       defaultSettings.normalPensionAge.toString(),
     );
-    expect(screen.getByLabelText("Alpha Annual Benefit Statement Date")).toHaveValue(
-      defaultSettings.alphaPensionAbsDate,
+    expect(screen.getByLabelText("Last Alpha Annual Benifites Statement")).toHaveValue(
+      "2025",
     );
     expect(
       screen.getByRole("heading", { name: "Monthly pension projection table" }),
@@ -63,7 +63,7 @@ describe("App settings form", () => {
     const startDateInput = screen.getByLabelText("Calculation Start Date");
     const birthDateInput = screen.getByLabelText("Your Date of Birth");
     const statePensionDateInput = screen.getByLabelText("State Pension Start Date");
-    const absDateInput = screen.getByLabelText("Alpha Annual Benefit Statement Date");
+    const absDateInput = screen.getByLabelText("Last Alpha Annual Benifites Statement");
 
     fireEvent.change(startDateInput, {
       target: { value: "2020-04-01" },
@@ -78,9 +78,8 @@ describe("App settings form", () => {
     });
     fireEvent.blur(statePensionDateInput);
     fireEvent.change(absDateInput, {
-      target: { value: "2026-03-31" },
+      target: { value: "2026" },
     });
-    fireEvent.blur(absDateInput);
     fireEvent.change(screen.getByLabelText("Current Full State Pension (£ per year)"), {
       target: { value: "11800" },
     });
@@ -110,12 +109,35 @@ describe("App settings form", () => {
       earlyRetirementAge: defaultSettings.earlyRetirementAge,
       currentStatePension: 11800,
       statePensionDrawDate: "2058-02-14",
-      alphaPensionAbsDate: "2026-03-31",
+      alphaPensionAbsDate: "2026",
       alphaAddedPensionMonthly: 225,
       alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
       accruedPensionAtLastAbs: 12500,
       pensionableEarnings: 56000,
       alphaPensionDrawAge: 63,
+    });
+  });
+
+  it("stores the Alpha ABS date as just the selected year", () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Last Alpha Annual Benifites Statement"), {
+      target: { value: "2024" },
+    });
+
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual({
+      dateOfBirth: defaultSettings.dateOfBirth,
+      lifeExpectancy: defaultSettings.lifeExpectancy,
+      normalPensionAge: defaultSettings.normalPensionAge,
+      earlyRetirementAge: defaultSettings.earlyRetirementAge,
+      currentStatePension: defaultSettings.currentStatePension,
+      statePensionDrawDate: defaultSettings.statePensionDrawDate,
+      alphaPensionAbsDate: "2024",
+      alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
+      alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
+      accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
+      pensionableEarnings: defaultSettings.pensionableEarnings,
+      alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
     });
   });
 
@@ -218,8 +240,8 @@ describe("App settings form", () => {
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
         ...defaultSettings,
-        startDate: "2076-01-01",
-        alphaPensionAbsDate: "2076-02-01",
+        earlyRetirementAge: 62,
+        alphaPensionDrawAge: 60,
       }),
     );
 

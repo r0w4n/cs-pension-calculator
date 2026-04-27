@@ -10,6 +10,8 @@ import {
   calculateMonthlyAlphaAccrual,
   calculateMonthlyAlphaPensionTakeHome,
   calculateMonthlyAlphaPensionIncludingReduction,
+  calculateStartingAlphaPensionAtStartDate,
+  calculateWholeMonthDifference,
   calculateMonthlyStatePension,
   calculateTotalGrossMonthlyPension,
   createProjectionTable,
@@ -52,8 +54,80 @@ describe("projection calculations", () => {
     expect(calculateMonthlyAlphaAccrual(42000)).toBeCloseTo(81.2, 6);
   });
 
+  it("uses whole-month differences and ignores days", () => {
+    expect(calculateWholeMonthDifference("2025-04-01", "2025-04-30")).toBe(0);
+    expect(calculateWholeMonthDifference("2025-04-01", "2025-05-31")).toBe(1);
+    expect(calculateWholeMonthDifference("2025-04-01", "2025-12-15")).toBe(8);
+  });
+
   it("calculates accrued alpha pension cumulatively", () => {
     expect(calculateAccruedAlphaPension(8250, 243.6)).toBeCloseTo(8493.6, 6);
+  });
+
+  it("returns no additional accrual when start date matches the ABS date", () => {
+    expect(
+      calculateStartingAlphaPensionAtStartDate({
+        alphaPensionAccruedAtLastStatement: 8250,
+        alphaPensionAbsDate: "2025-04-01",
+        startDate: "2025-04-01",
+        pensionableEarnings: 42000,
+      }),
+    ).toBeCloseTo(8250, 6);
+  });
+
+  it("adds one month of annual accrual when start date is one month after the ABS date", () => {
+    expect(
+      calculateStartingAlphaPensionAtStartDate({
+        alphaPensionAccruedAtLastStatement: 8250,
+        alphaPensionAbsDate: "2025-04-01",
+        startDate: "2025-05-01",
+        pensionableEarnings: 42000,
+      }),
+    ).toBeCloseTo(8331.2, 6);
+  });
+
+  it("adds eight months of annual accrual when start date is eight months after the ABS date", () => {
+    expect(
+      calculateStartingAlphaPensionAtStartDate({
+        alphaPensionAccruedAtLastStatement: 8250,
+        alphaPensionAbsDate: "2025-04-01",
+        startDate: "2025-12-01",
+        pensionableEarnings: 42000,
+      }),
+    ).toBeCloseTo(8899.6, 6);
+  });
+
+  it("adds a full year of accrual when start date is twelve months after the ABS date", () => {
+    expect(
+      calculateStartingAlphaPensionAtStartDate({
+        alphaPensionAccruedAtLastStatement: 8250,
+        alphaPensionAbsDate: "2025-04-01",
+        startDate: "2026-04-01",
+        pensionableEarnings: 42000,
+      }),
+    ).toBeCloseTo(9224.4, 6);
+  });
+
+  it("does not produce negative accrual when start date is before the ABS date", () => {
+    expect(
+      calculateStartingAlphaPensionAtStartDate({
+        alphaPensionAccruedAtLastStatement: 8250,
+        alphaPensionAbsDate: "2025-04-01",
+        startDate: "2025-03-01",
+        pensionableEarnings: 42000,
+      }),
+    ).toBeCloseTo(8250, 6);
+  });
+
+  it("uses the 2.32 percent accrual rate when deriving the starting Alpha pension", () => {
+    expect(
+      calculateStartingAlphaPensionAtStartDate({
+        alphaPensionAccruedAtLastStatement: 0,
+        alphaPensionAbsDate: "2025-04-01",
+        startDate: "2026-04-01",
+        pensionableEarnings: 100000,
+      }),
+    ).toBeCloseTo(2320, 6);
   });
 
   it("loads the added pension factor from JSON", () => {
@@ -160,15 +234,16 @@ describe("projection calculations", () => {
       alphaPensionLeaveAge: 61,
       lifeExpectancy: 61,
       accruedPensionAtLastAbs: 8250,
+      alphaPensionAbsDate: "2047",
       pensionableEarnings: 42000,
     };
 
     const rows = createProjectionTable(settings);
-    expect(rows[0]?.annualAccruedAlphaPension).toBeCloseTo(8331.2, 6);
+    expect(rows[0]?.annualAccruedAlphaPension).toBeCloseTo(8412.4, 6);
     expect(rows[1]?.date).toBe("2047-06-15");
-    expect(rows[1]?.annualAccruedAlphaPension).toBeCloseTo(8412.4, 6);
+    expect(rows[1]?.annualAccruedAlphaPension).toBeCloseTo(8493.6, 6);
     expect(rows[2]?.date).toBe("2047-07-15");
-    expect(rows[2]?.annualAccruedAlphaPension).toBeCloseTo(8412.4, 6);
+    expect(rows[2]?.annualAccruedAlphaPension).toBeCloseTo(8493.6, 6);
   });
 
   it("creates projection rows through the life expectancy birthday", () => {
@@ -192,14 +267,32 @@ describe("projection calculations", () => {
       alphaPensionLeaveAge: 61,
       lifeExpectancy: 61,
       accruedPensionAtLastAbs: 8250,
+      alphaPensionAbsDate: "2047",
       pensionableEarnings: 42000,
     };
 
     const rows = createProjectionTable(settings);
-    expect(rows[0]?.annualAlphaPensionIncludingReduction).toBeCloseTo(5398.6176, 6);
+    expect(rows[0]?.annualAlphaPensionIncludingReduction).toBeCloseTo(5451.2352, 6);
     expect(rows[0]?.monthlyAlphaPensionTakeHome).toBe(0);
-    expect(rows[1]?.monthlyAlphaPensionTakeHome).toBeCloseTo(454.2696, 6);
-    expect(rows[1]?.totalMonthlyPensionTakeHomePay).toBeCloseTo(454.2696, 6);
+    expect(rows[1]?.monthlyAlphaPensionTakeHome).toBeCloseTo(458.6544, 6);
+    expect(rows[1]?.totalMonthlyPensionTakeHomePay).toBeCloseTo(458.6544, 6);
+  });
+
+  it("uses the calculated starting Alpha pension at the projection start instead of the raw ABS value", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2025-12-15",
+      alphaPensionAbsDate: "2025",
+      accruedPensionAtLastAbs: 8250,
+      pensionableEarnings: 42000,
+      earlyRetirementAge: 55,
+      alphaPensionLeaveAge: 55,
+      alphaPensionDrawAge: 55,
+      lifeExpectancy: 70,
+    };
+
+    const rows = createProjectionTable(settings);
+    expect(rows[0]?.annualAccruedAlphaPension).toBeCloseTo(8980.8, 6);
   });
 
   it("flags the correct row for the Alpha Pension Stop Date", () => {
@@ -332,13 +425,14 @@ describe("projection calculations", () => {
       alphaPensionLeaveAge: 61,
       lifeExpectancy: 61,
       accruedPensionAtLastAbs: 8250,
+      alphaPensionAbsDate: "2047",
       pensionableEarnings: 42000,
     };
 
     const rows = createProjectionTable(settings);
     const summary = generatePensionSummary(rows, settings);
 
-    expect(summary.alphaPension.maximumAnnualAccrued).toBeCloseTo(8412.4, 6);
+    expect(summary.alphaPension.maximumAnnualAccrued).toBeCloseTo(8493.6, 6);
     expect(summary.alphaPension.totalAddedAfterToday).toBeCloseTo(162.4, 6);
   });
 

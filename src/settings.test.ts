@@ -1,11 +1,13 @@
 import {
   SETTINGS_STORAGE_KEY,
+  createAlphaAbsDateFromYear,
   createDefaultSettings,
   defaultSettings,
   getTodayIsoDate,
   isValidIsoDate,
   loadStoredSettings,
   normalizeSetting,
+  resolveAlphaAbsDate,
   saveSettings,
   validateSettings,
   type PensionSettings,
@@ -52,6 +54,11 @@ describe("settings unit tests", () => {
     expect(isValidIsoDate("2024-02-29")).toBe(true);
     expect(isValidIsoDate("2026-02-31")).toBe(false);
     expect(isValidIsoDate("2025-02-29")).toBe(false);
+  });
+
+  it("resolves Alpha ABS years to 1 April", () => {
+    expect(createAlphaAbsDateFromYear(2024)).toBe("2024-04-01");
+    expect(resolveAlphaAbsDate("2024")).toBe("2024-04-01");
   });
 
   it("does not persist the calculation start date", () => {
@@ -125,7 +132,6 @@ describe("settings unit tests", () => {
     const issues = validateSettings({
       ...defaultSettings,
       startDate: "2076-01-01",
-      alphaPensionAbsDate: "2076-02-01",
       earlyRetirementAge: 62,
       alphaPensionDrawAge: 60,
       statePensionDrawDate: "2046-01-01",
@@ -134,10 +140,13 @@ describe("settings unit tests", () => {
     expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: "startDate" }),
-        expect.objectContaining({ field: "alphaPensionAbsDate" }),
         expect.objectContaining({ field: "alphaPensionDrawAge" }),
         expect.objectContaining({ field: "statePensionDrawDate" }),
       ]),
     );
+  });
+
+  it("normalizes legacy Alpha ABS dates to just the year", () => {
+    expect(normalizeSetting("alphaPensionAbsDate", "2024-04-01")).toBe("2024");
   });
 });

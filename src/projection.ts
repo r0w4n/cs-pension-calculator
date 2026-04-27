@@ -1,6 +1,10 @@
 import addedPensionFactors from "./data/alpha_pension_added_pension_factors.json";
 import reductionFactors from "./data/alpha_pension_reduction_factors.json";
-import { validateSettings, type PensionSettings } from "./settings";
+import {
+  resolveAlphaAbsDate,
+  validateSettings,
+  type PensionSettings,
+} from "./settings";
 
 type AddedPensionFactorRecord = {
   age: number;
@@ -55,6 +59,7 @@ const MONTHLY_ALPHA_ACCRUAL_RATE = 0.0232 / 12;
 const STOPS_ALPHA_ACCRUAL_LABEL = "Stops Alpha accrual";
 const STARTS_ALPHA_PENSION_LABEL = "Starts Alpha pension";
 const STARTS_STATE_PENSION_LABEL = "Starts State Pension";
+const DEFAULT_ALPHA_ACCRUAL_RATE = 0.0232;
 
 type MilestoneDefinition = {
   date: string;
@@ -119,6 +124,13 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
     reductionFactor,
   } = derivedInputs;
 
+  const startingAlphaPensionAtStartDate = calculateStartingAlphaPensionAtStartDate({
+    alphaPensionAccruedAtLastStatement: settings.accruedPensionAtLastAbs,
+    alphaPensionAbsDate: resolveAlphaAbsDate(settings.alphaPensionAbsDate),
+    startDate: settings.startDate,
+    pensionableEarnings: settings.pensionableEarnings,
+    alphaAccrualRate: DEFAULT_ALPHA_ACCRUAL_RATE,
+  });
   let cumulativeMonthlyAccrual = 0;
 
   const milestoneRows = buildMilestoneMap(generateMilestoneDefinitions(accrualStopDate, drawDate, settings.statePensionDrawDate), settings.startDate, endDate);
@@ -133,7 +145,7 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
     cumulativeMonthlyAccrual += monthlyAlphaAccrual;
 
     const annualAccruedAlphaPension = calculateAccruedAlphaPension(
-      settings.accruedPensionAtLastAbs,
+      startingAlphaPensionAtStartDate,
       cumulativeMonthlyAccrual,
     );
     const monthlyAddedPension = calculateMonthlyAddedPension({
@@ -184,6 +196,14 @@ export function generatePensionSummary(
   tableData: ProjectionRow[],
   settings: PensionSettings,
 ): PensionSummary {
+  const startingAlphaPensionAtStartDate = calculateStartingAlphaPensionAtStartDate({
+    alphaPensionAccruedAtLastStatement: settings.accruedPensionAtLastAbs,
+    alphaPensionAbsDate: resolveAlphaAbsDate(settings.alphaPensionAbsDate),
+    startDate: settings.startDate,
+    pensionableEarnings: settings.pensionableEarnings,
+    alphaAccrualRate: DEFAULT_ALPHA_ACCRUAL_RATE,
+  });
+
   if (tableData.length === 0) {
     const alphaPensionDrawDate = addYears(
       settings.dateOfBirth,
@@ -241,7 +261,7 @@ export function generatePensionSummary(
   const maximumAnnualAccrued = Math.max(
     ...tableData.map((row) => row.annualAccruedAlphaPension),
   );
-  const totalAddedAfterToday = maximumAnnualAccrued - settings.accruedPensionAtLastAbs;
+  const totalAddedAfterToday = maximumAnnualAccrued - startingAlphaPensionAtStartDate;
 
   return {
     keyDates: {
@@ -309,6 +329,27 @@ export function calculateAge(dateOfBirth: string, rowDate: string) {
 
 export function calculateMonthlyAlphaAccrual(pensionableEarnings: number) {
   return pensionableEarnings * MONTHLY_ALPHA_ACCRUAL_RATE;
+}
+
+export function calculateStartingAlphaPensionAtStartDate(input: {
+  alphaPensionAccruedAtLastStatement: number;
+  alphaPensionAbsDate: string;
+  startDate: string;
+  pensionableEarnings: number;
+  alphaAccrualRate?: number;
+}) {
+  const {
+    alphaPensionAccruedAtLastStatement,
+    alphaPensionAbsDate,
+    startDate,
+    pensionableEarnings,
+    alphaAccrualRate = DEFAULT_ALPHA_ACCRUAL_RATE,
+  } = input;
+  const monthsBetween = calculateWholeMonthDifference(alphaPensionAbsDate, startDate);
+  const additionalAccruedAlpha =
+    pensionableEarnings * alphaAccrualRate * (monthsBetween / 12);
+
+  return alphaPensionAccruedAtLastStatement + additionalAccruedAlpha;
 }
 
 export function calculateAccruedAlphaPension(
@@ -511,6 +552,16 @@ function calculateYearDifference(startDate: string, endDate: string) {
   const dayAdjustment = (end.getUTCDate() - start.getUTCDate()) / 30;
 
   return Number(((monthDifference + dayAdjustment) / 12).toFixed(1));
+}
+
+export function calculateWholeMonthDifference(startDate: string, endDate: string) {
+  const start = parseIsoDate(startDate);
+  const end = parseIsoDate(endDate);
+  const monthDifference =
+    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    (end.getUTCMonth() - start.getUTCMonth());
+
+  return Math.max(0, monthDifference);
 }
 
 function parseIsoDate(value: string) {

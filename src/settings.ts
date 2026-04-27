@@ -45,7 +45,7 @@ export const defaultSettings: PensionSettings = {
   earlyRetirementAge: 60,
   currentStatePension: 11500,
   statePensionDrawDate: "2055-06-15",
-  alphaPensionAbsDate: "2025-03-31",
+  alphaPensionAbsDate: "2025",
   alphaAddedPensionMonthly: 150,
   alphaPensionLeaveAge: 60,
   accruedPensionAtLastAbs: 8250,
@@ -104,7 +104,7 @@ export function normalizeSetting<K extends keyof PensionSettings>(
         defaultSettings.statePensionDrawDate,
       ) as PensionSettings[K];
     case "alphaPensionAbsDate":
-      return normalizeDate(
+      return normalizeAlphaAbsYear(
         value as string,
         defaultSettings.alphaPensionAbsDate,
       ) as PensionSettings[K];
@@ -213,13 +213,6 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (settings.alphaPensionAbsDate > settings.startDate) {
-    issues.push({
-      field: "alphaPensionAbsDate",
-      message: "ABS date cannot be later than the calculation start date.",
-    });
-  }
-
   if (settings.statePensionDrawDate < alphaDrawDate) {
     issues.push({
       field: "statePensionDrawDate",
@@ -295,6 +288,32 @@ function normalizeNumericSetting(key: NumericSettingKey, value: unknown) {
 
 function normalizeDate(value: string, fallback: string) {
   return isValidIsoDate(value) ? value : fallback;
+}
+
+export function createAlphaAbsDateFromYear(year: number) {
+  return `${year.toString().padStart(4, "0")}-04-01`;
+}
+
+export function getAlphaAbsYear(value: string) {
+  const normalized = normalizeAlphaAbsYear(value, defaultSettings.alphaPensionAbsDate);
+  return Number(normalized);
+}
+
+export function resolveAlphaAbsDate(value: string) {
+  return createAlphaAbsDateFromYear(getAlphaAbsYear(value));
+}
+
+function normalizeAlphaAbsYear(value: string, fallback: string) {
+  if (/^\d{4}$/.test(value)) {
+    return value;
+  }
+
+  if (isValidIsoDate(value)) {
+    const [year] = value.split("-");
+    return year;
+  }
+
+  return fallback;
 }
 
 function addYearsToIsoDate(value: string, years: number) {

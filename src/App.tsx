@@ -6,8 +6,10 @@ import {
 } from "./projection";
 import {
   formatCurrency,
+  getAlphaAbsYear,
   loadStoredSettings,
   normalizeSetting,
+  resolveAlphaAbsDate,
   saveSettings,
   validateSettings,
   type PensionSettings,
@@ -20,7 +22,7 @@ type DateField = {
     | "statePensionDrawDate"
     | "alphaPensionAbsDate";
   label: string;
-  type: "date";
+  type: "date" | "year";
 };
 
 type RangeField = {
@@ -126,8 +128,17 @@ const fieldGroups: FieldGroup[] = [
     fields: [
       {
         id: "alphaPensionAbsDate",
-        label: "Alpha Annual Benefit Statement Date",
-        type: "date",
+        label: "Last Alpha Annual Benifites Statement",
+        type: "year",
+      },
+      {
+        id: "accruedPensionAtLastAbs",
+        label: "Alpha Pension Accrued at Last Statement (£ per year)",
+        type: "range",
+        min: 0,
+        max: 50000,
+        step: 250,
+        format: "currency",
       },
       {
         id: "alphaAddedPensionMonthly",
@@ -146,15 +157,6 @@ const fieldGroups: FieldGroup[] = [
         min: 40,
         max: 70,
         step: 1,
-      },
-      {
-        id: "accruedPensionAtLastAbs",
-        label: "Alpha Pension Accrued at Last Statement (£ per year)",
-        type: "range",
-        min: 0,
-        max: 50000,
-        step: 250,
-        format: "currency",
       },
       {
         id: "pensionableEarnings",
@@ -444,6 +446,40 @@ function Field({ field, value, onChange }: FieldProps) {
             commitDateValue(event.target.value);
           }}
         />
+      </label>
+    );
+  }
+
+  if (field.type === "year") {
+    const draftYear = getAlphaAbsYear(value as string);
+    const currentYear = new Date().getUTCFullYear();
+    const firstAbsYear = 2015;
+    const yearOptions = Array.from(
+      { length: currentYear - firstAbsYear + 1 },
+      (_, index) => currentYear - index,
+    );
+
+    return (
+      <label className="field-card">
+        <span className="field-header">
+          <span className="field-label">{field.label}</span>
+          <span className="field-value">{formatDate(resolveAlphaAbsDate(value as string))}</span>
+        </span>
+        <select
+          aria-label={field.label}
+          className="date-input"
+          value={draftYear}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            onChange(field.id, nextValue as PensionSettings[typeof field.id]);
+          }}
+        >
+          {yearOptions.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
       </label>
     );
   }
