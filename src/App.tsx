@@ -215,20 +215,33 @@ function App() {
         <div className="hero-actions">
           <article className="summary-card summary-card--accent">
             <p className="card-label">At Alpha pension draw date</p>
-            <h2>{formatCurrencyDetailed(pensionSummary.alphaPension.monthlyAtDraw)}</h2>
+            <div className="summary-card-amounts">
+              <h2>{formatCurrencyDetailed(pensionSummary.alphaPension.annualAtDraw)}</h2>
+              <p className="summary-card-secondary-amount">
+                {formatCurrencyDetailed(pensionSummary.alphaPension.monthlyAtDraw)} per month
+              </p>
+            </div>
             <p>
-              Monthly Alpha pension after reduction from{" "}
+              Annual Alpha pension after reduction from{" "}
               {formatDate(pensionSummary.keyDates.startsAlphaPension)}.
             </p>
           </article>
 
           <article className="summary-card">
             <p className="card-label">At State Pension start</p>
-            <h2>
-              {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyAtStateStart)}
-            </h2>
+            <div className="summary-card-amounts">
+              <h2>
+                {formatCurrencyDetailed(
+                  pensionSummary.incomeOverTime.monthlyAtStateStart * 12,
+                )}
+              </h2>
+              <p className="summary-card-secondary-amount">
+                {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyAtStateStart)} per
+                month
+              </p>
+            </div>
             <p>
-              Total monthly pension from{" "}
+              Total annual pension from{" "}
               {formatDate(pensionSummary.keyDates.startsStatePension)}.
             </p>
           </article>

@@ -138,6 +138,19 @@ h3 {
   color: var(--text-muted);
 }
 
+.summary-card-amounts {
+  margin-bottom: 0.75rem;
+}
+
+.summary-card-amounts h2 {
+  margin-bottom: 0.2rem;
+}
+
+.summary-card-secondary-amount {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
 .summary-card--accent {
   color: #f8fffd;
   background: var(--surface-accent);
