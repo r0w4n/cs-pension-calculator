@@ -3,6 +3,7 @@ import reductionFactors from "./data/alpha_pension_reduction_factors.json";
 import {
   resolveAlphaAbsDate,
   validateSettings,
+  type AddedPensionLumpSum,
   type PensionSettings,
 } from "./settings";
 
@@ -62,6 +63,7 @@ const STOPS_ALPHA_ACCRUAL_LABEL = "Leave Alpha Pension Scheme";
 const STARTS_ALPHA_PENSION_LABEL = "Starts Drawing Alpha Pension";
 const STARTS_STATE_PENSION_LABEL = "Starts Drawing State Pension";
 const LIFE_EXPECTANCY_LABEL = "Life expectancy";
+const LUMP_SUM_ADDED_PENSION_LABEL = "Lump Sum Added Pension";
 const DEFAULT_ALPHA_ACCRUAL_RATE = 0.0232;
 
 type MilestoneDefinition = {
@@ -135,6 +137,8 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
     alphaAccrualRate: DEFAULT_ALPHA_ACCRUAL_RATE,
   });
   let cumulativeMonthlyAccrual = 0;
+  let cumulativeLumpSumAddedPension = 0;
+  let previousRowDate: string | undefined;
 
   const milestoneRows = buildMilestoneMap(
     generateMilestoneDefinitions(
@@ -143,6 +147,7 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       drawDate,
       settings.statePensionDrawDate,
       endDate,
+      settings.alphaAddedPensionLumpSums,
     ),
     settings.startDate,
     endDate,
@@ -158,17 +163,23 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
 
     cumulativeMonthlyAccrual += monthlyAlphaAccrual;
 
-    const annualAccruedAlphaPension = calculateAccruedAlphaPension(
-      startingAlphaPensionAtStartDate,
-      cumulativeMonthlyAccrual,
-    );
     const monthlyAddedPension = calculateMonthlyAddedPension({
       rowDate,
       stopDate: addedPensionStopDate,
       dateOfBirth: settings.dateOfBirth,
       addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
     });
-    const lumpSumAddedPension = calculateLumpSumAddedPension();
+    const lumpSumAddedPensionPurchasedThisRow = calculateLumpSumAddedPension({
+      rowDate,
+      previousRowDate,
+      dateOfBirth: settings.dateOfBirth,
+      lumpSums: settings.alphaAddedPensionLumpSums,
+    });
+    cumulativeLumpSumAddedPension += lumpSumAddedPensionPurchasedThisRow;
+    const annualAccruedAlphaPension = calculateAccruedAlphaPension(
+      startingAlphaPensionAtStartDate,
+      cumulativeMonthlyAccrual + cumulativeLumpSumAddedPension,
+    );
     const annualAlphaPensionIncludingReduction =
       calculateAnnualAlphaPensionIncludingReduction(
         annualAccruedAlphaPension,
@@ -191,19 +202,23 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       monthlyStatePension,
     );
 
-    return {
+    const projectionRow = {
       date: rowDate,
       age,
       ageMonths,
       milestones: milestoneRows.get(rowDate) ?? [],
       monthlyAddedPension,
-      lumpSumAddedPension,
+      lumpSumAddedPension: lumpSumAddedPensionPurchasedThisRow,
       annualAccruedAlphaPension,
       annualAlphaPensionIncludingReduction,
       monthlyAlphaPensionTakeHome,
       monthlyStatePension,
       totalMonthlyPensionTakeHomePay,
     };
+
+    previousRowDate = rowDate;
+
+    return projectionRow;
   });
 }
 
@@ -273,9 +288,7 @@ export function generatePensionSummary(
     findFirstRowAtOrAfterDate(tableData, alphaPensionDrawDate) ?? tableData.at(-1);
   const statePensionRow =
     findFirstRowAtOrAfterDate(tableData, statePensionStartDate) ?? tableData.at(-1);
-  const maximumAnnualAccrued = Math.max(
-    ...tableData.map((row) => row.annualAccruedAlphaPension),
-  );
+  const maximumAnnualAccrued = Math.max(...tableData.map((row) => row.annualAccruedAlphaPension));
   const totalAddedAfterToday = maximumAnnualAccrued - startingAlphaPensionAtStartDate;
 
   return {
@@ -428,8 +441,41 @@ export function calculateMonthlyAddedPension(input: {
   return addedPensionMonthlyContribution / (factor * revaluationFactor);
 }
 
-export function calculateLumpSumAddedPension() {
-  return 0;
+export function calculateLumpSumAddedPension(input: {
+  rowDate: string;
+  previousRowDate?: string;
+  dateOfBirth: string;
+  lumpSums: AddedPensionLumpSum[];
+  factorType?: "self" | "self_plus_beneficiaries";
+}) {
+  const { rowDate, previousRowDate, dateOfBirth, lumpSums, factorType = "self" } = input;
+
+  return lumpSums.reduce((total, lumpSum) => {
+    const matchingPaymentDates = getScheduledPaymentDatesThroughRow(
+      lumpSum,
+      previousRowDate,
+      rowDate,
+    );
+
+    const purchasedPension = matchingPaymentDates.reduce((runningTotal, paymentDate) => {
+      const age = calculateAge(dateOfBirth, paymentDate);
+      const factor = getAddedPensionFactorForAge(age, factorType);
+
+      if (!factor) {
+        return runningTotal;
+      }
+
+      const revaluationFactor = getAddedPensionRevaluationFactor(paymentDate, lumpSum.endDate);
+
+      if (!revaluationFactor) {
+        return runningTotal;
+      }
+
+      return runningTotal + lumpSum.amount / (factor * revaluationFactor);
+    }, 0);
+
+    return total + purchasedPension;
+  }, 0);
 }
 
 export function getAddedPensionFactorForAge(
@@ -522,6 +568,7 @@ export function generateMilestoneDefinitions(
   alphaPensionDrawDate: string,
   statePensionStartDate: string,
   lifeExpectancyDate: string,
+  lumpSums: AddedPensionLumpSum[] = [],
 ): MilestoneDefinition[] {
   return [
     { date: startDate, label: CALCULATION_START_LABEL },
@@ -529,6 +576,7 @@ export function generateMilestoneDefinitions(
     { date: alphaPensionDrawDate, label: STARTS_ALPHA_PENSION_LABEL },
     { date: statePensionStartDate, label: STARTS_STATE_PENSION_LABEL },
     { date: lifeExpectancyDate, label: LIFE_EXPECTANCY_LABEL },
+    ...generateLumpSumMilestoneDefinitions(lumpSums),
   ];
 }
 
@@ -571,6 +619,55 @@ export function addMonths(date: string, months: number) {
   const day = Math.min(parsed.getUTCDate(), getDaysInMonth(year, month));
 
   return formatIsoDate(new Date(Date.UTC(year, month, day)));
+}
+
+function getScheduledPaymentDatesThroughRow(
+  lumpSum: AddedPensionLumpSum,
+  previousRowDate: string | undefined,
+  rowDate: string,
+) {
+  return getScheduledPaymentDates(lumpSum).filter(
+    (scheduledDate) =>
+      scheduledDate <= rowDate && (!previousRowDate || scheduledDate > previousRowDate),
+  );
+}
+
+function getScheduledPaymentDates(lumpSum: AddedPensionLumpSum) {
+  const dates: string[] = [];
+  let scheduledDate = lumpSum.startDate;
+
+  while (scheduledDate <= lumpSum.endDate) {
+    dates.push(scheduledDate);
+
+    if (lumpSum.cadence === "once") {
+      break;
+    }
+
+    scheduledDate = addYears(scheduledDate, 1);
+  }
+
+  return dates;
+}
+
+function generateLumpSumMilestoneDefinitions(lumpSums: AddedPensionLumpSum[]) {
+  return lumpSums.flatMap((lumpSum) =>
+    getScheduledPaymentDates(lumpSum).map((date) => ({
+      date,
+      label: formatLumpSumMilestoneLabel(lumpSum.amount),
+    })),
+  );
+}
+
+function formatLumpSumMilestoneLabel(amount: number) {
+  return `${LUMP_SUM_ADDED_PENSION_LABEL} (${formatWholeCurrency(amount)})`;
+}
+
+function formatWholeCurrency(value: number) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function minIsoDate(firstDate: string, secondDate: string) {

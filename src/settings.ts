@@ -1,11 +1,20 @@
 export const SETTINGS_STORAGE_KEY = "cs-pension-calculator.settings";
 
+export type AddedPensionLumpSumCadence = "once" | "yearly";
+
+export type AddedPensionLumpSum = {
+  id: string;
+  amount: number;
+  startDate: string;
+  cadence: AddedPensionLumpSumCadence;
+  endDate: string;
+};
+
 export type PensionSettings = {
   startDate: string;
   dateOfBirth: string;
   lifeExpectancy: number;
   normalPensionAge: number;
-  earlyRetirementAge: number;
   currentStatePension: number;
   statePensionDrawDate: string;
   alphaPensionAbsDate: string;
@@ -14,6 +23,7 @@ export type PensionSettings = {
   accruedPensionAtLastAbs: number;
   pensionableEarnings: number;
   alphaPensionDrawAge: number;
+  alphaAddedPensionLumpSums: AddedPensionLumpSum[];
 };
 
 export type PensionValidationIssue = {
@@ -26,8 +36,7 @@ type StoredPensionSettings = Omit<PensionSettings, "startDate">;
 const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
   normalPensionAge: { min: 65, max: 68, step: 1 },
-  earlyRetirementAge: { min: 45, max: 70, step: 1 },
-  currentStatePension: { min: 0, max: 15000, step: 50 },
+  currentStatePension: { min: 0, max: 15000, step: 0.01 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
   alphaPensionLeaveAge: { min: 40, max: 70, step: 1 },
   accruedPensionAtLastAbs: { min: 0, max: 50000, step: 250 },
@@ -42,8 +51,7 @@ export const defaultSettings: PensionSettings = {
   dateOfBirth: "1987-06-15",
   lifeExpectancy: 88,
   normalPensionAge: 68,
-  earlyRetirementAge: 60,
-  currentStatePension: 11500,
+  currentStatePension: 12547.6,
   statePensionDrawDate: "2055-06-15",
   alphaPensionAbsDate: "2025",
   alphaAddedPensionMonthly: 150,
@@ -51,6 +59,7 @@ export const defaultSettings: PensionSettings = {
   accruedPensionAtLastAbs: 8250,
   pensionableEarnings: 42000,
   alphaPensionDrawAge: 60,
+  alphaAddedPensionLumpSums: [],
 };
 
 export function loadStoredSettings(): PensionSettings {
@@ -108,6 +117,10 @@ export function normalizeSetting<K extends keyof PensionSettings>(
         value as string,
         defaultSettings.alphaPensionAbsDate,
       ) as PensionSettings[K];
+    case "alphaAddedPensionLumpSums":
+      return normalizeAddedPensionLumpSums(
+        value as AddedPensionLumpSum[],
+      ) as PensionSettings[K];
     default:
       return normalizeNumericSetting(key as NumericSettingKey, value) as PensionSettings[K];
   }
@@ -120,7 +133,6 @@ function coerceSettings(
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
     normalPensionAge: coerceNumber(input.normalPensionAge),
-    earlyRetirementAge: coerceNumber(input.earlyRetirementAge),
     currentStatePension: coerceNumber(input.currentStatePension),
     statePensionDrawDate: coerceString(input.statePensionDrawDate),
     alphaPensionAbsDate: coerceString(input.alphaPensionAbsDate),
@@ -129,6 +141,9 @@ function coerceSettings(
     accruedPensionAtLastAbs: coerceNumber(input.accruedPensionAtLastAbs),
     pensionableEarnings: coerceNumber(input.pensionableEarnings),
     alphaPensionDrawAge: coerceNumber(input.alphaPensionDrawAge),
+    alphaAddedPensionLumpSums: coerceAddedPensionLumpSums(
+      input.alphaAddedPensionLumpSums,
+    ),
   };
 }
 
@@ -136,7 +151,8 @@ export function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "GBP",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -206,13 +222,6 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (settings.alphaPensionDrawAge < settings.earlyRetirementAge) {
-    issues.push({
-      field: "alphaPensionDrawAge",
-      message: "Alpha pension draw age cannot be earlier than planned early retirement age.",
-    });
-  }
-
   if (settings.statePensionDrawDate < alphaDrawDate) {
     issues.push({
       field: "statePensionDrawDate",
@@ -236,7 +245,6 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     dateOfBirth: normalizeSetting("dateOfBirth", settings.dateOfBirth),
     lifeExpectancy: normalizeSetting("lifeExpectancy", settings.lifeExpectancy),
     normalPensionAge: normalizeSetting("normalPensionAge", settings.normalPensionAge),
-    earlyRetirementAge: normalizeSetting("earlyRetirementAge", settings.earlyRetirementAge),
     currentStatePension: normalizeSetting(
       "currentStatePension",
       settings.currentStatePension,
@@ -268,6 +276,10 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     alphaPensionDrawAge: normalizeSetting(
       "alphaPensionDrawAge",
       settings.alphaPensionDrawAge,
+    ),
+    alphaAddedPensionLumpSums: normalizeSetting(
+      "alphaAddedPensionLumpSums",
+      settings.alphaAddedPensionLumpSums,
     ),
   };
 }
@@ -314,6 +326,89 @@ function normalizeAlphaAbsYear(value: string, fallback: string) {
   }
 
   return fallback;
+}
+
+function coerceAddedPensionLumpSums(value: unknown) {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const coerced = value
+    .map((entry) => coerceAddedPensionLumpSum(entry))
+    .filter((entry): entry is AddedPensionLumpSum => entry !== undefined);
+
+  return coerced;
+}
+
+function coerceAddedPensionLumpSum(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const input = value as Partial<AddedPensionLumpSum>;
+
+  return {
+    id: coerceString(input.id) ?? createAddedPensionLumpSumId(),
+    amount: coerceNumber(input.amount) ?? 0,
+    startDate: coerceString(input.startDate) ?? getTodayIsoDate(),
+    cadence: input.cadence === "yearly" ? "yearly" : "once",
+    endDate: coerceString(input.endDate) ?? coerceString(input.startDate) ?? getTodayIsoDate(),
+  } satisfies AddedPensionLumpSum;
+}
+
+function normalizeAddedPensionLumpSums(value: AddedPensionLumpSum[]) {
+  return value.map((entry) => normalizeAddedPensionLumpSum(entry));
+}
+
+function normalizeAddedPensionLumpSum(value: AddedPensionLumpSum) {
+  const startDate = normalizeDate(value.startDate, getTodayIsoDate());
+  const amount = normalizeWholeCurrency(value.amount);
+  const cadence = value.cadence === "yearly" ? "yearly" : "once";
+  const normalizedEndDate = normalizeDate(value.endDate, startDate);
+  const endDate = cadence === "once" ? startDate : maxIsoDate(startDate, normalizedEndDate);
+
+  return {
+    id: value.id || createAddedPensionLumpSumId(),
+    amount,
+    startDate,
+    cadence,
+    endDate,
+  } satisfies AddedPensionLumpSum;
+}
+
+export function createDefaultAddedPensionLumpSum(
+  startDate = getTodayIsoDate(),
+): AddedPensionLumpSum {
+  return {
+    id: createAddedPensionLumpSumId(),
+    amount: 5000,
+    startDate,
+    cadence: "once",
+    endDate: startDate,
+  };
+}
+
+function createAddedPensionLumpSumId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `lump-sum-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeWholeCurrency(value: number) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  const clamped = Math.min(1_000_000, Math.max(0, parsed));
+  return Math.round(clamped);
+}
+
+function maxIsoDate(firstDate: string, secondDate: string) {
+  return firstDate >= secondDate ? firstDate : secondDate;
 }
 
 function addYearsToIsoDate(value: string, years: number) {

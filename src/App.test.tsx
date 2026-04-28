@@ -18,10 +18,6 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
     expect(screen.getByLabelText("Your Date of Birth")).toHaveValue(defaultSettings.dateOfBirth);
     expect(screen.getByLabelText("Your Normal Pension Age")).toHaveAttribute("type", "range");
-    expect(screen.getByLabelText("Planned Early Retirement Age")).toHaveAttribute(
-      "type",
-      "range",
-    );
     expect(screen.getByLabelText("Age You Leave Alpha Pensionable Service")).toHaveAttribute(
       "type",
       "range",
@@ -35,6 +31,9 @@ describe("App settings form", () => {
     );
     expect(screen.getByLabelText("Your Normal Pension Age")).toHaveValue(
       defaultSettings.normalPensionAge.toString(),
+    );
+    expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
+      defaultSettings.currentStatePension.toString(),
     );
     expect(screen.getByLabelText("Last Alpha Annual Benifites Statement")).toHaveValue(
       "2025",
@@ -63,6 +62,8 @@ describe("App settings form", () => {
     expect(screen.getAllByText("Starts Drawing Alpha Pension").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Add lump sum purchase" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset to default" })).toBeInTheDocument();
   });
 
   it("updates settings and saves to local storage", () => {
@@ -109,12 +110,24 @@ describe("App settings form", () => {
     fireEvent.change(screen.getByLabelText("Planned Alpha Pension Draw Age"), {
       target: { value: "63" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Add lump sum purchase" }));
+    fireEvent.change(screen.getByLabelText("Lump sum amount 1"), {
+      target: { value: "12000" },
+    });
+    fireEvent.change(screen.getByLabelText("Lump sum start date 1"), {
+      target: { value: "2035-06-15" },
+    });
+    fireEvent.change(screen.getByLabelText("Lump sum cadence 1"), {
+      target: { value: "yearly" },
+    });
+    fireEvent.change(screen.getByLabelText("Lump sum end date 1"), {
+      target: { value: "2038-06-15" },
+    });
 
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual({
       dateOfBirth: "1990-02-14",
       lifeExpectancy: defaultSettings.lifeExpectancy,
       normalPensionAge: defaultSettings.normalPensionAge,
-      earlyRetirementAge: defaultSettings.earlyRetirementAge,
       currentStatePension: 11800,
       statePensionDrawDate: "2058-02-14",
       alphaPensionAbsDate: "2026",
@@ -123,6 +136,15 @@ describe("App settings form", () => {
       accruedPensionAtLastAbs: 12500,
       pensionableEarnings: 56000,
       alphaPensionDrawAge: 63,
+      alphaAddedPensionLumpSums: [
+        {
+          id: expect.any(String),
+          amount: 12000,
+          startDate: "2035-06-15",
+          cadence: "yearly",
+          endDate: "2038-06-15",
+        },
+      ],
     });
   });
 
@@ -137,7 +159,6 @@ describe("App settings form", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       normalPensionAge: defaultSettings.normalPensionAge,
-      earlyRetirementAge: defaultSettings.earlyRetirementAge,
       currentStatePension: defaultSettings.currentStatePension,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
       alphaPensionAbsDate: "2024",
@@ -146,6 +167,7 @@ describe("App settings form", () => {
       accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
       pensionableEarnings: defaultSettings.pensionableEarnings,
       alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
+      alphaAddedPensionLumpSums: [],
     });
   });
 
@@ -163,7 +185,6 @@ describe("App settings form", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       normalPensionAge: defaultSettings.normalPensionAge,
-      earlyRetirementAge: defaultSettings.earlyRetirementAge,
       currentStatePension: defaultSettings.currentStatePension,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
@@ -172,6 +193,7 @@ describe("App settings form", () => {
       accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
       pensionableEarnings: defaultSettings.pensionableEarnings,
       alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
+      alphaAddedPensionLumpSums: [],
     });
 
     fireEvent.blur(birthDateInput);
@@ -180,7 +202,6 @@ describe("App settings form", () => {
       dateOfBirth: "1977-04-10",
       lifeExpectancy: defaultSettings.lifeExpectancy,
       normalPensionAge: defaultSettings.normalPensionAge,
-      earlyRetirementAge: defaultSettings.earlyRetirementAge,
       currentStatePension: defaultSettings.currentStatePension,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
@@ -189,6 +210,7 @@ describe("App settings form", () => {
       accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
       pensionableEarnings: defaultSettings.pensionableEarnings,
       alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
+      alphaAddedPensionLumpSums: [],
     });
   });
 
@@ -209,6 +231,21 @@ describe("App settings form", () => {
     expect(screen.getAllByText(/At State Pension start/i).length).toBeGreaterThan(0);
   });
 
+  it("resets the state pension slider back to its default value", () => {
+    render(<App />);
+
+    const statePensionSlider = screen.getByLabelText("Current Full State Pension (£ per year)");
+
+    fireEvent.change(statePensionSlider, {
+      target: { value: "13000" },
+    });
+    expect(statePensionSlider).toHaveValue("13000");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
+
+    expect(statePensionSlider).toHaveValue(defaultSettings.currentStatePension.toString());
+  });
+
   it("normalizes unexpected stored values back to allowed settings", () => {
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
@@ -216,7 +253,6 @@ describe("App settings form", () => {
         ...defaultSettings,
         lifeExpectancy: 120,
         normalPensionAge: 120,
-        earlyRetirementAge: 40,
         currentStatePension: -10,
         alphaAddedPensionMonthly: 233,
         alphaPensionLeaveAge: 10,
@@ -230,7 +266,6 @@ describe("App settings form", () => {
 
     expect(screen.getByLabelText("Assumed Life Expectancy (Age)")).toHaveValue("100");
     expect(screen.getByLabelText("Your Normal Pension Age")).toHaveValue("68");
-    expect(screen.getByLabelText("Planned Early Retirement Age")).toHaveValue("45");
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue("0");
     expect(screen.getByLabelText("Added Alpha Pension (£ per month)")).toHaveValue("225");
     expect(screen.getByLabelText("Age You Leave Alpha Pensionable Service")).toHaveValue("40");
@@ -248,8 +283,7 @@ describe("App settings form", () => {
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
         ...defaultSettings,
-        earlyRetirementAge: 62,
-        alphaPensionDrawAge: 60,
+        statePensionDrawDate: "2046-01-01",
       }),
     );
 
@@ -287,7 +321,7 @@ describe("App settings form", () => {
 
     expect(screen.getByText(nonMilestoneRowLabel)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide non-milestone rows" }));
+    fireEvent.click(screen.getByRole("button", { name: "Only show milestone rows" }));
 
     expect(
       screen.getByText(

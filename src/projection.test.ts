@@ -166,8 +166,60 @@ describe("projection calculations", () => {
     ).toBeCloseTo(11.7004680187, 6);
   });
 
-  it("returns the lump sum added pension placeholder value", () => {
-    expect(calculateLumpSumAddedPension()).toBe(0);
+  it("calculates a one-off lump sum added pension purchase on its payment date", () => {
+    expect(
+      calculateLumpSumAddedPension({
+        rowDate: "2047-06-15",
+        dateOfBirth: "1987-06-15",
+        lumpSums: [
+          {
+            id: "one-off",
+            amount: 12820,
+            startDate: "2047-06-15",
+            cadence: "once",
+            endDate: "2047-06-15",
+          },
+        ],
+      }),
+    ).toBeCloseTo(1000, 6);
+  });
+
+  it("applies a lump sum on the first projection row after its payment date", () => {
+    expect(
+      calculateLumpSumAddedPension({
+        previousRowDate: "2047-06-15",
+        rowDate: "2047-07-15",
+        dateOfBirth: "1987-06-15",
+        lumpSums: [
+          {
+            id: "between-rows",
+            amount: 12820,
+            startDate: "2047-06-20",
+            cadence: "once",
+            endDate: "2047-06-20",
+          },
+        ],
+      }),
+    ).toBeCloseTo(1000, 6);
+  });
+
+  it("calculates yearly recurring lump sum added pension purchases", () => {
+    expect(
+      calculateLumpSumAddedPension({
+        previousRowDate: "2048-06-15",
+        rowDate: "2049-06-15",
+        dateOfBirth: "1987-06-15",
+        lumpSums: [
+          {
+            id: "yearly",
+            amount: 12820,
+            startDate: "2047-06-15",
+            cadence: "yearly",
+            endDate: "2049-06-15",
+          },
+        ],
+      }),
+    ).toBeCloseTo(12820 / getAddedPensionFactorForAge(62), 6);
   });
 
   it("loads early retirement reduction factors from JSON", () => {
@@ -287,6 +339,39 @@ describe("projection calculations", () => {
     expect(rows[1]?.totalMonthlyPensionTakeHomePay).toBeCloseTo(458.6544, 6);
   });
 
+  it("shows the lump sum only on the purchase row and carries it into annual accrued pension", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-05-15",
+      dateOfBirth: "1987-06-15",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      lifeExpectancy: 61,
+      accruedPensionAtLastAbs: 8250,
+      alphaPensionAbsDate: "2047",
+      pensionableEarnings: 42000,
+      alphaAddedPensionLumpSums: [
+        {
+          id: "draw-date-lump-sum",
+          amount: 12820,
+          startDate: "2047-06-15",
+          cadence: "once",
+          endDate: "2047-06-15",
+        },
+      ],
+    };
+
+    const rows = createProjectionTable(settings);
+
+    expect(rows[0]?.lumpSumAddedPension).toBe(0);
+    expect(rows[1]?.lumpSumAddedPension).toBeCloseTo(1000, 6);
+    expect(rows[2]?.lumpSumAddedPension).toBe(0);
+    expect(rows[0]?.annualAccruedAlphaPension).toBeCloseTo(8412.4, 6);
+    expect(rows[1]?.annualAccruedAlphaPension).toBeCloseTo(9493.6, 6);
+    expect(rows[2]?.annualAccruedAlphaPension).toBeCloseTo(9493.6, 6);
+    expect(rows[1]?.monthlyAlphaPensionTakeHome).toBeCloseTo(512.6544, 6);
+  });
+
   it("uses the calculated starting Alpha pension at the projection start instead of the raw ABS value", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
@@ -294,7 +379,6 @@ describe("projection calculations", () => {
       alphaPensionAbsDate: "2025",
       accruedPensionAtLastAbs: 8250,
       pensionableEarnings: 42000,
-      earlyRetirementAge: 55,
       alphaPensionLeaveAge: 55,
       alphaPensionDrawAge: 55,
       lifeExpectancy: 70,
@@ -360,6 +444,7 @@ describe("projection calculations", () => {
         "2047-06-20",
         "2055-06-20",
         "2055-08-15",
+        [],
       ),
       "2047-04-15",
       "2055-08-15",
@@ -378,6 +463,7 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2047-06-15",
         "2047-08-15",
+        [],
       ),
       "2047-04-15",
       "2047-08-15",
@@ -398,6 +484,7 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2055-06-15",
         "2055-08-15",
+        [],
       ),
       "2047-04-15",
       "2047-08-15",
@@ -414,6 +501,7 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2055-06-15",
         "2055-08-15",
+        [],
       ),
       "2055-04-15",
       "2055-08-15",
@@ -442,6 +530,67 @@ describe("projection calculations", () => {
     ]);
     expect(rows.at(-1)?.date).toBe("2048-06-15");
     expect(rows.at(-1)?.milestones).toEqual(["Life expectancy"]);
+  });
+
+  it("adds lump sum purchase dates as milestones", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions(
+        "2047-04-15",
+        "2047-05-15",
+        "2047-06-15",
+        "2055-06-15",
+        "2055-08-15",
+        [
+          {
+            id: "one-off",
+            amount: 12820,
+            startDate: "2047-06-15",
+            cadence: "once",
+            endDate: "2047-06-15",
+          },
+          {
+            id: "yearly",
+            amount: 5000,
+            startDate: "2047-05-20",
+            cadence: "yearly",
+            endDate: "2048-05-20",
+          },
+        ],
+      ),
+      "2047-04-15",
+      "2048-08-15",
+    );
+
+    expect(milestoneMap.get("2047-06-15")).toContain("Lump Sum Added Pension (£12,820)");
+    expect(milestoneMap.get("2047-06-15")).toContain("Lump Sum Added Pension (£5,000)");
+    expect(milestoneMap.get("2048-06-15")).toContain("Lump Sum Added Pension (£5,000)");
+  });
+
+  it("shows lump sum milestones on the first projection row after the payment date", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-04-15",
+      dateOfBirth: "1987-06-20",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      statePensionDrawDate: "2055-06-20",
+      lifeExpectancy: 61,
+      alphaAddedPensionLumpSums: [
+        {
+          id: "between-rows",
+          amount: 12820,
+          startDate: "2047-06-20",
+          cadence: "once",
+          endDate: "2047-06-20",
+        },
+      ],
+    };
+
+    const rows = createProjectionTable(settings);
+    expect(rows[2]?.date).toBe("2047-06-15");
+    expect(rows[2]?.milestones).not.toContain("Lump Sum Added Pension (£12,820)");
+    expect(rows[3]?.date).toBe("2047-07-15");
+    expect(rows[3]?.milestones).toContain("Lump Sum Added Pension (£12,820)");
   });
 
   it("tracks age with month precision in projection rows", () => {

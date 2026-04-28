@@ -32,8 +32,8 @@ describe("settings unit tests", () => {
   it("normalizes numeric settings to allowed ranges and steps", () => {
     expect(normalizeSetting("lifeExpectancy", 120)).toBe(100);
     expect(normalizeSetting("normalPensionAge", 120)).toBe(68);
-    expect(normalizeSetting("earlyRetirementAge", 40)).toBe(45);
     expect(normalizeSetting("currentStatePension", -10)).toBe(0);
+    expect(normalizeSetting("currentStatePension", 12547.6)).toBe(12547.6);
     expect(normalizeSetting("alphaAddedPensionMonthly", 233)).toBe(225);
     expect(normalizeSetting("pensionableEarnings", 56321)).toBe(56500);
     expect(normalizeSetting("alphaPensionLeaveAge", 20)).toBe(40);
@@ -74,7 +74,6 @@ describe("settings unit tests", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       normalPensionAge: defaultSettings.normalPensionAge,
-      earlyRetirementAge: defaultSettings.earlyRetirementAge,
       currentStatePension: defaultSettings.currentStatePension,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
@@ -83,6 +82,7 @@ describe("settings unit tests", () => {
       accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
       pensionableEarnings: defaultSettings.pensionableEarnings,
       alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
+      alphaAddedPensionLumpSums: [],
     });
   });
 
@@ -93,7 +93,6 @@ describe("settings unit tests", () => {
         dateOfBirth: "bad-date",
         lifeExpectancy: 120,
         normalPensionAge: 120,
-        earlyRetirementAge: 40,
         currentStatePension: -10,
         statePensionDrawDate: "bad-date",
         alphaPensionAbsDate: "bad-date",
@@ -102,6 +101,15 @@ describe("settings unit tests", () => {
         accruedPensionAtLastAbs: 12444,
         pensionableEarnings: 56321,
         alphaPensionDrawAge: 200,
+        alphaAddedPensionLumpSums: [
+          {
+            id: "legacy",
+            amount: -50,
+            startDate: "bad-date",
+            cadence: "yearly",
+            endDate: "2020-01-01",
+          },
+        ],
       }),
     );
 
@@ -110,7 +118,6 @@ describe("settings unit tests", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: 100,
       normalPensionAge: 68,
-      earlyRetirementAge: 45,
       currentStatePension: 0,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
@@ -119,6 +126,15 @@ describe("settings unit tests", () => {
       accruedPensionAtLastAbs: 12500,
       pensionableEarnings: 56500,
       alphaPensionDrawAge: 70,
+      alphaAddedPensionLumpSums: [
+        {
+          id: "legacy",
+          amount: 0,
+          startDate: getTodayIsoDate(),
+          cadence: "yearly",
+          endDate: getTodayIsoDate(),
+        },
+      ],
     });
   });
 
@@ -132,15 +148,12 @@ describe("settings unit tests", () => {
     const issues = validateSettings({
       ...defaultSettings,
       startDate: "2076-01-01",
-      earlyRetirementAge: 62,
-      alphaPensionDrawAge: 60,
       statePensionDrawDate: "2046-01-01",
     });
 
     expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: "startDate" }),
-        expect.objectContaining({ field: "alphaPensionDrawAge" }),
         expect.objectContaining({ field: "statePensionDrawDate" }),
       ]),
     );
@@ -148,5 +161,27 @@ describe("settings unit tests", () => {
 
   it("normalizes legacy Alpha ABS dates to just the year", () => {
     expect(normalizeSetting("alphaPensionAbsDate", "2024-04-01")).toBe("2024");
+  });
+
+  it("normalizes lump sum added pension schedules", () => {
+    expect(
+      normalizeSetting("alphaAddedPensionLumpSums", [
+        {
+          id: "one-off",
+          amount: 1234.56,
+          startDate: "bad-date",
+          cadence: "once",
+          endDate: "2030-06-15",
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "one-off",
+        amount: 1235,
+        startDate: getTodayIsoDate(),
+        cadence: "once",
+        endDate: getTodayIsoDate(),
+      },
+    ]);
   });
 });

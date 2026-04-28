@@ -355,12 +355,12 @@ h3 {
 
 .projection-table--header,
 .projection-table--body {
-  min-width: 56rem;
+  min-width: 62rem;
 }
 
 .projection-table th,
 .projection-table td {
-  padding: 0.9rem 1rem;
+  padding: 0.7rem 0.75rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
@@ -368,10 +368,13 @@ h3 {
 
 .projection-table thead th {
   background: #f3f9f8;
-  font-size: 0.84rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--text-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
 }
 
 .projection-table--body tbody tr:last-child td {
@@ -447,6 +450,23 @@ h3 {
 
 .secondary-button:hover {
   background: #c8e3de;
+}
+
+.field-reset-button {
+  justify-self: start;
+  padding: 0.15rem 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+.field-reset-button:hover {
+  background: transparent;
+  color: var(--accent);
 }
 
 @media (min-width: 720px) {

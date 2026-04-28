@@ -6,6 +6,8 @@ import {
   type ProjectionRow,
 } from "./projection";
 import {
+  createDefaultAddedPensionLumpSum,
+  defaultSettings,
   formatCurrency,
   getAlphaAbsYear,
   loadStoredSettings,
@@ -13,6 +15,7 @@ import {
   resolveAlphaAbsDate,
   saveSettings,
   validateSettings,
+  type AddedPensionLumpSum,
   type PensionSettings,
 } from "./settings";
 
@@ -30,7 +33,6 @@ type RangeField = {
   id:
     | "lifeExpectancy"
     | "normalPensionAge"
-    | "earlyRetirementAge"
     | "currentStatePension"
     | "alphaAddedPensionMonthly"
     | "alphaPensionLeaveAge"
@@ -98,20 +100,12 @@ const fieldGroups: FieldGroup[] = [
         step: 1,
       },
       {
-        id: "earlyRetirementAge",
-        label: "Planned Early Retirement Age",
-        type: "range",
-        min: 45,
-        max: 70,
-        step: 1,
-      },
-      {
         id: "currentStatePension",
         label: "Current Full State Pension (£ per year)",
         type: "range",
         min: 0,
         max: 15000,
-        step: 50,
+        step: 0.01,
         format: "currency",
       },
       {
@@ -297,6 +291,16 @@ function App() {
                     />
                   ))}
                 </div>
+
+                {group.id === "alpha" ? (
+                  <AddedPensionLumpSumsEditor
+                    lumpSums={settings.alphaAddedPensionLumpSums}
+                    defaultStartDate={settings.startDate}
+                    onChange={(nextLumpSums) =>
+                      updateSetting("alphaAddedPensionLumpSums", nextLumpSums)
+                    }
+                  />
+                ) : null}
               </section>
             ))}
           </div>
@@ -498,33 +502,51 @@ function Field({ field, value, onChange }: FieldProps) {
     );
   }
 
-  return (
-    <label className="field-card">
-      <span className="field-header">
-        <span className="field-label">{field.label}</span>
-        <span className="field-value">
-          {formatFieldValue(value as number, field.format)}
-          {field.valuePrefix ?? ""}
+  if (field.type === "range") {
+    return (
+      <label className="field-card">
+        <span className="field-header">
+          <span className="field-label">{field.label}</span>
+          <span className="field-value">
+            {formatFieldValue(value as number, field.format)}
+            {field.valuePrefix ?? ""}
+          </span>
         </span>
-      </span>
-      <input
-        aria-label={field.label}
-        className="range-input"
-        type="range"
-        min={field.min}
-        max={field.max}
-        step={field.step}
-        value={value as number}
-        onChange={(event) =>
-          onChange(field.id, Number(event.target.value) as PensionSettings[typeof field.id])
-        }
-      />
-      <div className="range-scale">
-        <span>{formatFieldValue(field.min, field.format)}</span>
-        <span>{formatFieldValue(field.max, field.format)}</span>
-      </div>
-    </label>
-  );
+        <input
+          aria-label={field.label}
+          className="range-input"
+          type="range"
+          min={field.min}
+          max={field.max}
+          step={field.step}
+          value={value as number}
+          onChange={(event) =>
+            onChange(field.id, Number(event.target.value) as PensionSettings[typeof field.id])
+          }
+        />
+        <div className="range-scale">
+          <span>{formatFieldValue(field.min, field.format)}</span>
+          <span>{formatFieldValue(field.max, field.format)}</span>
+        </div>
+        {field.id === "currentStatePension" ? (
+          <button
+            type="button"
+            className="secondary-button field-reset-button"
+            onClick={() =>
+              onChange(
+                field.id,
+                defaultSettings.currentStatePension as PensionSettings[typeof field.id],
+              )
+            }
+          >
+            Reset to default
+          </button>
+        ) : null}
+      </label>
+    );
+  }
+
+  return null;
 }
 
 function formatFieldValue(value: number, format?: "currency") {
@@ -540,19 +562,19 @@ type ProjectionTableProps = {
 };
 
 const projectionTableColumns = [
-  { key: "date", label: "Date", width: "8rem" },
-  { key: "age", label: "Age (years/months)", width: "6rem" },
-  { key: "monthlyAddedPension", label: "Monthly Added Pension", width: "6rem" },
-  { key: "lumpSumAddedPension", label: "Lump sum added pension", width: "6rem" },
-  { key: "annualAccruedAlphaPension", label: "Annual Accrued Alpha Pension", width: "7rem" },
+  { key: "date", label: "Date", width: "7rem" },
+  { key: "age", label: "Age (years/months)", width: "7rem" },
+  { key: "monthlyAddedPension", label: "Monthly Added Pension", width: "7rem" },
+  { key: "lumpSumAddedPension", label: "Lump sum added pension", width: "7rem" },
+  { key: "annualAccruedAlphaPension", label: "Annual Accrued Alpha Pension", width: "8rem" },
   {
     key: "annualAlphaPensionIncludingReduction",
     label: "Annual Alpha Pension Including Reduction",
-    width: "8rem",
+    width: "9rem",
   },
-  { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha Pension Take-Home", width: "6rem" },
-  { key: "monthlyStatePension", label: "Monthly State pension", width: "5rem" },
-  { key: "totalMonthlyPensionTakeHomePay", label: "Total Monthly Pension Take home pay", width: "7rem" },
+  { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha Pension Take-Home", width: "7rem" },
+  { key: "monthlyStatePension", label: "Monthly State pension", width: "6rem" },
+  { key: "totalMonthlyPensionTakeHomePay", label: "Total Monthly Pension Take home pay", width: "8rem" },
 ] as const;
 
 function ProjectionTable({ rows }: ProjectionTableProps) {
@@ -586,7 +608,7 @@ function ProjectionTable({ rows }: ProjectionTableProps) {
           aria-pressed={showMilestonesOnly}
           onClick={() => setShowMilestonesOnly((current) => !current)}
         >
-          {showMilestonesOnly ? "Show all rows" : "Hide non-milestone rows"}
+          {showMilestonesOnly ? "Show all rows" : "Only show milestone rows"}
         </button>
         <p className="table-status">
           Showing {visibleRows.length} of {rows.length} rows
@@ -702,6 +724,141 @@ function formatAge(years: number, months: number) {
 
 function formatYears(value: number) {
   return `${value.toFixed(1)} years`;
+}
+
+type AddedPensionLumpSumsEditorProps = {
+  lumpSums: AddedPensionLumpSum[];
+  defaultStartDate: string;
+  onChange: (nextLumpSums: AddedPensionLumpSum[]) => void;
+};
+
+function AddedPensionLumpSumsEditor({
+  lumpSums,
+  defaultStartDate,
+  onChange,
+}: AddedPensionLumpSumsEditorProps) {
+  function updateLumpSum(
+    id: string,
+    patch: Partial<AddedPensionLumpSum>,
+  ) {
+    onChange(
+      lumpSums.map((lumpSum) => (lumpSum.id === id ? { ...lumpSum, ...patch } : lumpSum)),
+    );
+  }
+
+  function addLumpSum() {
+    onChange([...lumpSums, createDefaultAddedPensionLumpSum(defaultStartDate)]);
+  }
+
+  function removeLumpSum(id: string) {
+    onChange(lumpSums.filter((lumpSum) => lumpSum.id !== id));
+  }
+
+  return (
+    <section className="settings-section">
+      <div className="section-heading">
+        <p className="eyebrow">Added Pension Lump Sums</p>
+        <h3>Lump sum purchases</h3>
+        <p className="section-copy">
+          Add one-off or yearly lump sum purchases. A yearly entry repeats on the same
+          calendar date until its end date.
+        </p>
+      </div>
+
+      <div className="field-grid">
+        {lumpSums.length === 0 ? (
+          <p className="section-copy">No lump sum added pension purchases set up yet.</p>
+        ) : null}
+
+        {lumpSums.map((lumpSum, index) => (
+          <div className="field-card" key={lumpSum.id}>
+            <span className="field-header">
+              <span className="field-label">Lump sum #{index + 1}</span>
+              <span className="field-value">{formatCurrencyDetailed(lumpSum.amount)}</span>
+            </span>
+
+            <label className="field-label" htmlFor={`lump-sum-amount-${lumpSum.id}`}>
+              Amount (£)
+            </label>
+            <input
+              id={`lump-sum-amount-${lumpSum.id}`}
+              aria-label={`Lump sum amount ${index + 1}`}
+              className="date-input"
+              min={0}
+              step={500}
+              type="number"
+              value={lumpSum.amount}
+              onChange={(event) =>
+                updateLumpSum(lumpSum.id, { amount: Number(event.target.value) })
+              }
+            />
+
+            <label className="field-label" htmlFor={`lump-sum-start-${lumpSum.id}`}>
+              Payment start date
+            </label>
+            <input
+              id={`lump-sum-start-${lumpSum.id}`}
+              aria-label={`Lump sum start date ${index + 1}`}
+              className="date-input"
+              type="date"
+              value={lumpSum.startDate}
+              onChange={(event) =>
+                updateLumpSum(lumpSum.id, { startDate: event.target.value })
+              }
+            />
+
+            <label className="field-label" htmlFor={`lump-sum-cadence-${lumpSum.id}`}>
+              Cadence
+            </label>
+            <select
+              id={`lump-sum-cadence-${lumpSum.id}`}
+              aria-label={`Lump sum cadence ${index + 1}`}
+              className="date-input"
+              value={lumpSum.cadence}
+              onChange={(event) =>
+                updateLumpSum(lumpSum.id, {
+                  cadence: event.target.value as AddedPensionLumpSum["cadence"],
+                })
+              }
+            >
+              <option value="once">One-off</option>
+              <option value="yearly">Yearly</option>
+            </select>
+
+            {lumpSum.cadence === "yearly" ? (
+              <>
+                <label className="field-label" htmlFor={`lump-sum-end-${lumpSum.id}`}>
+                  Repeat until
+                </label>
+                <input
+                  id={`lump-sum-end-${lumpSum.id}`}
+                  aria-label={`Lump sum end date ${index + 1}`}
+                  className="date-input"
+                  type="date"
+                  value={lumpSum.endDate}
+                  onChange={(event) =>
+                    updateLumpSum(lumpSum.id, { endDate: event.target.value })
+                  }
+                />
+              </>
+            ) : null}
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => removeLumpSum(lumpSum.id)}
+            >
+              Remove lump sum
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <button type="button" className="secondary-button" onClick={addLumpSum}>
+        Add lump sum purchase
+      </button>
+    </section>
+  );
 }
 
 export default App;
