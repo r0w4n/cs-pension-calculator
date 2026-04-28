@@ -21,6 +21,7 @@ type ReductionFactorRecord = {
 export type ProjectionRow = {
   date: string;
   age: number;
+  ageMonths: number;
   milestones: string[];
   monthlyAddedPension: number;
   lumpSumAddedPension: number;
@@ -56,9 +57,11 @@ export type PensionSummary = {
 };
 
 const MONTHLY_ALPHA_ACCRUAL_RATE = 0.0232 / 12;
-const STOPS_ALPHA_ACCRUAL_LABEL = "Stops Alpha accrual";
-const STARTS_ALPHA_PENSION_LABEL = "Starts Alpha pension";
-const STARTS_STATE_PENSION_LABEL = "Starts State Pension";
+const CALCULATION_START_LABEL = "Calculation start";
+const STOPS_ALPHA_ACCRUAL_LABEL = "Leave Alpha Pension Scheme";
+const STARTS_ALPHA_PENSION_LABEL = "Starts Drawing Alpha Pension";
+const STARTS_STATE_PENSION_LABEL = "Starts Drawing State Pension";
+const LIFE_EXPECTANCY_LABEL = "Life expectancy";
 const DEFAULT_ALPHA_ACCRUAL_RATE = 0.0232;
 
 type MilestoneDefinition = {
@@ -133,10 +136,21 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
   });
   let cumulativeMonthlyAccrual = 0;
 
-  const milestoneRows = buildMilestoneMap(generateMilestoneDefinitions(accrualStopDate, drawDate, settings.statePensionDrawDate), settings.startDate, endDate);
+  const milestoneRows = buildMilestoneMap(
+    generateMilestoneDefinitions(
+      settings.startDate,
+      accrualStopDate,
+      drawDate,
+      settings.statePensionDrawDate,
+      endDate,
+    ),
+    settings.startDate,
+    endDate,
+  );
 
   return generateMonthlyDateRange(settings.startDate, endDate).map((rowDate) => {
     const age = calculateAge(settings.dateOfBirth, rowDate);
+    const ageMonths = calculateAgeMonths(settings.dateOfBirth, rowDate);
     const monthlyAlphaAccrual =
       rowDate <= accrualStopDate
         ? calculateMonthlyAlphaAccrual(settings.pensionableEarnings)
@@ -180,6 +194,7 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
     return {
       date: rowDate,
       age,
+      ageMonths,
       milestones: milestoneRows.get(rowDate) ?? [],
       monthlyAddedPension,
       lumpSumAddedPension,
@@ -303,6 +318,10 @@ export function generateMonthlyDateRange(startDate: string, endDate: string) {
     currentDate = addMonths(currentDate, 1);
   }
 
+  if (dates.at(-1) !== endDate) {
+    dates.push(endDate);
+  }
+
   return dates;
 }
 
@@ -325,6 +344,21 @@ export function calculateAge(dateOfBirth: string, rowDate: string) {
   }
 
   return age;
+}
+
+export function calculateAgeMonths(dateOfBirth: string, rowDate: string) {
+  const birth = parseIsoDate(dateOfBirth);
+  const row = parseIsoDate(rowDate);
+
+  let months =
+    (row.getUTCFullYear() - birth.getUTCFullYear()) * 12 +
+    (row.getUTCMonth() - birth.getUTCMonth());
+
+  if (row.getUTCDate() < birth.getUTCDate()) {
+    months -= 1;
+  }
+
+  return Math.max(0, months % 12);
 }
 
 export function calculateMonthlyAlphaAccrual(pensionableEarnings: number) {
@@ -483,14 +517,18 @@ export function calculateTotalGrossMonthlyPension(
 }
 
 export function generateMilestoneDefinitions(
+  startDate: string,
   alphaPensionStopDate: string,
   alphaPensionDrawDate: string,
   statePensionStartDate: string,
+  lifeExpectancyDate: string,
 ): MilestoneDefinition[] {
   return [
+    { date: startDate, label: CALCULATION_START_LABEL },
     { date: alphaPensionStopDate, label: STOPS_ALPHA_ACCRUAL_LABEL },
     { date: alphaPensionDrawDate, label: STARTS_ALPHA_PENSION_LABEL },
     { date: statePensionStartDate, label: STARTS_STATE_PENSION_LABEL },
+    { date: lifeExpectancyDate, label: LIFE_EXPECTANCY_LABEL },
   ];
 }
 

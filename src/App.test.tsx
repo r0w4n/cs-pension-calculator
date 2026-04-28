@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
+import { createProjectionTable } from "./projection";
 import {
   SETTINGS_STORAGE_KEY,
   defaultSettings,
@@ -51,10 +52,17 @@ describe("App settings form", () => {
         name: "Annual Alpha Pension Including Reduction",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", {
+        name: "Age (years/months)",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "Pension Summary" })).toHaveLength(2);
     expect(screen.getByText("Monthly Alpha Pension at retirement")).toBeInTheDocument();
     expect(screen.getByText("Total Monthly Pension at State Pension start")).toBeInTheDocument();
-    expect(screen.getAllByText("Starts Alpha pension").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Starts Drawing Alpha Pension").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
   });
 
   it("updates settings and saves to local storage", () => {
@@ -251,5 +259,50 @@ describe("App settings form", () => {
     expect(
       screen.getByText("No projection rows are available for the current settings."),
     ).toBeInTheDocument();
+  });
+
+  it("can collapse the table to milestone rows only", () => {
+    const rows = createProjectionTable({
+      ...defaultSettings,
+      startDate: getTodayIsoDate(),
+    });
+    const milestoneRows = rows.filter((row) => row.milestones.length > 0);
+    const nonMilestoneRow = rows.find((row) => row.milestones.length === 0);
+
+    render(<App />);
+
+    expect(
+      screen.getByText(`Showing ${rows.length} of ${rows.length} rows.`),
+    ).toBeInTheDocument();
+
+    if (!nonMilestoneRow) {
+      throw new Error("Expected a non-milestone row for the collapse test.");
+    }
+
+    const nonMilestoneRowLabel = new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(`${nonMilestoneRow.date}T00:00:00`));
+
+    expect(screen.getByText(nonMilestoneRowLabel)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide non-milestone rows" }));
+
+    expect(
+      screen.getByText(
+        `Showing ${milestoneRows.length} of ${rows.length} rows (${milestoneRows.length} milestones).`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(nonMilestoneRowLabel)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show all rows" }));
+
+    expect(
+      screen.getByText(`Showing ${rows.length} of ${rows.length} rows.`),
+    ).toBeInTheDocument();
+    expect(screen.getByText(nonMilestoneRowLabel)).toBeInTheDocument();
   });
 });

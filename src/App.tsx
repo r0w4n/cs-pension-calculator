@@ -528,7 +528,7 @@ type ProjectionTableProps = {
 
 const projectionTableColumns = [
   { key: "date", label: "Date", width: "8rem" },
-  { key: "age", label: "Age", width: "3rem" },
+  { key: "age", label: "Age (years/months)", width: "6rem" },
   { key: "monthlyAddedPension", label: "Monthly Added Pension", width: "6rem" },
   { key: "lumpSumAddedPension", label: "Lump sum added pension", width: "6rem" },
   { key: "annualAccruedAlphaPension", label: "Annual Accrued Alpha Pension", width: "7rem" },
@@ -544,6 +544,11 @@ const projectionTableColumns = [
 
 function ProjectionTable({ rows }: ProjectionTableProps) {
   const headerScrollRef = useRef<HTMLDivElement | null>(null);
+  const [showMilestonesOnly, setShowMilestonesOnly] = useState(false);
+  const visibleRows = showMilestonesOnly
+    ? rows.filter((row) => row.milestones.length > 0)
+    : rows;
+  const milestoneRowCount = rows.filter((row) => row.milestones.length > 0).length;
 
   const syncHeaderScroll = (scrollLeft: number) => {
     if (headerScrollRef.current) {
@@ -561,6 +566,21 @@ function ProjectionTable({ rows }: ProjectionTableProps) {
 
   return (
     <div className="table-shell">
+      <div className="table-controls">
+        <button
+          type="button"
+          className="secondary-button"
+          aria-pressed={showMilestonesOnly}
+          onClick={() => setShowMilestonesOnly((current) => !current)}
+        >
+          {showMilestonesOnly ? "Show all rows" : "Hide non-milestone rows"}
+        </button>
+        <p className="table-status">
+          Showing {visibleRows.length} of {rows.length} rows
+          {showMilestonesOnly ? ` (${milestoneRowCount} milestones)` : ""}.
+        </p>
+      </div>
+
       <div className="table-header-shell">
         <div className="table-header-scroll" ref={headerScrollRef}>
           <table className="projection-table projection-table--header" aria-hidden="true">
@@ -599,7 +619,7 @@ function ProjectionTable({ rows }: ProjectionTableProps) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <tr
                 key={row.date}
                 className={row.milestones.length > 0 ? "projection-row projection-row--milestone" : "projection-row"}
@@ -619,7 +639,7 @@ function ProjectionTable({ rows }: ProjectionTableProps) {
                     ) : null}
                   </div>
                 </td>
-                <td>{row.age}</td>
+                <td>{formatAge(row.age, row.ageMonths)}</td>
                 <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
                 <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
                 <td>{formatCurrencyDetailed(row.annualAccruedAlphaPension)}</td>
@@ -661,6 +681,10 @@ function formatCurrencyDetailed(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatAge(years: number, months: number) {
+  return `${years}y ${months}m`;
 }
 
 function formatYears(value: number) {

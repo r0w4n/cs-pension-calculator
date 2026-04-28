@@ -39,6 +39,15 @@ describe("projection calculations", () => {
     ]);
   });
 
+  it("includes the end date even when the monthly cadence would otherwise skip that month", () => {
+    expect(generateMonthlyDateRange("2026-01-28", "2026-04-15")).toEqual([
+      "2026-01-28",
+      "2026-02-28",
+      "2026-03-28",
+      "2026-04-15",
+    ]);
+  });
+
   it("preserves month-end semantics across shorter months and leap years", () => {
     expect(addMonths("2026-01-31", 1)).toBe("2026-02-28");
     expect(addMonths("2024-01-31", 1)).toBe("2024-02-29");
@@ -297,58 +306,120 @@ describe("projection calculations", () => {
 
   it("flags the correct row for the Alpha Pension Stop Date", () => {
     const milestoneMap = buildMilestoneMap(
-      generateMilestoneDefinitions("2047-05-15", "2047-06-15", "2055-06-15"),
+      generateMilestoneDefinitions(
+        "2047-04-15",
+        "2047-05-15",
+        "2047-06-15",
+        "2055-06-15",
+        "2055-08-15",
+      ),
       "2047-04-15",
       "2047-08-15",
     );
 
-    expect(milestoneMap.get("2047-05-15")).toContain("Stops Alpha accrual");
+    expect(milestoneMap.get("2047-05-15")).toContain("Leave Alpha Pension Scheme");
   });
 
   it("flags the correct row for the Alpha Pension Draw Date", () => {
     const milestoneMap = buildMilestoneMap(
-      generateMilestoneDefinitions("2047-05-15", "2047-06-15", "2055-06-15"),
+      generateMilestoneDefinitions(
+        "2047-04-15",
+        "2047-05-15",
+        "2047-06-15",
+        "2055-06-15",
+        "2055-08-15",
+      ),
       "2047-04-15",
       "2047-08-15",
     );
 
-    expect(milestoneMap.get("2047-06-15")).toContain("Starts Alpha pension");
+    expect(milestoneMap.get("2047-06-15")).toContain("Starts Drawing Alpha Pension");
   });
 
   it("flags the correct row for the State Pension Start Date", () => {
     const milestoneMap = buildMilestoneMap(
-      generateMilestoneDefinitions("2047-05-15", "2047-06-15", "2055-06-15"),
+      generateMilestoneDefinitions(
+        "2055-04-15",
+        "2047-05-15",
+        "2047-06-15",
+        "2055-06-15",
+        "2055-08-15",
+      ),
       "2055-04-15",
       "2055-08-15",
     );
 
-    expect(milestoneMap.get("2055-06-15")).toContain("Starts State Pension");
+    expect(milestoneMap.get("2055-06-15")).toContain("Starts Drawing State Pension");
   });
 
   it("flags the next row when a milestone falls between generated monthly rows", () => {
     const milestoneMap = buildMilestoneMap(
-      generateMilestoneDefinitions("2047-05-20", "2047-06-20", "2055-06-20"),
+      generateMilestoneDefinitions(
+        "2047-04-15",
+        "2047-05-20",
+        "2047-06-20",
+        "2055-06-20",
+        "2055-08-15",
+      ),
       "2047-04-15",
       "2055-08-15",
     );
 
-    expect(milestoneMap.get("2047-06-15")).toContain("Stops Alpha accrual");
-    expect(milestoneMap.get("2047-07-15")).toContain("Starts Alpha pension");
-    expect(milestoneMap.get("2055-07-15")).toContain("Starts State Pension");
+    expect(milestoneMap.get("2047-06-15")).toContain("Leave Alpha Pension Scheme");
+    expect(milestoneMap.get("2047-07-15")).toContain("Starts Drawing Alpha Pension");
+    expect(milestoneMap.get("2055-07-15")).toContain("Starts Drawing State Pension");
   });
 
   it("preserves multiple milestones when they land on the same row", () => {
     const milestoneMap = buildMilestoneMap(
-      generateMilestoneDefinitions("2047-06-15", "2047-06-15", "2047-06-15"),
+      generateMilestoneDefinitions(
+        "2047-04-15",
+        "2047-06-15",
+        "2047-06-15",
+        "2047-06-15",
+        "2047-08-15",
+      ),
       "2047-04-15",
       "2047-08-15",
     );
 
     expect(milestoneMap.get("2047-06-15")).toEqual([
-      "Stops Alpha accrual",
-      "Starts Alpha pension",
-      "Starts State Pension",
+      "Leave Alpha Pension Scheme",
+      "Starts Drawing Alpha Pension",
+      "Starts Drawing State Pension",
     ]);
+  });
+
+  it("flags the start date row for the calculation start milestone", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions(
+        "2047-04-15",
+        "2047-05-15",
+        "2047-06-15",
+        "2055-06-15",
+        "2055-08-15",
+      ),
+      "2047-04-15",
+      "2047-08-15",
+    );
+
+    expect(milestoneMap.get("2047-04-15")).toContain("Calculation start");
+  });
+
+  it("flags the life expectancy row for the life expectancy milestone", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions(
+        "2055-04-15",
+        "2047-05-15",
+        "2047-06-15",
+        "2055-06-15",
+        "2055-08-15",
+      ),
+      "2055-04-15",
+      "2055-08-15",
+    );
+
+    expect(milestoneMap.get("2055-08-15")).toContain("Life expectancy");
   });
 
   it("adds milestone labels to projection rows", () => {
@@ -363,11 +434,32 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
+    expect(rows[0]?.milestones).toEqual(["Calculation start"]);
     expect(rows[1]?.milestones).toEqual([
-      "Stops Alpha accrual",
-      "Starts Alpha pension",
-      "Starts State Pension",
+      "Leave Alpha Pension Scheme",
+      "Starts Drawing Alpha Pension",
+      "Starts Drawing State Pension",
     ]);
+    expect(rows.at(-1)?.date).toBe("2048-06-15");
+    expect(rows.at(-1)?.milestones).toEqual(["Life expectancy"]);
+  });
+
+  it("tracks age with month precision in projection rows", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-04-15",
+      dateOfBirth: "1987-06-20",
+      lifeExpectancy: 61,
+    };
+
+    const rows = createProjectionTable(settings);
+
+    expect(rows[0]?.age).toBe(59);
+    expect(rows[0]?.ageMonths).toBe(9);
+    expect(rows[2]?.age).toBe(59);
+    expect(rows[2]?.ageMonths).toBe(11);
+    expect(rows[3]?.age).toBe(60);
+    expect(rows[3]?.ageMonths).toBe(0);
   });
 
   it("selects the first row on or after the Alpha pension draw date for the summary", () => {
