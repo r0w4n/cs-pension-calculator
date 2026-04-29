@@ -62,6 +62,16 @@ describe("App settings form", () => {
     expect(screen.getAllByText("Starts Drawing Alpha Pension").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "State Pension Age information" })).toHaveAttribute(
+      "href",
+      "https://www.gov.uk/state-pension-age",
+    );
+    expect(
+      screen.getByRole("link", { name: "Last Alpha Annual Benifites Statement information" }),
+    ).toHaveAttribute(
+      "href",
+      "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/",
+    );
     expect(screen.getByRole("button", { name: "Add lump sum purchase" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset to default" })).toBeInTheDocument();
   });
@@ -71,7 +81,7 @@ describe("App settings form", () => {
 
     const startDateInput = screen.getByLabelText("Calculation Start Date");
     const birthDateInput = screen.getByLabelText("Your Date of Birth");
-    const statePensionDateInput = screen.getByLabelText("State Pension Start Date");
+    const statePensionDateInput = screen.getByLabelText("State Pension Age");
     const absDateInput = screen.getByLabelText("Last Alpha Annual Benifites Statement");
 
     fireEvent.change(startDateInput, {

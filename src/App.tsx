@@ -27,6 +27,7 @@ type DateField = {
     | "alphaPensionAbsDate";
   label: string;
   type: "date" | "year";
+  infoUrl?: string;
 };
 
 type RangeField = {
@@ -45,6 +46,7 @@ type RangeField = {
   max: number;
   step: number;
   format?: "currency";
+  infoUrl?: string;
   valuePrefix?: string;
 };
 
@@ -110,8 +112,9 @@ const fieldGroups: FieldGroup[] = [
       },
       {
         id: "statePensionDrawDate",
-        label: "State Pension Start Date",
+        label: "State Pension Age",
         type: "date",
+        infoUrl: "https://www.gov.uk/state-pension-age",
       },
     ],
   },
@@ -125,6 +128,8 @@ const fieldGroups: FieldGroup[] = [
         id: "alphaPensionAbsDate",
         label: "Last Alpha Annual Benifites Statement",
         type: "year",
+        infoUrl:
+          "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/",
       },
       {
         id: "accruedPensionAtLastAbs",
@@ -422,6 +427,26 @@ function SummarySection({ title, items }: SummarySectionProps) {
   );
 }
 
+function FieldLabel({ field }: { field: FieldDefinition }) {
+  return (
+    <span className="field-label-group">
+      <span className="field-label">{field.label}</span>
+      {field.infoUrl ? (
+        <a
+          className="field-info-link"
+          href={field.infoUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${field.label} information`}
+          title={`More information about ${field.label}`}
+        >
+          <span aria-hidden="true">i</span>
+        </a>
+      ) : null}
+    </span>
+  );
+}
+
 type FieldProps = {
   field: FieldDefinition;
   value: PensionSettings[SettingsKey];
@@ -449,7 +474,7 @@ function Field({ field, value, onChange }: FieldProps) {
     return (
       <label className="field-card">
         <span className="field-header">
-          <span className="field-label">{field.label}</span>
+          <FieldLabel field={field} />
           <span className="field-value">{formatDate(draftValue)}</span>
         </span>
         <input
@@ -480,7 +505,7 @@ function Field({ field, value, onChange }: FieldProps) {
     return (
       <label className="field-card">
         <span className="field-header">
-          <span className="field-label">{field.label}</span>
+          <FieldLabel field={field} />
           <span className="field-value">{formatDate(resolveAlphaAbsDate(value as string))}</span>
         </span>
         <select
@@ -506,7 +531,7 @@ function Field({ field, value, onChange }: FieldProps) {
     return (
       <label className="field-card">
         <span className="field-header">
-          <span className="field-label">{field.label}</span>
+          <FieldLabel field={field} />
           <span className="field-value">
             {formatFieldValue(value as number, field.format)}
             {field.valuePrefix ?? ""}
@@ -757,7 +782,6 @@ function AddedPensionLumpSumsEditor({
   return (
     <section className="settings-section">
       <div className="section-heading">
-        <p className="eyebrow">Added Pension Lump Sums</p>
         <h3>Lump sum purchases</h3>
         <p className="section-copy">
           Add one-off or yearly lump sum purchases. A yearly entry repeats on the same
