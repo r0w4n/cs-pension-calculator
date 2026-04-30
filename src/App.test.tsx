@@ -190,6 +190,47 @@ describe("App settings form", () => {
     expect(statePensionSlider).toHaveValue(defaultSettings.currentStatePension.toString());
   });
 
+  it("resets all parameters back to their defaults", () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Your Date of Birth"), {
+      target: { value: "1990-02-14" },
+    });
+    fireEvent.blur(screen.getByLabelText("Your Date of Birth"));
+    fireEvent.change(screen.getByLabelText("Current Full State Pension (£ per year)"), {
+      target: { value: "13000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add lump sum purchase" }));
+
+    expect(screen.getByText("Lump sum #1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Your Date of Birth")).toHaveValue("1990-02-14");
+    expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
+      "13000",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset parameters" }));
+
+    expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
+    expect(screen.getByLabelText("Your Date of Birth")).toHaveValue(defaultSettings.dateOfBirth);
+    expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
+      defaultSettings.currentStatePension.toString(),
+    );
+    expect(screen.queryByText("Lump sum #1")).not.toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual({
+      dateOfBirth: defaultSettings.dateOfBirth,
+      lifeExpectancy: defaultSettings.lifeExpectancy,
+      normalPensionAge: defaultSettings.normalPensionAge,
+      currentStatePension: defaultSettings.currentStatePension,
+      alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
+      alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
+      alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
+      accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
+      pensionableEarnings: defaultSettings.pensionableEarnings,
+      alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
+      alphaAddedPensionLumpSums: [],
+    });
+  });
+
   it("supports exact numeric entry alongside sliders", () => {
     render(<App />);
 

@@ -13,6 +13,7 @@ import {
 } from "./projection";
 import {
   createDefaultAddedPensionLumpSum,
+  createDefaultSettings,
   defaultSettings,
   formatCurrency,
   getAlphaAbsYear,
@@ -46,6 +47,10 @@ function App() {
           }
         : {}),
     }));
+  }
+
+  function resetSettings() {
+    setSettings(createDefaultSettings());
   }
 
   return (
@@ -106,6 +111,13 @@ function App() {
               Everything is saved in one place, with the fields grouped by topic
               so they still read like separate sections.
             </p>
+            <button
+              type="button"
+              className="secondary-button settings-reset-button"
+              onClick={resetSettings}
+            >
+              Reset parameters
+            </button>
           </div>
 
           <div className="settings-sections">
@@ -415,6 +427,10 @@ function DateSettingField({
   onChange: FieldProps["onChange"];
 }) {
   const [draftValue, setDraftValue] = useState(value);
+
+  useEffect(() => {
+    setDraftValue(value);
+  }, [value]);
 
   function commitDateValue(nextValue: string) {
     const normalizedValue = normalizeSetting(
