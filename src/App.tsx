@@ -322,7 +322,7 @@ function Field({ field, value, onChange }: FieldProps) {
         </span>
         <input
           aria-label={field.label}
-          className="date-input"
+          className="select-input"
           type="date"
           value={draftValue}
           onChange={(event) => {
@@ -439,9 +439,9 @@ const projectionTableColumns = [
     label: "Annual Alpha Pension Including Reduction",
     width: "9rem",
   },
-  { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha Pension Take-Home", width: "7rem" },
+  { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha Pension take-home", width: "7rem" },
   { key: "monthlyStatePension", label: "Monthly State pension", width: "6rem" },
-  { key: "totalMonthlyPensionTakeHomePay", label: "Total Monthly Pension Take home pay", width: "8rem" },
+  { key: "totalMonthlyPensionTakeHomePay", label: "Total Monthly Pension take-home pay", width: "8rem" },
 ] as const;
 
 function ProjectionTable({ rows }: ProjectionTableProps) {
@@ -649,7 +649,7 @@ function AddedPensionLumpSumsEditor({
             <input
               id={`lump-sum-amount-${lumpSum.id}`}
               aria-label={`Lump sum amount ${index + 1}`}
-              className="date-input"
+              className="select-input"
               min={0}
               step={500}
               type="number"
