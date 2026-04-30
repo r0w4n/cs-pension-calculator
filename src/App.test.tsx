@@ -256,6 +256,53 @@ describe("App settings form", () => {
     expect(statePensionSlider).toHaveValue(defaultSettings.currentStatePension.toString());
   });
 
+  it("supports exact numeric entry alongside sliders", () => {
+    render(<App />);
+
+    fireEvent.change(
+      screen.getByLabelText("Current Pensionable Earnings (£ per year) exact value"),
+      {
+        target: { value: "56500" },
+      },
+    );
+
+    expect(screen.getByLabelText("Current Pensionable Earnings (£ per year)")).toHaveValue(
+      "56500",
+    );
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        pensionableEarnings: 56500,
+      }),
+    );
+  });
+
+  it("resets saved assumptions back to fresh defaults", () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Current Full State Pension (£ per year)"), {
+      target: { value: "13000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add lump sum purchase" }));
+
+    expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
+      "13000",
+    );
+    expect(screen.getByText("Lump sum #1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset all assumptions" }));
+
+    expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
+      defaultSettings.currentStatePension.toString(),
+    );
+    expect(screen.queryByText("Lump sum #1")).not.toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        currentStatePension: defaultSettings.currentStatePension,
+        alphaAddedPensionLumpSums: [],
+      }),
+    );
+  });
+
   it("removes lump sum purchases from the form and saved settings", () => {
     render(<App />);
 

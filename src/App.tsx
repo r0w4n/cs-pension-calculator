@@ -12,6 +12,7 @@ import {
 } from "./projection";
 import {
   createDefaultAddedPensionLumpSum,
+  createDefaultSettings,
   defaultSettings,
   formatCurrency,
   getAlphaAbsYear,
@@ -39,6 +40,10 @@ function App() {
       ...current,
       [key]: normalizeSetting(key, value),
     }));
+  }
+
+  function resetSettings() {
+    setSettings(createDefaultSettings());
   }
 
   return (
@@ -99,6 +104,13 @@ function App() {
               Everything is saved in one place, with the fields grouped by topic
               so they still read like separate sections.
             </p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={resetSettings}
+            >
+              Reset all assumptions
+            </button>
           </div>
 
           <div className="settings-sections">
@@ -315,7 +327,7 @@ function Field({ field, value, onChange }: FieldProps) {
     }
 
     return (
-      <label className="field-card">
+      <div className="field-card">
         <span className="field-header">
           <FieldLabel field={field} />
           <span className="field-value">{formatDate(draftValue)}</span>
@@ -332,7 +344,7 @@ function Field({ field, value, onChange }: FieldProps) {
             commitDateValue(event.target.value);
           }}
         />
-      </label>
+      </div>
     );
   }
 
@@ -371,6 +383,10 @@ function Field({ field, value, onChange }: FieldProps) {
   }
 
   if (field.type === "range") {
+    const commitRangeValue = (nextValue: number) => {
+      onChange(field.id, nextValue as PensionSettings[typeof field.id]);
+    };
+
     return (
       <label className="field-card">
         <span className="field-header">
@@ -380,18 +396,28 @@ function Field({ field, value, onChange }: FieldProps) {
             {field.valuePrefix ?? ""}
           </span>
         </span>
-        <input
-          aria-label={field.label}
-          className="range-input"
-          type="range"
-          min={field.min}
-          max={field.max}
-          step={field.step}
-          value={value as number}
-          onChange={(event) =>
-            onChange(field.id, Number(event.target.value) as PensionSettings[typeof field.id])
-          }
-        />
+        <div className="range-control-grid">
+          <input
+            aria-label={field.label}
+            className="range-input"
+            type="range"
+            min={field.min}
+            max={field.max}
+            step={field.step}
+            value={value as number}
+            onChange={(event) => commitRangeValue(Number(event.target.value))}
+          />
+          <input
+            aria-label={`${field.label} exact value`}
+            className="number-input"
+            type="number"
+            min={field.min}
+            max={field.max}
+            step={field.step}
+            value={value as number}
+            onChange={(event) => commitRangeValue(Number(event.target.value))}
+          />
+        </div>
         <div className="range-scale">
           <span>{formatFieldValue(field.min, field.format)}</span>
           <span>{formatFieldValue(field.max, field.format)}</span>
