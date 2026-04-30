@@ -256,6 +256,55 @@ describe("App settings form", () => {
     expect(statePensionSlider).toHaveValue(defaultSettings.currentStatePension.toString());
   });
 
+  it("removes lump sum purchases from the form and saved settings", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add lump sum purchase" }));
+    fireEvent.change(screen.getByLabelText("Lump sum amount 1"), {
+      target: { value: "12000" },
+    });
+
+    expect(screen.getByText("Lump sum #1")).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        alphaAddedPensionLumpSums: [
+          expect.objectContaining({
+            amount: 12000,
+          }),
+        ],
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove lump sum" }));
+
+    expect(screen.queryByText("Lump sum #1")).not.toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        alphaAddedPensionLumpSums: [],
+      }),
+    );
+  });
+
+  it("only asks for a lump sum repeat end date when the cadence is yearly", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add lump sum purchase" }));
+
+    expect(screen.queryByLabelText("Lump sum end date 1")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Lump sum cadence 1"), {
+      target: { value: "yearly" },
+    });
+
+    expect(screen.getByLabelText("Lump sum end date 1")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Lump sum cadence 1"), {
+      target: { value: "once" },
+    });
+
+    expect(screen.queryByLabelText("Lump sum end date 1")).not.toBeInTheDocument();
+  });
+
   it("normalizes unexpected stored values back to allowed settings", () => {
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
