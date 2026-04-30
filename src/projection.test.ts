@@ -23,7 +23,15 @@ import {
   getEarlyRetirementReductionFactor,
   getLifeExpectancyDate,
 } from "./projection";
-import { defaultSettings, type PensionSettings } from "./settings";
+import {
+  defaultSettings,
+  resolveAlphaAbsDate,
+  type PensionSettings,
+} from "./settings";
+
+function findRowByDate(rows: ReturnType<typeof createProjectionTable>, date: string) {
+  return rows.find((row) => row.date === date);
+}
 
 describe("projection calculations", () => {
   it("ends the table on the birthday at the selected life expectancy age", () => {
@@ -300,11 +308,18 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-    expect(rows[0]?.annualAccruedAlphaPension).toBeCloseTo(8412.4, 6);
-    expect(rows[1]?.date).toBe("2047-06-15");
-    expect(rows[1]?.annualAccruedAlphaPension).toBeCloseTo(8493.6, 6);
-    expect(rows[2]?.date).toBe("2047-07-15");
-    expect(rows[2]?.annualAccruedAlphaPension).toBeCloseTo(8493.6, 6);
+    expect(findRowByDate(rows, "2047-05-15")?.annualAccruedAlphaPension).toBeCloseTo(
+      8412.4,
+      6,
+    );
+    expect(findRowByDate(rows, "2047-06-15")?.annualAccruedAlphaPension).toBeCloseTo(
+      8493.6,
+      6,
+    );
+    expect(findRowByDate(rows, "2047-07-15")?.annualAccruedAlphaPension).toBeCloseTo(
+      8493.6,
+      6,
+    );
   });
 
   it("creates projection rows through the life expectancy birthday", () => {
@@ -333,10 +348,19 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-    expect(rows[0]?.annualAlphaPensionIncludingReduction).toBeCloseTo(5451.2352, 6);
-    expect(rows[0]?.monthlyAlphaPensionTakeHome).toBe(0);
-    expect(rows[1]?.monthlyAlphaPensionTakeHome).toBeCloseTo(458.6544, 6);
-    expect(rows[1]?.totalMonthlyPensionTakeHomePay).toBeCloseTo(458.6544, 6);
+    expect(findRowByDate(rows, "2047-05-15")?.annualAlphaPensionIncludingReduction).toBeCloseTo(
+      5451.2352,
+      6,
+    );
+    expect(findRowByDate(rows, "2047-05-15")?.monthlyAlphaPensionTakeHome).toBe(0);
+    expect(findRowByDate(rows, "2047-06-15")?.monthlyAlphaPensionTakeHome).toBeCloseTo(
+      458.6544,
+      6,
+    );
+    expect(findRowByDate(rows, "2047-06-15")?.totalMonthlyPensionTakeHomePay).toBeCloseTo(
+      458.6544,
+      6,
+    );
   });
 
   it("shows the lump sum only on the purchase row and carries it into annual accrued pension", () => {
@@ -363,13 +387,25 @@ describe("projection calculations", () => {
 
     const rows = createProjectionTable(settings);
 
-    expect(rows[0]?.lumpSumAddedPension).toBe(0);
-    expect(rows[1]?.lumpSumAddedPension).toBeCloseTo(1000, 6);
-    expect(rows[2]?.lumpSumAddedPension).toBe(0);
-    expect(rows[0]?.annualAccruedAlphaPension).toBeCloseTo(8412.4, 6);
-    expect(rows[1]?.annualAccruedAlphaPension).toBeCloseTo(9493.6, 6);
-    expect(rows[2]?.annualAccruedAlphaPension).toBeCloseTo(9493.6, 6);
-    expect(rows[1]?.monthlyAlphaPensionTakeHome).toBeCloseTo(512.6544, 6);
+    expect(findRowByDate(rows, "2047-05-15")?.lumpSumAddedPension).toBe(0);
+    expect(findRowByDate(rows, "2047-06-15")?.lumpSumAddedPension).toBeCloseTo(1000, 6);
+    expect(findRowByDate(rows, "2047-07-15")?.lumpSumAddedPension).toBe(0);
+    expect(findRowByDate(rows, "2047-05-15")?.annualAccruedAlphaPension).toBeCloseTo(
+      8412.4,
+      6,
+    );
+    expect(findRowByDate(rows, "2047-06-15")?.annualAccruedAlphaPension).toBeCloseTo(
+      9493.6,
+      6,
+    );
+    expect(findRowByDate(rows, "2047-07-15")?.annualAccruedAlphaPension).toBeCloseTo(
+      9493.6,
+      6,
+    );
+    expect(findRowByDate(rows, "2047-06-15")?.monthlyAlphaPensionTakeHome).toBeCloseTo(
+      512.6544,
+      6,
+    );
   });
 
   it("uses the calculated starting Alpha pension at the projection start instead of the raw ABS value", () => {
@@ -385,7 +421,31 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-    expect(rows[0]?.annualAccruedAlphaPension).toBeCloseTo(8980.8, 6);
+    expect(findRowByDate(rows, "2025-12-15")?.annualAccruedAlphaPension).toBeCloseTo(
+      8980.8,
+      6,
+    );
+  });
+
+  it("prepends rows from the last ABS statement before the calculation start", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2025-12-15",
+      alphaPensionAbsDate: "2025",
+      accruedPensionAtLastAbs: 8250,
+      pensionableEarnings: 42000,
+      alphaPensionLeaveAge: 55,
+      alphaPensionDrawAge: 55,
+      lifeExpectancy: 70,
+    };
+
+    const rows = createProjectionTable(settings);
+    const alphaAbsDate = resolveAlphaAbsDate(settings.alphaPensionAbsDate);
+
+    expect(rows[0]?.date).toBe(alphaAbsDate);
+    expect(rows[0]?.milestones).toEqual(["Last ABS statement"]);
+    expect(findRowByDate(rows, "2025-12-15")?.milestones).toContain("Calculation start");
+    expect(findRowByDate(rows, alphaAbsDate)?.annualAccruedAlphaPension).toBeCloseTo(8250, 6);
   });
 
   it("flags the correct row for the Alpha Pension Stop Date", () => {
@@ -493,6 +553,24 @@ describe("projection calculations", () => {
     expect(milestoneMap.get("2047-04-15")).toContain("Calculation start");
   });
 
+  it("flags the ABS row for the last ABS statement milestone", () => {
+    const milestoneMap = buildMilestoneMap(
+      generateMilestoneDefinitions(
+        "2047-05-15",
+        "2047-06-15",
+        "2047-07-15",
+        "2055-06-15",
+        "2055-08-15",
+        [],
+        "2047-04-01",
+      ),
+      "2047-04-01",
+      "2047-08-15",
+    );
+
+    expect(milestoneMap.get("2047-04-01")).toContain("Last ABS statement");
+  });
+
   it("flags the life expectancy row for the life expectancy milestone", () => {
     const milestoneMap = buildMilestoneMap(
       generateMilestoneDefinitions(
@@ -522,8 +600,9 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-    expect(rows[0]?.milestones).toEqual(["Calculation start"]);
-    expect(rows[1]?.milestones).toEqual([
+    expect(rows[0]?.milestones).toEqual(["Last ABS statement"]);
+    expect(findRowByDate(rows, "2047-05-15")?.milestones).toEqual(["Calculation start"]);
+    expect(findRowByDate(rows, "2047-06-15")?.milestones).toEqual([
       "Leave Alpha Pension Scheme",
       "Starts Drawing Alpha Pension",
       "Starts Drawing State Pension",
@@ -587,10 +666,12 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-    expect(rows[2]?.date).toBe("2047-06-15");
-    expect(rows[2]?.milestones).not.toContain("Lump Sum Added Pension (£12,820)");
-    expect(rows[3]?.date).toBe("2047-07-15");
-    expect(rows[3]?.milestones).toContain("Lump Sum Added Pension (£12,820)");
+    expect(findRowByDate(rows, "2047-06-15")?.milestones).not.toContain(
+      "Lump Sum Added Pension (£12,820)",
+    );
+    expect(findRowByDate(rows, "2047-07-15")?.milestones).toContain(
+      "Lump Sum Added Pension (£12,820)",
+    );
   });
 
   it("tracks age with month precision in projection rows", () => {
@@ -602,13 +683,12 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-
-    expect(rows[0]?.age).toBe(59);
-    expect(rows[0]?.ageMonths).toBe(9);
-    expect(rows[2]?.age).toBe(59);
-    expect(rows[2]?.ageMonths).toBe(11);
-    expect(rows[3]?.age).toBe(60);
-    expect(rows[3]?.ageMonths).toBe(0);
+    expect(findRowByDate(rows, "2047-04-15")?.age).toBe(59);
+    expect(findRowByDate(rows, "2047-04-15")?.ageMonths).toBe(9);
+    expect(findRowByDate(rows, "2047-06-15")?.age).toBe(59);
+    expect(findRowByDate(rows, "2047-06-15")?.ageMonths).toBe(11);
+    expect(findRowByDate(rows, "2047-07-15")?.age).toBe(60);
+    expect(findRowByDate(rows, "2047-07-15")?.ageMonths).toBe(0);
   });
 
   it("selects the first row on or after the Alpha pension draw date for the summary", () => {
@@ -625,10 +705,8 @@ describe("projection calculations", () => {
     const summary = generatePensionSummary(rows, settings);
 
     expect(summary.keyDates.startsAlphaPension).toBe("2047-06-20");
-    expect(rows[2]?.date).toBe("2047-06-15");
-    expect(rows[3]?.date).toBe("2047-07-15");
     expect(summary.alphaPension.monthlyAtDraw).toBeCloseTo(
-      rows[3]?.monthlyAlphaPensionTakeHome ?? 0,
+      findRowByDate(rows, "2047-07-15")?.monthlyAlphaPensionTakeHome ?? 0,
       6,
     );
   });
@@ -645,14 +723,12 @@ describe("projection calculations", () => {
     const rows = createProjectionTable(settings);
     const summary = generatePensionSummary(rows, settings);
 
-    expect(rows[2]?.date).toBe("2055-06-15");
-    expect(rows[3]?.date).toBe("2055-07-15");
     expect(summary.incomeOverTime.monthlyAtStateStart).toBeCloseTo(
-      rows[3]?.totalMonthlyPensionTakeHomePay ?? 0,
+      findRowByDate(rows, "2055-07-15")?.totalMonthlyPensionTakeHomePay ?? 0,
       6,
     );
     expect(summary.incomeOverTime.monthlyAfterStatePension).toBeCloseTo(
-      rows[3]?.totalMonthlyPensionTakeHomePay ?? 0,
+      findRowByDate(rows, "2055-07-15")?.totalMonthlyPensionTakeHomePay ?? 0,
       6,
     );
   });

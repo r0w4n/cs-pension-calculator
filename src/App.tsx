@@ -20,11 +20,7 @@ import {
 } from "./settings";
 
 type DateField = {
-  id:
-    | "startDate"
-    | "dateOfBirth"
-    | "statePensionDrawDate"
-    | "alphaPensionAbsDate";
+  id: "startDate" | "dateOfBirth" | "statePensionDrawDate" | "alphaPensionAbsDate";
   label: string;
   type: "date" | "year";
   infoUrl?: string;
@@ -573,7 +569,6 @@ function Field({ field, value, onChange }: FieldProps) {
 
   return null;
 }
-
 function formatFieldValue(value: number, format?: "currency") {
   if (format === "currency") {
     return formatCurrency(value);
