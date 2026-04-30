@@ -472,7 +472,7 @@ const projectionTableColumns = [
 
 function ProjectionTable({ rows }: ProjectionTableProps) {
   const headerScrollRef = useRef<HTMLDivElement | null>(null);
-  const [showMilestonesOnly, setShowMilestonesOnly] = useState(false);
+  const [showMilestonesOnly, setShowMilestonesOnly] = useState(true);
   const visibleRows = showMilestonesOnly
     ? rows.filter((row) => row.milestones.length > 0)
     : rows;

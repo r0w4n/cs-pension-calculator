@@ -319,7 +319,7 @@ describe("App settings form", () => {
     ).toBeInTheDocument();
   });
 
-  it("can collapse the table to milestone rows only", () => {
+  it("shows milestone rows by default and can expand to all rows", () => {
     const rows = createProjectionTable({
       ...defaultSettings,
       startDate: getTodayIsoDate(),
@@ -330,7 +330,9 @@ describe("App settings form", () => {
     render(<App />);
 
     expect(
-      screen.getByText(`Showing ${rows.length} of ${rows.length} rows.`),
+      screen.getByText(
+        `Showing ${milestoneRows.length} of ${rows.length} rows (${milestoneRows.length} milestones).`,
+      ),
     ).toBeInTheDocument();
 
     if (!nonMilestoneRow) {
@@ -343,15 +345,6 @@ describe("App settings form", () => {
       year: "numeric",
     }).format(new Date(`${nonMilestoneRow.date}T00:00:00`));
 
-    expect(screen.getByText(nonMilestoneRowLabel)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Only show milestone rows" }));
-
-    expect(
-      screen.getByText(
-        `Showing ${milestoneRows.length} of ${rows.length} rows (${milestoneRows.length} milestones).`,
-      ),
-    ).toBeInTheDocument();
     expect(screen.queryByText(nonMilestoneRowLabel)).not.toBeInTheDocument();
     expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
@@ -362,5 +355,13 @@ describe("App settings form", () => {
       screen.getByText(`Showing ${rows.length} of ${rows.length} rows.`),
     ).toBeInTheDocument();
     expect(screen.getByText(nonMilestoneRowLabel)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Only show milestone rows" }));
+
+    expect(
+      screen.getByText(
+        `Showing ${milestoneRows.length} of ${rows.length} rows (${milestoneRows.length} milestones).`,
+      ),
+    ).toBeInTheDocument();
   });
 });
