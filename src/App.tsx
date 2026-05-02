@@ -398,20 +398,40 @@ function Field({ field, value, onChange, useDropdownDates }: FieldProps) {
             onChange={(event) => commitRangeValue(Number(event.target.value))}
           />
         </div>
-        {field.id === "currentStatePension" ? (
-          <button
-            type="button"
-            className="secondary-button field-reset-button"
-            onClick={() =>
-              onChange(
-                field.id,
-                defaultSettings.currentStatePension as PensionSettings[typeof field.id],
-              )
-            }
-          >
-            Reset to default
-          </button>
-        ) : null}
+      </div>
+    );
+  }
+
+  if (field.type === "currency-input") {
+    return (
+      <div className="field-card">
+        <span className="field-header">
+          <FieldLabel field={field} />
+        </span>
+        <input
+          aria-label={field.label}
+          className="select-input"
+          type="number"
+          min={field.min}
+          max={field.max}
+          step={field.step}
+          value={value as number}
+          onChange={(event) =>
+            onChange(field.id, Number(event.target.value) as PensionSettings[typeof field.id])
+          }
+        />
+        <button
+          type="button"
+          className="secondary-button field-reset-button"
+          onClick={() =>
+            onChange(
+              field.id,
+              defaultSettings.currentStatePension as PensionSettings[typeof field.id],
+            )
+          }
+        >
+          Reset to default
+        </button>
       </div>
     );
   }

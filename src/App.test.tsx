@@ -29,7 +29,7 @@ describe("App settings form", () => {
       defaultSettings.lifeExpectancy.toString(),
     );
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
-      defaultSettings.currentStatePension.toString(),
+      defaultSettings.currentStatePension,
     );
     expect(screen.getByLabelText("Last Annual Benifits Statement")).toHaveValue(
       "2025",
@@ -175,11 +175,11 @@ describe("App settings form", () => {
     fireEvent.change(statePensionSlider, {
       target: { value: "13000" },
     });
-    expect(statePensionSlider).toHaveValue("13000");
+    expect(statePensionSlider).toHaveValue(13000);
 
     fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
 
-    expect(statePensionSlider).toHaveValue(defaultSettings.currentStatePension.toString());
+    expect(statePensionSlider).toHaveValue(defaultSettings.currentStatePension);
   });
 
   it("resets all parameters back to their defaults", () => {
@@ -197,7 +197,7 @@ describe("App settings form", () => {
     expect(screen.getByText("Lump sum #1")).toBeInTheDocument();
     expect(screen.getByLabelText("Your Date of Birth")).toHaveValue("1990-02-14");
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
-      "13000",
+      13000,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Reset parameters" }));
@@ -205,7 +205,7 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
     expect(screen.getByLabelText("Your Date of Birth")).toHaveValue(defaultSettings.dateOfBirth);
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
-      defaultSettings.currentStatePension.toString(),
+      defaultSettings.currentStatePension,
     );
     expect(screen.queryByText("Lump sum #1")).not.toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual({
@@ -309,7 +309,7 @@ describe("App settings form", () => {
     render(<App />);
 
     expect(screen.getByLabelText("Assumed Life Expectancy (Age)")).toHaveValue("100");
-    expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue("0");
+    expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(0);
     expect(screen.getByLabelText("Added Alpha Pension (£ per month)")).toHaveValue("225");
     expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveValue("40");
     expect(

@@ -10,7 +10,6 @@ export type DateField = {
 export type RangeField = {
   id:
     | "lifeExpectancy"
-    | "currentStatePension"
     | "alphaAddedPensionMonthly"
     | "alphaPensionLeaveAge"
     | "accruedPensionAtLastAbs"
@@ -26,7 +25,18 @@ export type RangeField = {
   valuePrefix?: string;
 };
 
-export type FieldDefinition = DateField | RangeField;
+export type CurrencyInputField = {
+  id: "currentStatePension";
+  label: string;
+  type: "currency-input";
+  min: number;
+  max: number;
+  step: number;
+  format?: "currency";
+  infoUrl?: string;
+};
+
+export type FieldDefinition = DateField | RangeField | CurrencyInputField;
 
 export type FieldGroup = {
   id: string;
@@ -63,18 +73,10 @@ export const fieldGroups: FieldGroup[] = [
         max: 100,
         step: 1,
       },
-    ],
-  },
-  {
-    id: "pension",
-    eyebrow: "Pension Details",
-    title: "Wider pension details",
-    description: "Main retirement ages and total pension income assumptions.",
-    fields: [
       {
         id: "currentStatePension",
         label: "Current Full State Pension (£ per year)",
-        type: "range",
+        type: "currency-input",
         min: 0,
         max: 15000,
         step: 0.01,
@@ -105,16 +107,6 @@ export const fieldGroups: FieldGroup[] = [
         format: "currency",
       },
       {
-        id: "alphaAddedPensionMonthly",
-        label: "Added Alpha Pension (£ per month)",
-        type: "range",
-        min: 0,
-        max: 1000,
-        step: 25,
-        format: "currency",
-        valuePrefix: "/mo",
-      },
-      {
         id: "alphaPensionLeaveAge",
         label: "Age You Leave Alpha Scheme",
         type: "range",
@@ -138,6 +130,16 @@ export const fieldGroups: FieldGroup[] = [
         min: 55,
         max: 70,
         step: 1,
+      },
+      {
+        id: "alphaAddedPensionMonthly",
+        label: "Added Alpha Pension (£ per month)",
+        type: "range",
+        min: 0,
+        max: 1000,
+        step: 25,
+        format: "currency",
+        valuePrefix: "/mo",
       },
     ],
   },
