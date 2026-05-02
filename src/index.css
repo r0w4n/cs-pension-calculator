@@ -367,6 +367,22 @@ h3 {
   line-height: var(--line-height-tight);
 }
 
+.lump-sum-editor {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.lump-sum-editor-heading h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  line-height: var(--line-height-heading);
+}
+
+.lump-sum-editor > .secondary-button {
+  justify-self: start;
+}
+
 .side-panel {
   align-self: start;
 }

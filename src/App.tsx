@@ -811,9 +811,9 @@ function AddedPensionLumpSumsEditor({
   }
 
   return (
-    <section className="settings-section">
-      <div className="section-heading">
-        <h3>Lump sum purchases</h3>
+    <div className="lump-sum-editor">
+      <div className="lump-sum-editor-heading">
+        <h4>Lump sum purchases</h4>
         <p className="section-copy">
           Add one-off or yearly lump sum purchases. A yearly entry repeats on the same
           calendar date until its end date.
@@ -931,7 +931,7 @@ function AddedPensionLumpSumsEditor({
       <button type="button" className="secondary-button" onClick={addLumpSum}>
         Add lump sum purchase
       </button>
-    </section>
+    </div>
   );
 }
 
