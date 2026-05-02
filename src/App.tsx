@@ -105,8 +105,7 @@ function App() {
       <section className="layout">
         <section className="panel settings-panel">
           <div className="panel-heading">
-            <p className="eyebrow">Settings</p>
-            <h2>Pension assumptions</h2>
+            <h2>Pension Parameters</h2>
             <p className="section-copy">
               Everything is saved in one place, with the fields grouped by topic
               so they still read like separate sections.
@@ -124,7 +123,6 @@ function App() {
             {validationIssues.length > 0 ? (
               <section className="settings-section" aria-live="polite">
                 <div className="section-heading">
-                  <p className="eyebrow">Validation</p>
                   <h3>Check these assumptions</h3>
                   <p className="section-copy">
                     The projection is paused until these settings are brought back
@@ -143,7 +141,6 @@ function App() {
             {fieldGroups.map((group) => (
               <section className="settings-section" key={group.id}>
                 <div className="section-heading">
-                  <p className="eyebrow">{group.eyebrow}</p>
                   <h3>{group.title}</h3>
                   <p className="section-copy">{group.description}</p>
                 </div>
@@ -177,7 +174,6 @@ function App() {
 
         <aside className="panel side-panel">
           <div className="panel-heading">
-            <p className="eyebrow">Summary</p>
             <h2>Pension Summary</h2>
             <p className="section-copy">
               The headline outcomes below are all derived from the same monthly
@@ -191,7 +187,6 @@ function App() {
 
       <section className="panel">
         <div className="panel-heading">
-          <p className="eyebrow">Projection</p>
           <h2>Monthly pension projection table</h2>
           <p className="section-copy">
             The table is generated from the projection layer so each row stays
