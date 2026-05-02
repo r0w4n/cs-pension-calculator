@@ -35,6 +35,8 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("lifeExpectancy", 120)).toBe(100);
     expect(normalizeSetting("currentStatePension", -10)).toBe(0);
     expect(normalizeSetting("currentStatePension", 12547.6)).toBe(12547.6);
+    expect(normalizeSetting("assumedCpiPercent", 2.34)).toBe(2.3);
+    expect(normalizeSetting("assumedCpiPercent", 11)).toBe(10);
     expect(normalizeSetting("alphaAddedPensionMonthly", 233)).toBe(225);
     expect(normalizeSetting("pensionableEarnings", 56321)).toBe(56500);
     expect(normalizeSetting("alphaPensionLeaveAge", 20)).toBe(40);
@@ -72,6 +74,8 @@ describe("settings unit tests", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      applyPensionIncreases: defaultSettings.applyPensionIncreases,
+      assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: 225,
       alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
@@ -89,6 +93,8 @@ describe("settings unit tests", () => {
         dateOfBirth: "bad-date",
         lifeExpectancy: 120,
         currentStatePension: -10,
+        applyPensionIncreases: true,
+        assumedCpiPercent: 2.34,
         statePensionDrawDate: "bad-date",
         alphaPensionAbsDate: "bad-date",
         alphaAddedPensionMonthly: 233,
@@ -115,6 +121,8 @@ describe("settings unit tests", () => {
       normalPensionAge: calculateNormalPensionAge(defaultSettings.dateOfBirth),
       currentStatePension: 0,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
+      applyPensionIncreases: true,
+      assumedCpiPercent: 2.3,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: 225,
       alphaPensionLeaveAge: 40,

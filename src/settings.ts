@@ -17,6 +17,8 @@ export type PensionSettings = {
   normalPensionAge: number;
   currentStatePension: number;
   statePensionDrawDate: string;
+  applyPensionIncreases: boolean;
+  assumedCpiPercent: number;
   alphaPensionAbsDate: string;
   alphaAddedPensionMonthly: number;
   alphaPensionLeaveAge: number;
@@ -39,6 +41,7 @@ type StoredPensionSettings = Omit<
 const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
   currentStatePension: { min: 0, max: 15000, step: 0.01 },
+  assumedCpiPercent: { min: 0, max: 10, step: 0.1 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
   alphaPensionLeaveAge: { min: 40, max: 70, step: 1 },
   accruedPensionAtLastAbs: { min: 0, max: 50000, step: 250 },
@@ -55,6 +58,8 @@ export const defaultSettings: PensionSettings = {
   normalPensionAge: 68,
   currentStatePension: 12547.6,
   statePensionDrawDate: "2055-06-15",
+  applyPensionIncreases: false,
+  assumedCpiPercent: 2,
   alphaPensionAbsDate: "2025",
   alphaAddedPensionMonthly: 150,
   alphaPensionLeaveAge: 60,
@@ -119,6 +124,8 @@ export function normalizeSetting<K extends keyof PensionSettings>(
         value as string,
         defaultSettings.statePensionDrawDate,
       ) as PensionSettings[K];
+    case "applyPensionIncreases":
+      return Boolean(value) as PensionSettings[K];
     case "alphaPensionAbsDate":
       return normalizeAlphaAbsYear(
         value as string,
@@ -140,6 +147,8 @@ function coerceSettings(
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
     currentStatePension: coerceNumber(input.currentStatePension),
+    applyPensionIncreases: coerceBoolean(input.applyPensionIncreases),
+    assumedCpiPercent: coerceNumber(input.assumedCpiPercent),
     alphaPensionAbsDate: coerceString(input.alphaPensionAbsDate),
     alphaAddedPensionMonthly: coerceNumber(input.alphaAddedPensionMonthly),
     alphaPensionLeaveAge: coerceNumber(input.alphaPensionLeaveAge),
@@ -168,6 +177,10 @@ function coerceNumber(value: unknown) {
 
 function coerceString(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function coerceBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 export function createDefaultSettings(): PensionSettings {
@@ -261,6 +274,11 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       settings.currentStatePension,
     ),
     statePensionDrawDate: calculateStatePensionDrawDate(dateOfBirth),
+    applyPensionIncreases: Boolean(settings.applyPensionIncreases),
+    assumedCpiPercent: normalizeSetting(
+      "assumedCpiPercent",
+      settings.assumedCpiPercent,
+    ),
     alphaPensionAbsDate: normalizeSetting(
       "alphaPensionAbsDate",
       settings.alphaPensionAbsDate,
@@ -302,8 +320,16 @@ function normalizeNumericSetting(key: NumericSettingKey, value: unknown) {
   const { min, max, step } = numericSettingRules[key];
   const clamped = Math.min(max, Math.max(min, parsed));
   const snapped = Math.round((clamped - min) / step) * step + min;
+  const decimalPlaces = getDecimalPlaces(step);
 
-  return Math.min(max, Math.max(min, snapped));
+  return Number(Math.min(max, Math.max(min, snapped)).toFixed(decimalPlaces));
+}
+
+function getDecimalPlaces(value: number) {
+  const text = value.toString();
+  const decimalIndex = text.indexOf(".");
+
+  return decimalIndex === -1 ? 0 : text.length - decimalIndex - 1;
 }
 
 function normalizeDate(value: string, fallback: string) {

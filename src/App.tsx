@@ -188,6 +188,10 @@ function App() {
                       value={settings[field.id]}
                       onChange={updateSetting}
                       useDropdownDates={useDropdownDates}
+                      disabled={
+                        field.id === "assumedCpiPercent" &&
+                        !settings.applyPensionIncreases
+                      }
                     />
                   ))}
                 </div>
@@ -351,13 +355,15 @@ function SummarySection({ title, items }: SummarySectionProps) {
 }
 
 function FieldLabel({ field }: { field: FieldDefinition }) {
+  const infoUrl = "infoUrl" in field ? field.infoUrl : undefined;
+
   return (
     <span className="field-label-group">
       <span className="field-label">{field.label}</span>
-      {field.infoUrl ? (
+      {infoUrl ? (
         <a
           className="field-info-link"
-          href={field.infoUrl}
+          href={infoUrl}
           target="_blank"
           rel="noreferrer"
           aria-label={`${field.label} information`}
@@ -375,9 +381,10 @@ type FieldProps = {
   value: PensionSettings[SettingsKey];
   onChange: <K extends SettingsKey>(key: K, value: PensionSettings[K]) => void;
   useDropdownDates: boolean;
+  disabled?: boolean;
 };
 
-function Field({ field, value, onChange, useDropdownDates }: FieldProps) {
+function Field({ field, value, onChange, useDropdownDates, disabled = false }: FieldProps) {
   if (field.type === "date") {
     return (
       <DateSettingField
@@ -426,9 +433,10 @@ function Field({ field, value, onChange, useDropdownDates }: FieldProps) {
     const commitRangeValue = (nextValue: number) => {
       onChange(field.id, nextValue as PensionSettings[typeof field.id]);
     };
+    const canResetToDefault = field.id === "assumedCpiPercent";
 
     return (
-      <div className="field-card">
+      <div className={`field-card${disabled ? " field-card--disabled" : ""}`}>
         <span className="field-header">
           <FieldLabel field={field} />
         </span>
@@ -442,6 +450,7 @@ function Field({ field, value, onChange, useDropdownDates }: FieldProps) {
               max={field.max}
               step={field.step}
               value={value as number}
+              disabled={disabled}
               onChange={(event) => commitRangeValue(Number(event.target.value))}
             />
             <div className="range-scale">
@@ -457,10 +466,51 @@ function Field({ field, value, onChange, useDropdownDates }: FieldProps) {
             max={field.max}
             step={field.step}
             value={value as number}
+            disabled={disabled}
             onChange={(event) => commitRangeValue(Number(event.target.value))}
           />
         </div>
+        {canResetToDefault ? (
+          <button
+            type="button"
+            className="secondary-button field-reset-button"
+            aria-label="Reset assumed CPI to default"
+            disabled={disabled}
+            onClick={() =>
+              onChange(
+                field.id,
+                defaultSettings.assumedCpiPercent as PensionSettings[typeof field.id],
+              )
+            }
+          >
+            Reset to default
+          </button>
+        ) : null}
       </div>
+    );
+  }
+
+  if (field.type === "checkbox") {
+    return (
+      <label className="field-card checkbox-field-card">
+        <span className="field-header">
+          <FieldLabel field={field} />
+        </span>
+        <span className="checkbox-row">
+          <input
+            aria-label={field.label}
+            type="checkbox"
+            checked={value as boolean}
+            onChange={(event) =>
+              onChange(
+                field.id,
+                event.target.checked as PensionSettings[typeof field.id],
+              )
+            }
+          />
+          <span>{field.description}</span>
+        </span>
+      </label>
     );
   }
 
@@ -485,6 +535,7 @@ function Field({ field, value, onChange, useDropdownDates }: FieldProps) {
         <button
           type="button"
           className="secondary-button field-reset-button"
+          aria-label="Reset current full State Pension to default"
           onClick={() =>
             onChange(
               field.id,

@@ -10,6 +10,7 @@ export type DateField = {
 export type RangeField = {
   id:
     | "lifeExpectancy"
+    | "assumedCpiPercent"
     | "alphaAddedPensionMonthly"
     | "alphaPensionLeaveAge"
     | "accruedPensionAtLastAbs"
@@ -25,6 +26,13 @@ export type RangeField = {
   valuePrefix?: string;
 };
 
+export type CheckboxField = {
+  id: "applyPensionIncreases";
+  label: string;
+  type: "checkbox";
+  description: string;
+};
+
 export type CurrencyInputField = {
   id: "currentStatePension";
   label: string;
@@ -36,7 +44,7 @@ export type CurrencyInputField = {
   infoUrl?: string;
 };
 
-export type FieldDefinition = DateField | RangeField | CurrencyInputField;
+export type FieldDefinition = DateField | RangeField | CurrencyInputField | CheckboxField;
 
 export type FieldGroup = {
   id: string;
@@ -84,6 +92,30 @@ export const fieldGroups: FieldGroup[] = [
         step: 0.01,
         format: "currency",
         infoUrl: "https://www.gov.uk/check-state-pension",
+      },
+    ],
+  },
+  {
+    id: "increases",
+    eyebrow: "Pension Increases",
+    title: "Pension increases",
+    description:
+      "Optionally revalue Alpha benefits annually by CPI + 1.6% while active, and CPI after leaving Alpha service.",
+    fields: [
+      {
+        id: "applyPensionIncreases",
+        label: "Apply Alpha pension increases",
+        type: "checkbox",
+        description:
+          "Benefits increase annually by CPI + 1.6% while active, then by CPI after leaving Alpha service.",
+      },
+      {
+        id: "assumedCpiPercent",
+        label: "Assumed CPI (%)",
+        type: "range",
+        min: 0,
+        max: 10,
+        step: 0.1,
       },
     ],
   },

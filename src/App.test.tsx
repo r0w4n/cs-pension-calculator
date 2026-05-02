@@ -36,6 +36,10 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
       defaultSettings.currentStatePension,
     );
+    expect(screen.getByLabelText("Apply Alpha pension increases")).not.toBeChecked();
+    expect(screen.getByLabelText("Assumed CPI (%)")).toHaveValue("2");
+    expect(screen.getByLabelText("Assumed CPI (%)")).toBeDisabled();
+    expect(screen.getByLabelText("Assumed CPI (%) exact value")).toBeDisabled();
     expect(screen.getByLabelText("Last Annual Benifits Statement")).toHaveValue(
       "2025",
     );
@@ -72,7 +76,12 @@ describe("App settings form", () => {
       "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/",
     );
     expect(screen.getByRole("button", { name: "Add lump sum purchase" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reset to default" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reset current full State Pension to default" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reset assumed CPI to default" }),
+    ).toBeInTheDocument();
   });
 
   it("updates settings and saves to local storage", () => {
@@ -108,6 +117,8 @@ describe("App settings form", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      applyPensionIncreases: defaultSettings.applyPensionIncreases,
+      assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: "2024",
       alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
       alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
@@ -132,6 +143,8 @@ describe("App settings form", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      applyPensionIncreases: defaultSettings.applyPensionIncreases,
+      assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
       alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
@@ -147,6 +160,8 @@ describe("App settings form", () => {
       dateOfBirth: "1977-04-10",
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      applyPensionIncreases: defaultSettings.applyPensionIncreases,
+      assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
       alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
@@ -182,9 +197,38 @@ describe("App settings form", () => {
     });
     expect(statePensionSlider).toHaveValue(13000);
 
-    fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reset current full State Pension to default" }),
+    );
 
     expect(statePensionSlider).toHaveValue(defaultSettings.currentStatePension);
+  });
+
+  it("can apply pension increases and reset CPI to the default", () => {
+    renderAcknowledgedApp();
+
+    const applyIncreasesToggle = screen.getByLabelText("Apply Alpha pension increases");
+    const cpiInput = screen.getByLabelText("Assumed CPI (%) exact value");
+
+    fireEvent.click(applyIncreasesToggle);
+
+    expect(screen.getByLabelText("Assumed CPI (%)")).not.toBeDisabled();
+    fireEvent.change(cpiInput, {
+      target: { value: "3.4" },
+    });
+
+    expect(applyIncreasesToggle).toBeChecked();
+    expect(cpiInput).toHaveValue(3.4);
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        applyPensionIncreases: true,
+        assumedCpiPercent: 3.4,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset assumed CPI to default" }));
+
+    expect(cpiInput).toHaveValue(defaultSettings.assumedCpiPercent);
   });
 
   it("resets all parameters back to their defaults", () => {
@@ -217,6 +261,8 @@ describe("App settings form", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      applyPensionIncreases: defaultSettings.applyPensionIncreases,
+      assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
       alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,

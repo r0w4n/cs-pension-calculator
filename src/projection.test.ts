@@ -4,6 +4,7 @@ import {
   buildMilestoneMap,
   calculateAccruedAlphaPension,
   calculateAge,
+  calculateAlphaPensionRevaluationFactor,
   calculateAnnualAlphaPensionIncludingReduction,
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
@@ -78,6 +79,17 @@ describe("projection calculations", () => {
 
   it("calculates accrued alpha pension cumulatively", () => {
     expect(calculateAccruedAlphaPension(8250, 243.6)).toBeCloseTo(8493.6, 6);
+  });
+
+  it("revalues Alpha benefits by CPI plus 1.6 percent while active and CPI after leaving", () => {
+    expect(
+      calculateAlphaPensionRevaluationFactor({
+        fromDate: "2025-04-01",
+        rowDate: "2028-04-01",
+        activeUntilDate: "2026-04-01",
+        cpiPercent: 2,
+      }),
+    ).toBeCloseTo(1.036 * 1.02 * 1.02, 6);
   });
 
   it("returns no additional accrual when start date matches the ABS date", () => {
@@ -358,6 +370,34 @@ describe("projection calculations", () => {
     );
     expect(findRowByDate(rows, "2047-06-15")?.totalMonthlyPensionTakeHomePay).toBeCloseTo(
       458.6544,
+      6,
+    );
+  });
+
+  it("applies optional Alpha pension increases in the projection table", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      applyPensionIncreases: true,
+      assumedCpiPercent: 2,
+      startDate: "2025-04-01",
+      dateOfBirth: "1987-04-01",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 39,
+      lifeExpectancy: 42,
+      accruedPensionAtLastAbs: 10000,
+      alphaPensionAbsDate: "2025",
+      pensionableEarnings: 0,
+      alphaAddedPensionMonthly: 0,
+    };
+
+    const rows = createProjectionTable(settings);
+
+    expect(findRowByDate(rows, "2026-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
+      10360,
+      6,
+    );
+    expect(findRowByDate(rows, "2027-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
+      10567.2,
       6,
     );
   });

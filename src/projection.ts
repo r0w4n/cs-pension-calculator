@@ -80,6 +80,11 @@ type MilestoneDefinition = {
 
 type ProjectionRowWithoutMilestones = Omit<ProjectionRow, "milestones" | "milestoneDates">;
 
+type AlphaBenefitComponent = {
+  amount: number;
+  startDate: string;
+};
+
 export type DerivedProjectionInputs = {
   endDate: string;
   drawDate: string;
@@ -127,6 +132,10 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
 
   if (!derivedInputs) {
     return [];
+  }
+
+  if (settings.applyPensionIncreases) {
+    return createProjectionTableWithPensionIncreases(settings, derivedInputs);
   }
 
   const {
@@ -230,6 +239,132 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
   });
 
   const allRows = [...historicalRows, ...projectionRows];
+  const milestoneDefinitions = generateMilestoneDefinitions(
+    settings.startDate,
+    accrualStopDate,
+    drawDate,
+    settings.statePensionDrawDate,
+    endDate,
+    settings.alphaAddedPensionLumpSums,
+    alphaAbsDate,
+  );
+  const milestoneRows = buildMilestoneMapForRowDates(
+    milestoneDefinitions,
+    allRows.map((row) => row.date),
+  );
+  const milestoneDateRows = buildMilestoneDateMapForRowDates(
+    milestoneDefinitions,
+    allRows.map((row) => row.date),
+  );
+
+  return allRows.map((row) => ({
+    ...row,
+    milestones: milestoneRows.get(row.date) ?? [],
+    milestoneDates: milestoneDateRows.get(row.date) ?? [],
+  }));
+}
+
+function createProjectionTableWithPensionIncreases(
+  settings: PensionSettings,
+  derivedInputs: DerivedProjectionInputs,
+): ProjectionRow[] {
+  const {
+    endDate,
+    drawDate,
+    accrualStopDate,
+    addedPensionStopDate,
+    npaDate,
+    reductionFactor,
+  } = derivedInputs;
+  const alphaAbsDate = resolveAlphaAbsDate(settings.alphaPensionAbsDate);
+  const firstRowDate = minIsoDate(alphaAbsDate, settings.startDate);
+  const benefitComponents: AlphaBenefitComponent[] = [
+    {
+      amount: settings.accruedPensionAtLastAbs,
+      startDate: alphaAbsDate,
+    },
+  ];
+  let previousRowDate: string | undefined;
+
+  const allRows = generateMonthlyDateRange(firstRowDate, endDate).map((rowDate) => {
+    const age = calculateAge(settings.dateOfBirth, rowDate);
+    const ageMonths = calculateAgeMonths(settings.dateOfBirth, rowDate);
+    const shouldShowAbsStatementOnly = rowDate === alphaAbsDate && rowDate < settings.startDate;
+    const monthlyAlphaAccrual =
+      rowDate <= accrualStopDate && !shouldShowAbsStatementOnly
+        ? calculateMonthlyAlphaAccrual(settings.pensionableEarnings)
+        : 0;
+
+    if (monthlyAlphaAccrual > 0) {
+      benefitComponents.push({
+        amount: monthlyAlphaAccrual,
+        startDate: rowDate,
+      });
+    }
+
+    const monthlyAddedPension = calculateMonthlyAddedPension({
+      rowDate,
+      stopDate: addedPensionStopDate,
+      dateOfBirth: settings.dateOfBirth,
+      addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
+    });
+    const lumpSumAddedPension = calculateLumpSumAddedPension({
+      rowDate,
+      previousRowDate,
+      dateOfBirth: settings.dateOfBirth,
+      lumpSums: settings.alphaAddedPensionLumpSums,
+    });
+
+    if (lumpSumAddedPension > 0) {
+      benefitComponents.push({
+        amount: lumpSumAddedPension,
+        startDate: rowDate,
+      });
+    }
+
+    const annualAccruedAlphaPension = calculateRevaluedAlphaPension({
+      benefitComponents,
+      rowDate,
+      activeUntilDate: accrualStopDate,
+      cpiPercent: settings.assumedCpiPercent,
+    });
+    const annualAlphaPensionIncludingReduction =
+      calculateAnnualAlphaPensionIncludingReduction(
+        annualAccruedAlphaPension,
+        drawDate,
+        npaDate,
+        reductionFactor,
+      );
+    const monthlyAlphaPensionTakeHome = calculateMonthlyAlphaPensionTakeHome(
+      rowDate,
+      drawDate,
+      annualAlphaPensionIncludingReduction,
+    );
+    const monthlyStatePension = calculateMonthlyStatePension(
+      rowDate,
+      settings.statePensionDrawDate,
+      settings.currentStatePension,
+    );
+
+    previousRowDate = rowDate;
+
+    return {
+      date: rowDate,
+      age,
+      ageMonths,
+      monthlyAddedPension,
+      lumpSumAddedPension,
+      annualAccruedAlphaPension,
+      annualAlphaPensionIncludingReduction,
+      monthlyAlphaPensionTakeHome,
+      monthlyStatePension,
+      totalMonthlyPensionTakeHomePay: calculateTotalGrossMonthlyPension(
+        monthlyAlphaPensionTakeHome,
+        monthlyStatePension,
+      ),
+    };
+  });
+
   const milestoneDefinitions = generateMilestoneDefinitions(
     settings.startDate,
     accrualStopDate,
@@ -463,6 +598,45 @@ export function calculateAccruedAlphaPension(
   cumulativeMonthlyAccrual: number,
 ) {
   return startingAccruedAlphaPension + cumulativeMonthlyAccrual;
+}
+
+export function calculateAlphaPensionRevaluationFactor(input: {
+  fromDate: string;
+  rowDate: string;
+  activeUntilDate: string;
+  cpiPercent: number;
+}) {
+  const { fromDate, rowDate, activeUntilDate, cpiPercent } = input;
+  const cpiRate = cpiPercent / 100;
+  const activeRate = cpiRate + 0.016;
+  const totalYears = calculateWholeYearDifference(fromDate, rowDate);
+  const activeYears = Math.min(
+    totalYears,
+    calculateWholeYearDifference(fromDate, activeUntilDate),
+  );
+  const deferredYears = totalYears - activeYears;
+
+  return (1 + activeRate) ** activeYears * (1 + cpiRate) ** deferredYears;
+}
+
+function calculateRevaluedAlphaPension(input: {
+  benefitComponents: AlphaBenefitComponent[];
+  rowDate: string;
+  activeUntilDate: string;
+  cpiPercent: number;
+}) {
+  const { benefitComponents, rowDate, activeUntilDate, cpiPercent } = input;
+
+  return benefitComponents.reduce((total, component) => {
+    const revaluationFactor = calculateAlphaPensionRevaluationFactor({
+      fromDate: component.startDate,
+      rowDate,
+      activeUntilDate,
+      cpiPercent,
+    });
+
+    return total + component.amount * revaluationFactor;
+  }, 0);
 }
 
 export function calculateMonthlyAddedPension(input: {
@@ -881,6 +1055,26 @@ export function calculateWholeMonthDifference(startDate: string, endDate: string
     (end.getUTCMonth() - start.getUTCMonth());
 
   return Math.max(0, monthDifference);
+}
+
+function calculateWholeYearDifference(startDate: string, endDate: string) {
+  if (endDate < startDate) {
+    return 0;
+  }
+
+  const start = parseIsoDate(startDate);
+  const end = parseIsoDate(endDate);
+  let years = end.getUTCFullYear() - start.getUTCFullYear();
+  const hasReachedAnniversary =
+    end.getUTCMonth() > start.getUTCMonth() ||
+    (end.getUTCMonth() === start.getUTCMonth() &&
+      end.getUTCDate() >= start.getUTCDate());
+
+  if (!hasReachedAnniversary) {
+    years -= 1;
+  }
+
+  return Math.max(0, years);
 }
 
 function parseIsoDate(value: string) {
