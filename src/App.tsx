@@ -27,8 +27,14 @@ import {
   type PensionSettings,
 } from "./settings";
 
+const ACKNOWLEDGEMENT_STORAGE_KEY = "cs-pension-calculator.acknowledgement";
+const ACKNOWLEDGEMENT_VERSION = "v1";
+
 function App() {
   const [settings, setSettings] = useState<PensionSettings>(loadStoredSettings);
+  const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(
+    loadAcknowledgementState,
+  );
   const useDropdownDates = useMobileDateDropdowns();
   const validationIssues = validateSettings(settings);
   const projectionRows = createProjectionTable(settings);
@@ -56,8 +62,35 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <section className="hero">
+    <>
+      {!hasAcknowledgedNotice ? (
+        <div className="acknowledgement-overlay" role="dialog" aria-modal="true" aria-labelledby="acknowledgement-title">
+          <section className="acknowledgement-card">
+            <p className="eyebrow">Before you continue</p>
+            <h2 id="acknowledgement-title">Important information</h2>
+            <p className="section-copy">
+              This calculator provides estimates for illustrative purposes only. It is not
+              financial advice and is not affiliated with or endorsed by the Civil Service
+              or the Alpha Pension Scheme. Results should not be relied upon without
+              seeking guidance from a qualified financial adviser.
+            </p>
+            <p className="section-copy">
+              Cookies are used for analytics purposes only, and no financial or personal
+              information is transmitted.
+            </p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={acknowledgeNotice}
+            >
+              I understand
+            </button>
+          </section>
+        </div>
+      ) : null}
+
+      <main className="app-shell" aria-hidden={!hasAcknowledgedNotice}>
+        <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">Civil Service Alpha</p>
           <h1>Pension Summary</h1>
@@ -197,9 +230,21 @@ function App() {
         </div>
 
         <ProjectionTable rows={projectionRows} />
-      </section>
-    </main>
+        </section>
+      </main>
+    </>
   );
+
+  function acknowledgeNotice() {
+    setHasAcknowledgedNotice(true);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        ACKNOWLEDGEMENT_STORAGE_KEY,
+        ACKNOWLEDGEMENT_VERSION,
+      );
+    }
+  }
 }
 
 type PensionSummaryPanelProps = {
@@ -1035,6 +1080,17 @@ function useMobileDateDropdowns() {
   }, []);
 
   return matches;
+}
+
+function loadAcknowledgementState() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return (
+    window.localStorage.getItem(ACKNOWLEDGEMENT_STORAGE_KEY) ===
+    ACKNOWLEDGEMENT_VERSION
+  );
 }
 
 export default App;

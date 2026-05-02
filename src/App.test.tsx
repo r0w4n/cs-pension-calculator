@@ -7,13 +7,18 @@ import {
   getTodayIsoDate,
 } from "./settings";
 
+function renderAcknowledgedApp() {
+  render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: "I understand" }));
+}
+
 describe("App settings form", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
   it("renders sensible default values", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
     expect(screen.getByLabelText("Your Date of Birth")).toHaveValue(defaultSettings.dateOfBirth);
@@ -25,7 +30,7 @@ describe("App settings form", () => {
       "type",
       "range",
     );
-    expect(screen.getByLabelText("Assumed Life Expectancy (Age)")).toHaveValue(
+    expect(screen.getByLabelText("Life Expectancy (Age)")).toHaveValue(
       defaultSettings.lifeExpectancy.toString(),
     );
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
@@ -71,7 +76,7 @@ describe("App settings form", () => {
   });
 
   it("updates settings and saves to local storage", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     const birthDateInput = screen.getByLabelText("Your Date of Birth");
 
@@ -93,7 +98,7 @@ describe("App settings form", () => {
   });
 
   it("stores the Alpha ABS date as just the selected year", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     fireEvent.change(screen.getByLabelText("Last Annual Benifits Statement"), {
       target: { value: "2024" },
@@ -114,7 +119,7 @@ describe("App settings form", () => {
   });
 
   it("only commits date normalization after the field loses focus", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     const birthDateInput = screen.getByLabelText("Your Date of Birth");
 
@@ -161,14 +166,14 @@ describe("App settings form", () => {
       }),
     );
 
-    render(<App />);
+    renderAcknowledgedApp();
 
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
     expect(screen.getAllByText(/At State Pension start/i).length).toBeGreaterThan(0);
   });
 
   it("resets the state pension slider back to its default value", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     const statePensionSlider = screen.getByLabelText("Current Full State Pension (£ per year)");
 
@@ -183,7 +188,7 @@ describe("App settings form", () => {
   });
 
   it("resets all parameters back to their defaults", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     fireEvent.change(screen.getByLabelText("Your Date of Birth"), {
       target: { value: "1990-02-14" },
@@ -223,7 +228,7 @@ describe("App settings form", () => {
   });
 
   it("supports exact numeric entry alongside sliders", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     fireEvent.change(
       screen.getByLabelText("Current Pensionable Earnings (£ per year) exact value"),
@@ -243,7 +248,7 @@ describe("App settings form", () => {
   });
 
   it("removes lump sum purchases from the form and saved settings", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Add lump sum purchase" }));
     fireEvent.change(screen.getByLabelText("Lump sum amount 1"), {
@@ -272,7 +277,7 @@ describe("App settings form", () => {
   });
 
   it("only asks for a lump sum repeat end date when the cadence is yearly", () => {
-    render(<App />);
+    renderAcknowledgedApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Add lump sum purchase" }));
 
@@ -306,9 +311,9 @@ describe("App settings form", () => {
       }),
     );
 
-    render(<App />);
+    renderAcknowledgedApp();
 
-    expect(screen.getByLabelText("Assumed Life Expectancy (Age)")).toHaveValue("100");
+    expect(screen.getByLabelText("Life Expectancy (Age)")).toHaveValue("100");
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(0);
     expect(screen.getByLabelText("Added Alpha Pension (£ per month)")).toHaveValue("225");
     expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveValue("40");
@@ -330,7 +335,7 @@ describe("App settings form", () => {
       }),
     );
 
-    render(<App />);
+    renderAcknowledgedApp();
 
     expect(screen.getByRole("heading", { name: "Check these assumptions" })).toBeInTheDocument();
     expect(
@@ -346,7 +351,7 @@ describe("App settings form", () => {
     const milestoneRows = rows.filter((row) => row.milestones.length > 0);
     const nonMilestoneRow = rows.find((row) => row.milestones.length === 0);
 
-    render(<App />);
+    renderAcknowledgedApp();
 
     expect(
       screen.getByText(
