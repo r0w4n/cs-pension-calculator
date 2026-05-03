@@ -140,18 +140,6 @@ function App() {
       </section>
 
       <section className="layout">
-        <aside className="panel side-panel">
-          <div className="panel-heading">
-            <h2>Pension Summary</h2>
-            <p className="section-copy">
-              The headline outcomes below are all derived from the same monthly
-              projection rows shown in the table.
-            </p>
-          </div>
-
-          <PensionSummaryPanel summary={pensionSummary} />
-        </aside>
-
         <section className="panel settings-panel">
           <div className="panel-heading">
             <h2>Pension Parameters</h2>
@@ -259,43 +247,11 @@ function App() {
   }
 }
 
-type PensionSummaryPanelProps = {
-  summary: PensionSummary;
-};
-
 type SummaryItem = {
   label: string;
   value: string;
   infoUrl?: string;
 };
-
-function PensionSummaryPanel({ summary }: PensionSummaryPanelProps) {
-  return (
-    <div className="summary-sections">
-      <SummarySection
-        title="Alpha Pension"
-        items={[
-          {
-            label: "Annual Alpha Pension at retirement",
-            value: formatCurrencyDetailed(summary.alphaPension.annualAtDraw),
-          },
-          {
-            label: "Total Alpha pension added after today",
-            value: formatCurrencyDetailed(summary.alphaPension.totalAddedAfterToday),
-          },
-          {
-            label: "Monthly income at Alpha pension start",
-            value: formatCurrencyDetailed(summary.incomeOverTime.monthlyAtAlphaStart),
-          },
-          {
-            label: "Total Monthly Pension at State Pension start",
-            value: formatCurrencyDetailed(summary.incomeOverTime.monthlyAtStateStart),
-          },
-        ]}
-      />
-    </div>
-  );
-}
 
 type SummarySectionProps = {
   title: string;

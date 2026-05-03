@@ -62,9 +62,9 @@ describe("App settings form", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Alpha Pension" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pension Summary" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Calculated details" })).toBeInTheDocument();
-    expect(screen.getByText("Total Monthly Pension at State Pension start")).toBeInTheDocument();
+    expect(screen.getByText("At State Pension start")).toBeInTheDocument();
     expect(screen.getAllByText("Starts Drawing Alpha Pension").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
