@@ -131,7 +131,9 @@ function App() {
             </div>
             <p>
               Total annual pension from{" "}
-              {formatDate(pensionSummary.keyDates.startsStatePension)}.
+              {formatDate(pensionSummary.keyDates.startsStatePension)}, including{" "}
+              {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyStatePension)}{" "}
+              monthly State Pension.
             </p>
           </article>
         </div>
@@ -211,6 +213,21 @@ function App() {
                 ) : null}
               </section>
             ))}
+
+            <SummarySection
+              title="Calculated details"
+              items={[
+                {
+                  label: "Normal Pension Age",
+                  value: `${pensionSummary.calculated.normalPensionAge}`,
+                },
+                {
+                  label: "State Pension draw date",
+                  value: formatDate(pensionSummary.keyDates.startsStatePension),
+                  infoUrl: "https://www.gov.uk/state-pension-age",
+                },
+              ]}
+            />
           </div>
         </section>
       </section>
@@ -263,14 +280,6 @@ function PensionSummaryPanel({ summary }: PensionSummaryPanelProps) {
             value: formatCurrencyDetailed(summary.alphaPension.annualAtDraw),
           },
           {
-            label: "Monthly Alpha Pension at retirement",
-            value: formatCurrencyDetailed(summary.alphaPension.monthlyAtDraw),
-          },
-          {
-            label: "Maximum Annual Alpha Pension Accrued",
-            value: formatCurrencyDetailed(summary.alphaPension.maximumAnnualAccrued),
-          },
-          {
             label: "Total Alpha pension added after today",
             value: formatCurrencyDetailed(summary.alphaPension.totalAddedAfterToday),
           },
@@ -279,28 +288,8 @@ function PensionSummaryPanel({ summary }: PensionSummaryPanelProps) {
             value: formatCurrencyDetailed(summary.incomeOverTime.monthlyAtAlphaStart),
           },
           {
-            label: "Monthly State Pension",
-            value: formatCurrencyDetailed(summary.incomeOverTime.monthlyStatePension),
-          },
-          {
             label: "Total Monthly Pension at State Pension start",
             value: formatCurrencyDetailed(summary.incomeOverTime.monthlyAtStateStart),
-          },
-          {
-            label: "Monthly income after State Pension",
-            value: formatCurrencyDetailed(summary.incomeOverTime.monthlyAfterStatePension),
-          },
-        ]}
-      />
-
-      <SummarySection
-        title="Calculated details"
-        items={[
-          { label: "Normal Pension Age", value: `${summary.calculated.normalPensionAge}` },
-          {
-            label: "State Pension draw date",
-            value: formatDate(summary.keyDates.startsStatePension),
-            infoUrl: "https://www.gov.uk/state-pension-age",
           },
         ]}
       />
