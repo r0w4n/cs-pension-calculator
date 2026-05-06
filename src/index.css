@@ -811,10 +811,12 @@ h3 {
   }
 
   .range-slider-group {
+    order: 2;
     width: 100%;
   }
 
   .number-input {
+    order: 1;
     max-width: 10rem;
   }
 }
