@@ -10,6 +10,8 @@ export type AddedPensionLumpSum = {
   endDate: string;
 };
 
+export type SippWithdrawalStrategy = "zero_at_death" | "percentage";
+
 export type PensionSettings = {
   startDate: string;
   dateOfBirth: string;
@@ -30,6 +32,14 @@ export type PensionSettings = {
   alphaEpaStartDate: string;
   alphaEpaEndDate: string;
   alphaAddedPensionLumpSums: AddedPensionLumpSum[];
+  sippCurrentPot: number;
+  sippMonthlyContribution: number;
+  sippLumpSums: AddedPensionLumpSum[];
+  sippApplyRealInterest: boolean;
+  sippRealInterestPercent: number;
+  sippApplyTaxRelief: boolean;
+  sippWithdrawalStrategy: SippWithdrawalStrategy;
+  sippWithdrawalPercent: number;
 };
 
 export type PensionValidationIssue = {
@@ -52,6 +62,10 @@ const numericSettingRules = {
   pensionableEarnings: { min: 10000, max: 150000, step: 500 },
   alphaPensionDrawAge: { min: 55, max: 70, step: 1 },
   alphaEpaYearsBeforeNpa: { min: 1, max: 3, step: 1 },
+  sippCurrentPot: { min: 0, max: 2_000_000, step: 1 },
+  sippMonthlyContribution: { min: 0, max: 5000, step: 25 },
+  sippRealInterestPercent: { min: -10, max: 10, step: 0.1 },
+  sippWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
 } as const;
 
 type NumericSettingKey = keyof typeof numericSettingRules;
@@ -76,6 +90,14 @@ export const defaultSettings: PensionSettings = {
   alphaEpaStartDate: "2026-04-01",
   alphaEpaEndDate: "2047-03-31",
   alphaAddedPensionLumpSums: [],
+  sippCurrentPot: 0,
+  sippMonthlyContribution: 0,
+  sippLumpSums: [],
+  sippApplyRealInterest: false,
+  sippRealInterestPercent: 3,
+  sippApplyTaxRelief: true,
+  sippWithdrawalStrategy: "zero_at_death",
+  sippWithdrawalPercent: 4,
 };
 
 export function loadStoredSettings(): PensionSettings {
@@ -96,7 +118,7 @@ export function loadStoredSettings(): PensionSettings {
 
     return normalizeSettings({
       ...defaults,
-      ...coerceSettings(parsed),
+      ...removeUndefinedValues(coerceSettings(parsed)),
     });
   } catch {
     return defaults;
@@ -135,7 +157,14 @@ export function normalizeSetting<K extends keyof PensionSettings>(
       ) as PensionSettings[K];
     case "applyPensionIncreases":
     case "alphaEpaEnabled":
+    case "sippApplyRealInterest":
       return Boolean(value) as PensionSettings[K];
+    case "sippApplyTaxRelief":
+      return (typeof value === "boolean"
+        ? value
+        : defaultSettings.sippApplyTaxRelief) as PensionSettings[K];
+    case "sippWithdrawalStrategy":
+      return normalizeSippWithdrawalStrategy(value) as PensionSettings[K];
     case "alphaEpaStartDate":
     case "alphaEpaEndDate":
       return normalizeDate(value as string, defaultSettings[key] as string) as PensionSettings[K];
@@ -145,6 +174,7 @@ export function normalizeSetting<K extends keyof PensionSettings>(
         defaultSettings.alphaPensionAbsDate,
       ) as PensionSettings[K];
     case "alphaAddedPensionLumpSums":
+    case "sippLumpSums":
       return normalizeAddedPensionLumpSums(
         value as AddedPensionLumpSum[],
       ) as PensionSettings[K];
@@ -156,6 +186,10 @@ export function normalizeSetting<K extends keyof PensionSettings>(
 function coerceSettings(
   input: Partial<StoredPensionSettings>,
 ): Partial<StoredPensionSettings> {
+  const legacySippLumpSumContribution = coerceNumber(
+    (input as { sippLumpSumContribution?: unknown }).sippLumpSumContribution,
+  );
+
   return {
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
@@ -175,6 +209,18 @@ function coerceSettings(
     alphaAddedPensionLumpSums: coerceAddedPensionLumpSums(
       input.alphaAddedPensionLumpSums,
     ),
+    sippCurrentPot: coerceNumber(input.sippCurrentPot),
+    sippMonthlyContribution: coerceNumber(input.sippMonthlyContribution),
+    sippLumpSums:
+      coerceAddedPensionLumpSums(input.sippLumpSums) ??
+      coerceLegacySippLumpSum(legacySippLumpSumContribution),
+    sippApplyRealInterest: coerceBoolean(input.sippApplyRealInterest),
+    sippRealInterestPercent: coerceNumber(input.sippRealInterestPercent),
+    sippApplyTaxRelief: coerceBoolean(input.sippApplyTaxRelief),
+    sippWithdrawalStrategy: coerceString(input.sippWithdrawalStrategy) as
+      | SippWithdrawalStrategy
+      | undefined,
+    sippWithdrawalPercent: coerceNumber(input.sippWithdrawalPercent),
   };
 }
 
@@ -198,6 +244,12 @@ function coerceString(value: unknown) {
 
 function coerceBoolean(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function removeUndefinedValues<T extends object>(input: T) {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined),
+  ) as Partial<T>;
 }
 
 export function createDefaultSettings(): PensionSettings {
@@ -349,6 +401,29 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "alphaAddedPensionLumpSums",
       settings.alphaAddedPensionLumpSums,
     ),
+    sippCurrentPot: normalizeSetting("sippCurrentPot", settings.sippCurrentPot),
+    sippMonthlyContribution: normalizeSetting(
+      "sippMonthlyContribution",
+      settings.sippMonthlyContribution,
+    ),
+    sippLumpSums: normalizeSetting("sippLumpSums", settings.sippLumpSums),
+    sippApplyRealInterest: Boolean(settings.sippApplyRealInterest),
+    sippRealInterestPercent: normalizeSetting(
+      "sippRealInterestPercent",
+      settings.sippRealInterestPercent,
+    ),
+    sippApplyTaxRelief: normalizeSetting(
+      "sippApplyTaxRelief",
+      settings.sippApplyTaxRelief,
+    ),
+    sippWithdrawalStrategy: normalizeSetting(
+      "sippWithdrawalStrategy",
+      settings.sippWithdrawalStrategy,
+    ),
+    sippWithdrawalPercent: normalizeSetting(
+      "sippWithdrawalPercent",
+      settings.sippWithdrawalPercent,
+    ),
   };
 }
 
@@ -411,6 +486,12 @@ function normalizeAlphaAbsYear(value: string, fallback: string) {
   return fallback;
 }
 
+function normalizeSippWithdrawalStrategy(value: unknown): SippWithdrawalStrategy {
+  return value === "percentage" || value === "zero_at_death"
+    ? value
+    : defaultSettings.sippWithdrawalStrategy;
+}
+
 function coerceAddedPensionLumpSums(value: unknown) {
   if (!Array.isArray(value)) {
     return undefined;
@@ -437,6 +518,22 @@ function coerceAddedPensionLumpSum(value: unknown) {
     cadence: input.cadence === "yearly" ? "yearly" : "once",
     endDate: coerceString(input.endDate) ?? coerceString(input.startDate) ?? getTodayIsoDate(),
   } satisfies AddedPensionLumpSum;
+}
+
+function coerceLegacySippLumpSum(value: number | undefined) {
+  if (!value || value <= 0) {
+    return undefined;
+  }
+
+  return [
+    {
+      id: createAddedPensionLumpSumId(),
+      amount: value,
+      startDate: getTodayIsoDate(),
+      cadence: "once",
+      endDate: getTodayIsoDate(),
+    },
+  ] satisfies AddedPensionLumpSum[];
 }
 
 function normalizeAddedPensionLumpSums(value: AddedPensionLumpSum[]) {

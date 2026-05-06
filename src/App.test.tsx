@@ -45,6 +45,21 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Assumed CPI (%)")).toHaveValue("2");
     expect(screen.getByLabelText("Assumed CPI (%)")).toBeDisabled();
     expect(screen.getByLabelText("Assumed CPI (%) exact value")).toBeDisabled();
+    expect(screen.getByLabelText("Current SIPP pot (£)")).toHaveValue(
+      defaultSettings.sippCurrentPot,
+    );
+    expect(screen.getByLabelText("Regular SIPP contribution (£ per month)")).toHaveValue(
+      defaultSettings.sippMonthlyContribution.toString(),
+    );
+    expect(screen.getByRole("button", { name: "Add SIPP lump sum" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Apply 25% tax relief to SIPP additions")).toBeChecked();
+    expect(screen.getByLabelText("Apply real interest to SIPP pot")).not.toBeChecked();
+    expect(screen.getByLabelText("SIPP real interest rate (%)")).toBeDisabled();
+    expect(screen.getByLabelText("SIPP real interest rate (%) exact value")).toBeDisabled();
+    expect(screen.getByLabelText("SIPP withdrawal strategy")).toHaveValue("zero_at_death");
+    expect(screen.getByLabelText("SIPP withdrawal rate (%)")).toHaveValue("4");
+    expect(screen.getByLabelText("SIPP withdrawal rate (%)")).toBeDisabled();
+    expect(screen.getByLabelText("SIPP withdrawal rate (%) exact value")).toBeDisabled();
     expect(screen.getByLabelText("Last Annual Benifits Statement")).toHaveValue(
       "2025",
     );
@@ -63,6 +78,11 @@ describe("App settings form", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", {
+        name: "Monthly SIPP pension",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", {
         name: "Age (years/months)",
       }),
     ).toBeInTheDocument();
@@ -74,6 +94,7 @@ describe("App settings form", () => {
     expect(screen.getByText("Annual Alpha Pension at retirement")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Calculated details" })).toBeInTheDocument();
     expect(screen.getByText("At State Pension start")).toBeInTheDocument();
+    expect(screen.getByText("SIPP at Alpha draw date")).toBeInTheDocument();
     expect(screen.getAllByText("Starts Drawing Alpha Pension").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
@@ -161,6 +182,14 @@ describe("App settings form", () => {
       alphaEpaStartDate: defaultSettings.alphaEpaStartDate,
       alphaEpaEndDate: defaultSettings.alphaEpaEndDate,
       alphaAddedPensionLumpSums: [],
+      sippCurrentPot: defaultSettings.sippCurrentPot,
+      sippMonthlyContribution: defaultSettings.sippMonthlyContribution,
+      sippLumpSums: defaultSettings.sippLumpSums,
+      sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
+      sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
+      sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+      sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
+      sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
     });
   });
 
@@ -191,6 +220,14 @@ describe("App settings form", () => {
       alphaEpaStartDate: defaultSettings.alphaEpaStartDate,
       alphaEpaEndDate: defaultSettings.alphaEpaEndDate,
       alphaAddedPensionLumpSums: [],
+      sippCurrentPot: defaultSettings.sippCurrentPot,
+      sippMonthlyContribution: defaultSettings.sippMonthlyContribution,
+      sippLumpSums: defaultSettings.sippLumpSums,
+      sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
+      sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
+      sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+      sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
+      sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
     });
 
     fireEvent.blur(birthDateInput);
@@ -212,6 +249,14 @@ describe("App settings form", () => {
       alphaEpaStartDate: defaultSettings.alphaEpaStartDate,
       alphaEpaEndDate: defaultSettings.alphaEpaEndDate,
       alphaAddedPensionLumpSums: [],
+      sippCurrentPot: defaultSettings.sippCurrentPot,
+      sippMonthlyContribution: defaultSettings.sippMonthlyContribution,
+      sippLumpSums: defaultSettings.sippLumpSums,
+      sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
+      sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
+      sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+      sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
+      sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
     });
   });
 
@@ -319,6 +364,14 @@ describe("App settings form", () => {
       alphaEpaStartDate: defaultSettings.alphaEpaStartDate,
       alphaEpaEndDate: defaultSettings.alphaEpaEndDate,
       alphaAddedPensionLumpSums: [],
+      sippCurrentPot: defaultSettings.sippCurrentPot,
+      sippMonthlyContribution: defaultSettings.sippMonthlyContribution,
+      sippLumpSums: defaultSettings.sippLumpSums,
+      sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
+      sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
+      sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+      sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
+      sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
     });
   });
 
@@ -389,6 +442,60 @@ describe("App settings form", () => {
     });
 
     expect(screen.queryByLabelText("Lump sum end date 1")).not.toBeInTheDocument();
+  });
+
+  it("adds and removes SIPP lump sums from the form and saved settings", () => {
+    renderAcknowledgedApp();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add SIPP lump sum" }));
+    fireEvent.change(screen.getByLabelText("SIPP lump sum amount 1"), {
+      target: { value: "15000" },
+    });
+    fireEvent.change(screen.getByLabelText("SIPP lump sum cadence 1"), {
+      target: { value: "yearly" },
+    });
+
+    expect(screen.getByText("SIPP lump sum #1")).toBeInTheDocument();
+    expect(screen.getByLabelText("SIPP lump sum end date 1")).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        sippLumpSums: [
+          expect.objectContaining({
+            amount: 15000,
+            cadence: "yearly",
+          }),
+        ],
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove SIPP lump sum" }));
+
+    expect(screen.queryByText("SIPP lump sum #1")).not.toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        sippLumpSums: [],
+      }),
+    );
+  });
+
+  it("enables the SIPP withdrawal rate when using percentage drawdown", () => {
+    renderAcknowledgedApp();
+
+    fireEvent.change(screen.getByLabelText("SIPP withdrawal strategy"), {
+      target: { value: "percentage" },
+    });
+    fireEvent.change(screen.getByLabelText("SIPP withdrawal rate (%) exact value"), {
+      target: { value: "5.2" },
+    });
+
+    expect(screen.getByLabelText("SIPP withdrawal rate (%)")).not.toBeDisabled();
+    expect(screen.getByLabelText("SIPP withdrawal rate (%) exact value")).toHaveValue(5.2);
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        sippWithdrawalStrategy: "percentage",
+        sippWithdrawalPercent: 5.2,
+      }),
+    );
   });
 
   it("normalizes unexpected stored values back to allowed settings", () => {

@@ -8,7 +8,6 @@ import {
 import {
   createProjectionTable,
   generatePensionSummary,
-  type PensionSummary,
   type ProjectionRow,
 } from "./projection";
 import {
@@ -149,6 +148,20 @@ function App() {
           </article>
 
           <article className="summary-card">
+            <p className="card-label">SIPP at Alpha draw date</p>
+            <div className="summary-card-amounts">
+              <h2>{formatCurrencyDetailed(pensionSummary.sippPension.potAtDraw)}</h2>
+              <p className="summary-card-secondary-amount">
+                {formatCurrencyDetailed(pensionSummary.sippPension.monthlyAtDraw)} per month
+              </p>
+            </div>
+            <p>
+              Projected SIPP pot and monthly drawdown from{" "}
+              {formatDate(pensionSummary.keyDates.startsAlphaPension)}.
+            </p>
+          </article>
+
+          <article className="summary-card">
             <p className="card-label">At State Pension start</p>
             <div className="summary-card-amounts">
               <h2>
@@ -188,7 +201,13 @@ function App() {
           },
           {
             label: "Monthly income at Alpha pension start",
-            value: formatCurrencyDetailed(pensionSummary.alphaPension.monthlyAtDraw),
+            value: formatCurrencyDetailed(
+              pensionSummary.incomeOverTime.monthlyAtAlphaStart,
+            ),
+          },
+          {
+            label: "SIPP pot at Alpha pension start",
+            value: formatCurrencyDetailed(pensionSummary.sippPension.potAtDraw),
           },
           {
             label: "Total Monthly Pension at State Pension start",
@@ -256,6 +275,23 @@ function App() {
                     useDropdownDates={useDropdownDates}
                     onChange={(nextLumpSums) =>
                       updateSetting("alphaAddedPensionLumpSums", nextLumpSums)
+                    }
+                  />
+                ) : null}
+
+                {group.id === "sipp" ? (
+                  <AddedPensionLumpSumsEditor
+                    lumpSums={settings.sippLumpSums}
+                    defaultStartDate={settings.startDate}
+                    useDropdownDates={useDropdownDates}
+                    title="SIPP lump sums"
+                    description="Add one-off or yearly lump sum contributions. A yearly entry repeats on the same calendar date until its end date."
+                    emptyText="No SIPP lump sum contributions set up yet."
+                    itemLabel="SIPP lump sum"
+                    addButtonLabel="Add SIPP lump sum"
+                    removeButtonLabel="Remove SIPP lump sum"
+                    onChange={(nextLumpSums) =>
+                      updateSetting("sippLumpSums", nextLumpSums)
                     }
                   />
                 ) : null}
@@ -456,6 +492,9 @@ function SettingsFields({
 function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
+    (fieldId === "sippRealInterestPercent" && !settings.sippApplyRealInterest) ||
+    (fieldId === "sippWithdrawalPercent" &&
+      settings.sippWithdrawalStrategy !== "percentage") ||
     (["alphaEpaYearsBeforeNpa", "alphaEpaStartDate", "alphaEpaEndDate"].includes(
       fieldId,
     ) &&
@@ -466,6 +505,9 @@ function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettin
 function isFieldHiddenOnMobile(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
+    (fieldId === "sippRealInterestPercent" && !settings.sippApplyRealInterest) ||
+    (fieldId === "sippWithdrawalPercent" &&
+      settings.sippWithdrawalStrategy !== "percentage") ||
     (["alphaEpaYearsBeforeNpa", "alphaEpaStartDate", "alphaEpaEndDate"].includes(
       fieldId,
     ) &&
@@ -604,6 +646,33 @@ function Field({
           </button>
         ) : null}
       </div>
+    );
+  }
+
+  if (field.type === "select") {
+    return (
+      <label className="field-card">
+        <span className="field-header">
+          <FieldLabel field={field} />
+        </span>
+        <select
+          aria-label={field.label}
+          className="select-input"
+          value={value as string}
+          onChange={(event) =>
+            onChange(
+              field.id,
+              event.target.value as PensionSettings[typeof field.id],
+            )
+          }
+        >
+          {field.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
     );
   }
 
@@ -871,6 +940,7 @@ const projectionTableColumns = [
   },
   { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha Pension take-home", width: "7rem" },
   { key: "monthlyStatePension", label: "Monthly State pension", width: "6rem" },
+  { key: "monthlySippPension", label: "Monthly SIPP pension", width: "7rem" },
   { key: "totalMonthlyPensionTakeHomePay", label: "Total Monthly Pension take-home pay", width: "8rem" },
 ] as const;
 
@@ -980,6 +1050,7 @@ function ProjectionTable({ rows }: ProjectionTableProps) {
                 <td>{formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction)}</td>
                 <td>{formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome)}</td>
                 <td>{formatCurrencyDetailed(row.monthlyStatePension)}</td>
+                <td>{formatCurrencyDetailed(row.monthlySippPension)}</td>
                 <td>{formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay)}</td>
               </tr>
             ))}
@@ -1025,6 +1096,12 @@ type AddedPensionLumpSumsEditorProps = {
   lumpSums: AddedPensionLumpSum[];
   defaultStartDate: string;
   useDropdownDates: boolean;
+  title?: string;
+  description?: string;
+  emptyText?: string;
+  itemLabel?: string;
+  addButtonLabel?: string;
+  removeButtonLabel?: string;
   onChange: (nextLumpSums: AddedPensionLumpSum[]) => void;
 };
 
@@ -1032,6 +1109,12 @@ function AddedPensionLumpSumsEditor({
   lumpSums,
   defaultStartDate,
   useDropdownDates,
+  title = "Lump sum purchases",
+  description = "Add one-off or yearly lump sum purchases. A yearly entry repeats on the same calendar date until its end date.",
+  emptyText = "No lump sum added pension purchases set up yet.",
+  itemLabel = "Lump sum",
+  addButtonLabel = "Add lump sum purchase",
+  removeButtonLabel = "Remove lump sum",
   onChange,
 }: AddedPensionLumpSumsEditorProps) {
   function updateLumpSum(
@@ -1054,22 +1137,19 @@ function AddedPensionLumpSumsEditor({
   return (
     <div className="lump-sum-editor">
       <div className="lump-sum-editor-heading">
-        <h4>Lump sum purchases</h4>
-        <p className="section-copy">
-          Add one-off or yearly lump sum purchases. A yearly entry repeats on the same
-          calendar date until its end date.
-        </p>
+        <h4>{title}</h4>
+        <p className="section-copy">{description}</p>
       </div>
 
       <div className="field-grid">
         {lumpSums.length === 0 ? (
-          <p className="section-copy">No lump sum added pension purchases set up yet.</p>
+          <p className="section-copy">{emptyText}</p>
         ) : null}
 
         {lumpSums.map((lumpSum, index) => (
           <div className="field-card" key={lumpSum.id}>
             <span className="field-header">
-              <span className="field-label">Lump sum #{index + 1}</span>
+              <span className="field-label">{itemLabel} #{index + 1}</span>
             </span>
 
             <label className="field-label" htmlFor={`lump-sum-amount-${lumpSum.id}`}>
@@ -1077,7 +1157,7 @@ function AddedPensionLumpSumsEditor({
             </label>
             <input
               id={`lump-sum-amount-${lumpSum.id}`}
-              aria-label={`Lump sum amount ${index + 1}`}
+              aria-label={`${itemLabel} amount ${index + 1}`}
               className="select-input"
               min={0}
               step={500}
@@ -1091,7 +1171,7 @@ function AddedPensionLumpSumsEditor({
             <span className="field-label">Payment start date</span>
             {useDropdownDates ? (
               <DateSelectField
-                label={`Lump sum start date ${index + 1}`}
+                label={`${itemLabel} start date ${index + 1}`}
                 value={lumpSum.startDate}
                 idPrefix={`lump-sum-start-${lumpSum.id}`}
                 yearRange={getLumpSumDateYearRange("start")}
@@ -1102,7 +1182,7 @@ function AddedPensionLumpSumsEditor({
             ) : (
               <input
                 id={`lump-sum-start-${lumpSum.id}`}
-                aria-label={`Lump sum start date ${index + 1}`}
+                aria-label={`${itemLabel} start date ${index + 1}`}
                 className="date-input"
                 type="date"
                 value={lumpSum.startDate}
@@ -1117,7 +1197,7 @@ function AddedPensionLumpSumsEditor({
             </label>
             <select
               id={`lump-sum-cadence-${lumpSum.id}`}
-              aria-label={`Lump sum cadence ${index + 1}`}
+              aria-label={`${itemLabel} cadence ${index + 1}`}
               className="date-input"
               value={lumpSum.cadence}
               onChange={(event) =>
@@ -1135,7 +1215,7 @@ function AddedPensionLumpSumsEditor({
                 <span className="field-label">Repeat until</span>
                 {useDropdownDates ? (
                   <DateSelectField
-                    label={`Lump sum end date ${index + 1}`}
+                    label={`${itemLabel} end date ${index + 1}`}
                     value={lumpSum.endDate}
                     idPrefix={`lump-sum-end-${lumpSum.id}`}
                     yearRange={getLumpSumDateYearRange("end")}
@@ -1146,7 +1226,7 @@ function AddedPensionLumpSumsEditor({
                 ) : (
                   <input
                     id={`lump-sum-end-${lumpSum.id}`}
-                    aria-label={`Lump sum end date ${index + 1}`}
+                    aria-label={`${itemLabel} end date ${index + 1}`}
                     className="date-input"
                     type="date"
                     value={lumpSum.endDate}
@@ -1163,14 +1243,14 @@ function AddedPensionLumpSumsEditor({
               className="secondary-button"
               onClick={() => removeLumpSum(lumpSum.id)}
             >
-              Remove lump sum
+              {removeButtonLabel}
             </button>
           </div>
         ))}
       </div>
 
       <button type="button" className="secondary-button" onClick={addLumpSum}>
-        Add lump sum purchase
+        {addButtonLabel}
       </button>
     </div>
   );

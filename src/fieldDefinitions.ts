@@ -20,7 +20,10 @@ export type RangeField = {
     | "alphaPensionLeaveAge"
     | "pensionableEarnings"
     | "alphaPensionDrawAge"
-    | "alphaEpaYearsBeforeNpa";
+    | "alphaEpaYearsBeforeNpa"
+    | "sippMonthlyContribution"
+    | "sippRealInterestPercent"
+    | "sippWithdrawalPercent";
   label: string;
   type: "range";
   min: number;
@@ -32,14 +35,21 @@ export type RangeField = {
 };
 
 export type CheckboxField = {
-  id: "applyPensionIncreases" | "alphaEpaEnabled";
+  id:
+    | "applyPensionIncreases"
+    | "alphaEpaEnabled"
+    | "sippApplyRealInterest"
+    | "sippApplyTaxRelief";
   label: string;
   type: "checkbox";
   description: string;
 };
 
 export type CurrencyInputField = {
-  id: "currentStatePension" | "accruedPensionAtLastAbs";
+  id:
+    | "currentStatePension"
+    | "accruedPensionAtLastAbs"
+    | "sippCurrentPot";
   label: string;
   type: "currency-input";
   min: number;
@@ -49,7 +59,22 @@ export type CurrencyInputField = {
   infoUrl?: string;
 };
 
-export type FieldDefinition = DateField | RangeField | CurrencyInputField | CheckboxField;
+export type SelectField = {
+  id: "sippWithdrawalStrategy";
+  label: string;
+  type: "select";
+  options: {
+    value: PensionSettings["sippWithdrawalStrategy"];
+    label: string;
+  }[];
+};
+
+export type FieldDefinition =
+  | DateField
+  | RangeField
+  | CurrencyInputField
+  | CheckboxField
+  | SelectField;
 
 export type FieldGroup = {
   id: string;
@@ -195,6 +220,71 @@ export const fieldGroups: FieldGroup[] = [
         type: "range",
         min: 0,
         max: 10,
+        step: 0.1,
+      },
+    ],
+  },
+  {
+    id: "sipp",
+    eyebrow: "SIPP",
+    title: "SIPP details",
+    description: "Personal pension pot, contribution, relief, and real return assumptions.",
+    fields: [
+      {
+        id: "sippCurrentPot",
+        label: "Current SIPP pot (£)",
+        type: "currency-input",
+        min: 0,
+        max: 2000000,
+        step: 1,
+        format: "currency",
+      },
+      {
+        id: "sippMonthlyContribution",
+        label: "Regular SIPP contribution (£ per month)",
+        type: "range",
+        min: 0,
+        max: 5000,
+        step: 25,
+        format: "currency",
+        valuePrefix: "/mo",
+      },
+      {
+        id: "sippApplyTaxRelief",
+        label: "Apply 25% tax relief to SIPP additions",
+        type: "checkbox",
+        description:
+          "Gross up regular and lump sum additions by 25%, matching basic-rate relief on a net contribution.",
+      },
+      {
+        id: "sippApplyRealInterest",
+        label: "Apply real interest to SIPP pot",
+        type: "checkbox",
+        description: "Grow the projected SIPP pot using a real annual interest rate.",
+      },
+      {
+        id: "sippRealInterestPercent",
+        label: "SIPP real interest rate (%)",
+        type: "range",
+        min: -10,
+        max: 10,
+        step: 0.1,
+      },
+      {
+        id: "sippWithdrawalStrategy",
+        label: "SIPP withdrawal strategy",
+        type: "select",
+        options: [
+          { value: "zero_at_death", label: "Zero at death" },
+          { value: "percentage", label: "Annual percentage" },
+        ],
+      },
+      {
+        id: "sippWithdrawalPercent",
+        label: "SIPP withdrawal rate (%)",
+        type: "range",
+        min: 0,
+        max: 15,
         step: 0.1,
       },
     ],

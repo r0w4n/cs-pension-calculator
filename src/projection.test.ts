@@ -10,9 +10,11 @@ import {
   calculateMonthlyAddedPension,
   calculateMonthlyAlphaAccrual,
   calculateMonthlyAlphaPensionTakeHome,
+  calculateMonthlySippPension,
   calculateStartingAlphaPensionAtStartDate,
   calculateWholeMonthDifference,
   calculateMonthlyStatePension,
+  calculateSippPotAtDate,
   calculateTotalGrossMonthlyPension,
   createProjectionTable,
   deriveProjectionInputs,
@@ -303,6 +305,103 @@ describe("projection calculations", () => {
 
   it("adds monthly alpha and state pension into gross monthly pension", () => {
     expect(calculateTotalGrossMonthlyPension(648, 958.33)).toBeCloseTo(1606.33, 6);
+  });
+
+  it("adds SIPP monthly pension into gross monthly pension", () => {
+    expect(calculateTotalGrossMonthlyPension(648, 958.33, 250)).toBeCloseTo(
+      1856.33,
+      6,
+    );
+  });
+
+  it("projects SIPP pot with tax relief and optional real interest", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2026-01-01",
+      dateOfBirth: "1986-01-01",
+      alphaPensionDrawAge: 40,
+      lifeExpectancy: 75,
+      sippCurrentPot: 10000,
+      sippMonthlyContribution: 100,
+      sippLumpSums: [
+        {
+          id: "sipp-lump",
+          amount: 1000,
+          startDate: "2026-01-01",
+          cadence: "once",
+          endDate: "2026-01-01",
+        },
+      ],
+      sippApplyTaxRelief: true,
+      sippApplyRealInterest: false,
+    };
+
+    expect(
+      calculateSippPotAtDate({
+        settings,
+        rowDate: "2026-03-01",
+        drawDate: "2026-01-01",
+      }),
+    ).toBe(11375);
+  });
+
+  it("projects yearly SIPP lump sums on their scheduled dates", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2026-01-01",
+      dateOfBirth: "1986-01-01",
+      alphaPensionDrawAge: 42,
+      lifeExpectancy: 75,
+      sippCurrentPot: 0,
+      sippMonthlyContribution: 0,
+      sippLumpSums: [
+        {
+          id: "yearly-sipp",
+          amount: 1000,
+          startDate: "2026-06-01",
+          cadence: "yearly",
+          endDate: "2027-06-01",
+        },
+      ],
+      sippApplyTaxRelief: true,
+      sippApplyRealInterest: false,
+    };
+
+    expect(
+      calculateSippPotAtDate({
+        settings,
+        rowDate: "2026-05-01",
+        drawDate: "2028-01-01",
+      }),
+    ).toBe(0);
+    expect(
+      calculateSippPotAtDate({
+        settings,
+        rowDate: "2027-06-01",
+        drawDate: "2028-01-01",
+      }),
+    ).toBe(2500);
+  });
+
+  it("can calculate SIPP income by zero-at-death or annual percentage strategy", () => {
+    expect(
+      calculateMonthlySippPension({
+        potAtDraw: 120000,
+        drawDate: "2046-01-01",
+        endDate: "2056-01-01",
+        strategy: "zero_at_death",
+        withdrawalPercent: 4,
+      }),
+    ).toBeCloseTo(1000, 6);
+    expect(
+      calculateMonthlySippPension({
+        potAtDraw: 120000,
+        drawDate: "2046-01-01",
+        endDate: "2056-01-01",
+        strategy: "percentage",
+        withdrawalPercent: 4,
+      }),
+    ).toBeCloseTo(400, 6);
   });
 
   it("stops monthly alpha accrual after the earlier of draw date and leave date", () => {

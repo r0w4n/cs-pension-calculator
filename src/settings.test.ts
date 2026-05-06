@@ -88,6 +88,14 @@ describe("settings unit tests", () => {
       alphaEpaStartDate: defaultSettings.alphaEpaStartDate,
       alphaEpaEndDate: defaultSettings.alphaEpaEndDate,
       alphaAddedPensionLumpSums: [],
+      sippCurrentPot: defaultSettings.sippCurrentPot,
+      sippMonthlyContribution: defaultSettings.sippMonthlyContribution,
+      sippLumpSums: defaultSettings.sippLumpSums,
+      sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
+      sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
+      sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+      sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
+      sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
     });
   });
 
@@ -147,6 +155,14 @@ describe("settings unit tests", () => {
           endDate: getTodayIsoDate(),
         },
       ],
+      sippCurrentPot: defaultSettings.sippCurrentPot,
+      sippMonthlyContribution: defaultSettings.sippMonthlyContribution,
+      sippLumpSums: defaultSettings.sippLumpSums,
+      sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
+      sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
+      sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+      sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
+      sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
     });
   });
 
