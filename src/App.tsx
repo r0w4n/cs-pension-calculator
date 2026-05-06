@@ -310,6 +310,7 @@ function App() {
                   label: "State Pension draw date",
                   value: formatDate(pensionSummary.keyDates.startsStatePension),
                   infoUrl: "https://www.gov.uk/state-pension-age",
+                  infoLinkText: "Check State Pension age",
                 },
               ]}
             />
@@ -348,6 +349,7 @@ type SummaryItem = {
   label: string;
   value: string;
   infoUrl?: string;
+  infoLinkText?: string;
 };
 
 type SummarySectionProps = {
@@ -376,22 +378,13 @@ function SummarySection({
       <div className="summary-section-inner">
         {groupTitle ? <h3>{groupTitle}</h3> : null}
         <dl className="snapshot-list">
-          {items.map(({ label, value, infoUrl }) => (
+          {items.map(({ label, value, infoUrl, infoLinkText }) => (
             <div key={label}>
               <dt>
                 <span className="field-label-group">
                   <span>{label}</span>
                   {infoUrl ? (
-                    <a
-                      className="field-info-link"
-                      href={infoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`${label} information`}
-                      title={`More information about ${label}`}
-                    >
-                      <span aria-hidden="true">i</span>
-                    </a>
+                    <InfoLink href={infoUrl} text={infoLinkText ?? `More about ${label}`} />
                   ) : null}
                 </span>
               </dt>
@@ -406,23 +399,23 @@ function SummarySection({
 
 function FieldLabel({ field }: { field: FieldDefinition }) {
   const infoUrl = "infoUrl" in field ? field.infoUrl : undefined;
+  const infoLinkText = "infoLinkText" in field ? field.infoLinkText : undefined;
 
   return (
     <span className="field-label-group">
       <span className="field-label">{field.label}</span>
       {infoUrl ? (
-        <a
-          className="field-info-link"
-          href={infoUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`${field.label} information`}
-          title={`More information about ${field.label}`}
-        >
-          <span aria-hidden="true">i</span>
-        </a>
+        <InfoLink href={infoUrl} text={infoLinkText ?? `More about ${field.label}`} />
       ) : null}
     </span>
+  );
+}
+
+function InfoLink({ href, text }: { href: string; text: string }) {
+  return (
+    <a className="field-info-link" href={href} target="_blank" rel="noreferrer">
+      {text}
+    </a>
   );
 }
 

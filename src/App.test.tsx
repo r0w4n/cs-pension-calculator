@@ -101,10 +101,22 @@ describe("App settings form", () => {
     expect(screen.queryByLabelText("State Pension Age")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Your Normal Pension Age")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Last Annual Benifits Statement information" }),
+      screen.getByRole("link", { name: "Annual Benefit Statement guide" }),
     ).toHaveAttribute(
       "href",
       "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/",
+    );
+    expect(screen.getByRole("link", { name: "Estimate life expectancy" })).toHaveAttribute(
+      "href",
+      "https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/healthandlifeexpectancies/articles/lifeexpectancycalculator/2019-06-07",
+    );
+    expect(screen.getByRole("link", { name: "Check State Pension" })).toHaveAttribute(
+      "href",
+      "https://www.gov.uk/check-state-pension",
+    );
+    expect(screen.getByRole("link", { name: "Check State Pension age" })).toHaveAttribute(
+      "href",
+      "https://www.gov.uk/state-pension-age",
     );
     expect(screen.getByRole("button", { name: "Add lump sum purchase" })).toBeInTheDocument();
     expect(

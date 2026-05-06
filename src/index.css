@@ -304,18 +304,13 @@ h3 {
 }
 
 .field-info-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.2rem;
-  height: 1.2rem;
-  border: 1px solid currentColor;
-  border-radius: 999px;
+  display: inline;
   color: var(--accent);
   font-size: var(--font-size-label);
   font-weight: 600;
-  line-height: 1;
-  text-decoration: none;
+  line-height: var(--line-height-body);
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
 }
 
 .field-info-link:hover {
@@ -817,10 +812,12 @@ h3 {
   }
 
   .range-slider-group {
+    order: 2;
     width: 100%;
   }
 
   .number-input {
+    order: 1;
     max-width: 10rem;
   }
 }

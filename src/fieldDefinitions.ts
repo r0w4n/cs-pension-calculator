@@ -10,6 +10,7 @@ export type DateField = {
   label: string;
   type: "date" | "year";
   infoUrl?: string;
+  infoLinkText?: string;
 };
 
 export type RangeField = {
@@ -31,6 +32,7 @@ export type RangeField = {
   step: number;
   format?: "currency";
   infoUrl?: string;
+  infoLinkText?: string;
   valuePrefix?: string;
 };
 
@@ -57,6 +59,7 @@ export type CurrencyInputField = {
   step: number;
   format?: "currency";
   infoUrl?: string;
+  infoLinkText?: string;
 };
 
 export type SelectField = {
@@ -112,6 +115,7 @@ export const fieldGroups: FieldGroup[] = [
         step: 1,
         infoUrl:
           "https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/healthandlifeexpectancies/articles/lifeexpectancycalculator/2019-06-07",
+        infoLinkText: "Estimate life expectancy",
       },
       {
         id: "currentStatePension",
@@ -122,6 +126,7 @@ export const fieldGroups: FieldGroup[] = [
         step: 0.01,
         format: "currency",
         infoUrl: "https://www.gov.uk/check-state-pension",
+        infoLinkText: "Check State Pension",
       },
     ],
   },
@@ -137,6 +142,7 @@ export const fieldGroups: FieldGroup[] = [
         type: "year",
         infoUrl:
           "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/",
+        infoLinkText: "Annual Benefit Statement guide",
       },
       {
         id: "accruedPensionAtLastAbs",
