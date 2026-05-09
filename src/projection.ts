@@ -205,7 +205,7 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
   let cumulativeStandardAccrual = 0;
   let cumulativeEpaAccrual = 0;
   let cumulativeStandardAddedPension = historicalRows.reduce(
-    (total, row) => total + row.lumpSumAddedPension,
+    (total, row) => total + row.monthlyAddedPension + row.lumpSumAddedPension,
     0,
   );
   let previousRowDate: string | undefined;
@@ -249,7 +249,8 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       dateOfBirth: settings.dateOfBirth,
       lumpSums: settings.alphaAddedPensionLumpSums,
     });
-    cumulativeStandardAddedPension += lumpSumAddedPensionPurchasedThisRow;
+    cumulativeStandardAddedPension +=
+      monthlyAddedPension + lumpSumAddedPensionPurchasedThisRow;
     const annualStandardAlphaPension = calculateAccruedAlphaPension(
       startingAlphaPortionsAtStartDate.standardAlphaPension,
       cumulativeStandardAccrual + cumulativeStandardAddedPension,
@@ -414,18 +415,28 @@ function createProjectionTableWithPensionIncreases(
       });
     }
 
-    const monthlyAddedPension = calculateMonthlyAddedPension({
-      rowDate,
-      stopDate: addedPensionStopDate,
-      dateOfBirth: settings.dateOfBirth,
-      addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
-    });
+    const monthlyAddedPension = shouldShowAbsStatementOnly
+      ? 0
+      : calculateMonthlyAddedPension({
+          rowDate,
+          stopDate: addedPensionStopDate,
+          dateOfBirth: settings.dateOfBirth,
+          addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
+        });
     const lumpSumAddedPension = calculateLumpSumAddedPension({
       rowDate,
       previousRowDate,
       dateOfBirth: settings.dateOfBirth,
       lumpSums: settings.alphaAddedPensionLumpSums,
     });
+
+    if (monthlyAddedPension > 0) {
+      benefitComponents.push({
+        amount: monthlyAddedPension,
+        startDate: rowDate,
+        portion: "standard",
+      });
+    }
 
     if (lumpSumAddedPension > 0) {
       benefitComponents.push({
@@ -1577,19 +1588,22 @@ function createHistoricalProjectionRows(input: {
   while (rowDate < settings.startDate) {
     const age = calculateAge(settings.dateOfBirth, rowDate);
     const ageMonths = calculateAgeMonths(settings.dateOfBirth, rowDate);
-    const monthlyAddedPension = calculateMonthlyAddedPension({
-      rowDate,
-      stopDate: addedPensionStopDate,
-      dateOfBirth: settings.dateOfBirth,
-      addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
-    });
+    const monthlyAddedPension =
+      rowDate === alphaAbsDate
+        ? 0
+        : calculateMonthlyAddedPension({
+            rowDate,
+            stopDate: addedPensionStopDate,
+            dateOfBirth: settings.dateOfBirth,
+            addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
+          });
     const lumpSumAddedPension = calculateLumpSumAddedPension({
       rowDate,
       previousRowDate,
       dateOfBirth: settings.dateOfBirth,
       lumpSums: settings.alphaAddedPensionLumpSums,
     });
-    cumulativeLumpSumAddedPension += lumpSumAddedPension;
+    cumulativeLumpSumAddedPension += monthlyAddedPension + lumpSumAddedPension;
     if (rowDate > alphaAbsDate && rowDate <= accrualStopDate) {
       cumulativeStandardAlphaPension += calculateMonthlyStandardAlphaAccrual(
         settings,

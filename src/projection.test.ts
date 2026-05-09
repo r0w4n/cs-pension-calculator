@@ -188,6 +188,62 @@ describe("projection calculations", () => {
     ).toBeCloseTo(11.7004680187, 6);
   });
 
+  it("carries regular monthly added pension purchases into accrued Alpha pension", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-04-01",
+      dateOfBirth: "1987-04-01",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      lifeExpectancy: 61,
+      accruedPensionAtLastAbs: 0,
+      alphaPensionAbsDate: "2047",
+      pensionableEarnings: 0,
+      alphaAddedPensionMonthly: 128.2,
+    };
+
+    const rows = createProjectionTable(settings);
+
+    expect(findRowByDate(rows, "2047-04-01")?.monthlyAddedPension).toBeCloseTo(10, 6);
+    expect(findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
+      10,
+      6,
+    );
+    expect(findRowByDate(rows, "2047-05-01")?.monthlyAddedPension).toBe(0);
+    expect(findRowByDate(rows, "2047-05-01")?.annualAccruedAlphaPension).toBeCloseTo(
+      10,
+      6,
+    );
+  });
+
+  it("revalues regular monthly added pension purchases when pension increases are enabled", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      applyPensionIncreases: true,
+      assumedCpiPercent: 2,
+      startDate: "2047-04-01",
+      dateOfBirth: "1987-04-01",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      lifeExpectancy: 61,
+      accruedPensionAtLastAbs: 0,
+      alphaPensionAbsDate: "2047",
+      pensionableEarnings: 0,
+      alphaAddedPensionMonthly: 128.2,
+    };
+
+    const rows = createProjectionTable(settings);
+
+    expect(findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
+      10,
+      6,
+    );
+    expect(findRowByDate(rows, "2048-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
+      10.2,
+      6,
+    );
+  });
+
   it("calculates a one-off lump sum added pension purchase on its payment date", () => {
     expect(
       calculateLumpSumAddedPension({
@@ -465,6 +521,7 @@ describe("projection calculations", () => {
       accruedPensionAtLastAbs: 8250,
       alphaPensionAbsDate: "2047",
       pensionableEarnings: 42000,
+      alphaAddedPensionMonthly: 0,
     };
 
     const rows = createProjectionTable(settings);
@@ -505,6 +562,7 @@ describe("projection calculations", () => {
       accruedPensionAtLastAbs: 8250,
       alphaPensionAbsDate: "2047",
       pensionableEarnings: 42000,
+      alphaAddedPensionMonthly: 0,
     };
 
     const rows = createProjectionTable(settings);
@@ -638,6 +696,7 @@ describe("projection calculations", () => {
       accruedPensionAtLastAbs: 8250,
       alphaPensionAbsDate: "2047",
       pensionableEarnings: 42000,
+      alphaAddedPensionMonthly: 0,
       alphaAddedPensionLumpSums: [
         {
           id: "draw-date-lump-sum",
@@ -679,6 +738,7 @@ describe("projection calculations", () => {
       alphaPensionAbsDate: "2025",
       accruedPensionAtLastAbs: 8250,
       pensionableEarnings: 42000,
+      alphaAddedPensionMonthly: 0,
       alphaPensionLeaveAge: 55,
       alphaPensionDrawAge: 55,
       lifeExpectancy: 70,
@@ -698,6 +758,7 @@ describe("projection calculations", () => {
       alphaPensionAbsDate: "2025",
       accruedPensionAtLastAbs: 8250,
       pensionableEarnings: 42000,
+      alphaAddedPensionMonthly: 0,
       alphaPensionLeaveAge: 55,
       alphaPensionDrawAge: 55,
       lifeExpectancy: 70,
@@ -1049,6 +1110,7 @@ describe("projection calculations", () => {
       accruedPensionAtLastAbs: 8250,
       alphaPensionAbsDate: "2047",
       pensionableEarnings: 42000,
+      alphaAddedPensionMonthly: 0,
     };
 
     const rows = createProjectionTable(settings);
