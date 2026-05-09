@@ -230,7 +230,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     sippLumpSums: defaultSettings.sippLumpSums,
     sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
     sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
-    sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+    sippTaxReliefRate: defaultSettings.sippTaxReliefRate,
     sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
     sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
     isaCurrentPot: defaultSettings.isaCurrentPot,
@@ -301,7 +301,7 @@ describe("App settings form", () => {
       defaultSettings.sippDrawAge.toString(),
     );
     expect(screen.getByRole("button", { name: "Add SIPP lump sum" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Apply 25% tax relief to SIPP additions")).toBeChecked();
+    expect(screen.getByLabelText("SIPP tax relief on net additions")).toHaveValue("20");
     expect(screen.getByLabelText("Apply real interest to SIPP pot")).not.toBeChecked();
     expect(screen.getByLabelText("SIPP real interest rate (%)")).toBeDisabled();
     expect(screen.getByLabelText("SIPP real interest rate (%) exact value")).toBeDisabled();
@@ -387,6 +387,10 @@ describe("App settings form", () => {
       "href",
       "https://www.gov.uk/state-pension-age",
     );
+    expect(screen.getByRole("link", { name: "Check pension tax relief" })).toHaveAttribute(
+      "href",
+      "https://www.gov.uk/tax-on-your-private-pension/pension-tax-relief",
+    );
     expect(screen.getByRole("button", { name: "Add lump sum purchase" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
@@ -458,6 +462,24 @@ describe("App settings form", () => {
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         desiredRetirementIncome: 50000,
+      }),
+    );
+  });
+
+  it("allows selecting a higher SIPP tax relief rate", () => {
+    renderAcknowledgedApp();
+
+    const taxReliefSelect = screen.getByLabelText("SIPP tax relief on net additions");
+
+    fireEvent.change(taxReliefSelect, {
+      target: { value: "40" },
+    });
+    fireEvent.blur(taxReliefSelect);
+
+    expect(taxReliefSelect).toHaveValue("40");
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        sippTaxReliefRate: "40",
       }),
     );
   });

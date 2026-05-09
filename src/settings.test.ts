@@ -46,7 +46,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     sippLumpSums: defaultSettings.sippLumpSums,
     sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
     sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
-    sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+    sippTaxReliefRate: defaultSettings.sippTaxReliefRate,
     sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
     sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
     isaCurrentPot: defaultSettings.isaCurrentPot,
@@ -200,7 +200,7 @@ describe("settings unit tests", () => {
       sippLumpSums: defaultSettings.sippLumpSums,
       sippApplyRealInterest: defaultSettings.sippApplyRealInterest,
       sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
-      sippApplyTaxRelief: defaultSettings.sippApplyTaxRelief,
+      sippTaxReliefRate: defaultSettings.sippTaxReliefRate,
       sippWithdrawalStrategy: defaultSettings.sippWithdrawalStrategy,
       sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
       isaCurrentPot: defaultSettings.isaCurrentPot,
@@ -218,6 +218,26 @@ describe("settings unit tests", () => {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, "{not-json");
 
     expect(loadStoredSettings()).toEqual(createDefaultSettings());
+  });
+
+  it("migrates legacy SIPP tax relief booleans to the new rate setting", () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        sippApplyTaxRelief: true,
+      }),
+    );
+
+    expect(loadStoredSettings().sippTaxReliefRate).toBe("20");
+
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        sippApplyTaxRelief: false,
+      }),
+    );
+
+    expect(loadStoredSettings().sippTaxReliefRate).toBe("none");
   });
 
   it("reports relational validation issues for inconsistent pension settings", () => {

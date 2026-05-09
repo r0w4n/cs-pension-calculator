@@ -1207,7 +1207,7 @@ export function calculateSippPotAtDate(input: {
     return 0;
   }
 
-  const contributionMultiplier = settings.sippApplyTaxRelief ? 1.25 : 1;
+  const contributionMultiplier = getSippContributionMultiplier(settings.sippTaxReliefRate);
   const monthlyInterestRate = settings.sippApplyRealInterest
     ? (1 + settings.sippRealInterestPercent / 100) ** (1 / 12) - 1
     : 0;
@@ -1401,7 +1401,7 @@ function calculateTotalSippContributionsAfterTaxRelief(
     return 0;
   }
 
-  const contributionMultiplier = settings.sippApplyTaxRelief ? 1.25 : 1;
+  const contributionMultiplier = getSippContributionMultiplier(settings.sippTaxReliefRate);
   const contributionMonthCount =
     calculateWholeMonthDifference(settings.startDate, drawDate) + 1;
 
@@ -1428,6 +1428,20 @@ function calculateTotalIsaContributions(settings: PensionSettings, drawDate: str
     calculateIsaLumpSumsThroughDate(settings.isaLumpSums, drawDate) +
     settings.isaMonthlyContribution * contributionMonthCount
   );
+}
+
+function getSippContributionMultiplier(
+  taxReliefRate: PensionSettings["sippTaxReliefRate"],
+) {
+  if (taxReliefRate === "20") {
+    return 1 / 0.8;
+  }
+
+  if (taxReliefRate === "40") {
+    return 1 / 0.6;
+  }
+
+  return 1;
 }
 
 function calculateScheduledSippLumpSums(input: {

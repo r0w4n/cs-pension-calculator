@@ -414,7 +414,7 @@ describe("projection calculations", () => {
           endDate: "2026-01-01",
         },
       ],
-      sippApplyTaxRelief: true,
+      sippTaxReliefRate: "20",
       sippApplyRealInterest: false,
     };
 
@@ -445,7 +445,7 @@ describe("projection calculations", () => {
           endDate: "2027-06-01",
         },
       ],
-      sippApplyTaxRelief: true,
+      sippTaxReliefRate: "20",
       sippApplyRealInterest: false,
     };
 
@@ -463,6 +463,37 @@ describe("projection calculations", () => {
         drawDate: "2028-01-01",
       }),
     ).toBe(2500);
+  });
+
+  it("can apply higher-rate SIPP tax relief", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2026-01-01",
+      dateOfBirth: "1986-01-01",
+      alphaPensionDrawAge: 40,
+      lifeExpectancy: 75,
+      sippCurrentPot: 10000,
+      sippMonthlyContribution: 100,
+      sippLumpSums: [
+        {
+          id: "sipp-lump",
+          amount: 1000,
+          startDate: "2026-01-01",
+          cadence: "once",
+          endDate: "2026-01-01",
+        },
+      ],
+      sippTaxReliefRate: "40",
+      sippApplyRealInterest: false,
+    };
+
+    expect(
+      calculateSippPotAtDate({
+        settings,
+        rowDate: "2026-03-01",
+        drawDate: "2026-01-01",
+      }),
+    ).toBeCloseTo(11833.333333, 6);
   });
 
   it("can calculate SIPP income by zero-at-death or annual percentage strategy", () => {

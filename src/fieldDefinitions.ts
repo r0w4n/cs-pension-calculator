@@ -49,8 +49,7 @@ export type CheckboxField = {
     | "statePensionApplyFutureGrowth"
     | "alphaEpaEnabled"
     | "isaApplyRealInterest"
-    | "sippApplyRealInterest"
-    | "sippApplyTaxRelief";
+    | "sippApplyRealInterest";
   label: string;
   type: "checkbox";
   description: string;
@@ -81,13 +80,18 @@ export type CurrencyInputField = {
 };
 
 export type SelectField = {
-  id: "sippWithdrawalStrategy" | "isaWithdrawalStrategy";
+  id: "sippTaxReliefRate" | "sippWithdrawalStrategy" | "isaWithdrawalStrategy";
   label: string;
   type: "select";
   options: {
-    value: PensionSettings["sippWithdrawalStrategy"] | PensionSettings["isaWithdrawalStrategy"];
+    value:
+      | PensionSettings["sippTaxReliefRate"]
+      | PensionSettings["sippWithdrawalStrategy"]
+      | PensionSettings["isaWithdrawalStrategy"];
     label: string;
   }[];
+  infoUrl?: string;
+  infoLinkText?: string;
 };
 
 export type FieldDefinition =
@@ -354,11 +358,16 @@ export const fieldGroups: FieldGroup[] = [
         step: 1,
       },
       {
-        id: "sippApplyTaxRelief",
-        label: "Apply 25% tax relief to SIPP additions",
-        type: "checkbox",
-        description:
-          "Gross up regular and lump sum additions by 25%, matching basic-rate relief on a net contribution.",
+        id: "sippTaxReliefRate",
+        label: "SIPP tax relief on net additions",
+        type: "select",
+        options: [
+          { value: "none", label: "No tax relief" },
+          { value: "20", label: "20% basic-rate relief" },
+          { value: "40", label: "40% higher-rate relief" },
+        ],
+        infoUrl: "https://www.gov.uk/tax-on-your-private-pension/pension-tax-relief",
+        infoLinkText: "Check pension tax relief",
       },
       {
         id: "sippApplyRealInterest",

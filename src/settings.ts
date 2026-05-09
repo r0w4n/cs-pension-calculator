@@ -12,6 +12,7 @@ export type AddedPensionLumpSum = {
 
 export type SippWithdrawalStrategy = "zero_at_death" | "percentage";
 export type IsaWithdrawalStrategy = "zero_at_death" | "percentage";
+export type SippTaxReliefRate = "none" | "20" | "40";
 
 export type PensionSettings = {
   startDate: string;
@@ -46,7 +47,7 @@ export type PensionSettings = {
   sippLumpSums: AddedPensionLumpSum[];
   sippApplyRealInterest: boolean;
   sippRealInterestPercent: number;
-  sippApplyTaxRelief: boolean;
+  sippTaxReliefRate: SippTaxReliefRate;
   sippWithdrawalStrategy: SippWithdrawalStrategy;
   sippWithdrawalPercent: number;
   isaCurrentPot: number;
@@ -129,7 +130,7 @@ export const defaultSettings: PensionSettings = {
   sippLumpSums: [],
   sippApplyRealInterest: false,
   sippRealInterestPercent: 3,
-  sippApplyTaxRelief: true,
+  sippTaxReliefRate: "20",
   sippWithdrawalStrategy: "zero_at_death",
   sippWithdrawalPercent: 4,
   isaCurrentPot: 0,
@@ -206,10 +207,8 @@ export function normalizeSetting<K extends keyof PensionSettings>(
     case "isaApplyRealInterest":
     case "sippApplyRealInterest":
       return Boolean(value) as PensionSettings[K];
-    case "sippApplyTaxRelief":
-      return (typeof value === "boolean"
-        ? value
-        : defaultSettings.sippApplyTaxRelief) as PensionSettings[K];
+    case "sippTaxReliefRate":
+      return normalizeSippTaxReliefRate(value) as PensionSettings[K];
     case "sippWithdrawalStrategy":
       return normalizeSippWithdrawalStrategy(value) as PensionSettings[K];
     case "isaWithdrawalStrategy":
@@ -278,7 +277,10 @@ function coerceSettings(
       coerceLegacySippLumpSum(legacySippLumpSumContribution),
     sippApplyRealInterest: coerceBoolean(input.sippApplyRealInterest),
     sippRealInterestPercent: coerceNumber(input.sippRealInterestPercent),
-    sippApplyTaxRelief: coerceBoolean(input.sippApplyTaxRelief),
+    sippTaxReliefRate: coerceSippTaxReliefRate(
+      (input as { sippTaxReliefRate?: unknown }).sippTaxReliefRate,
+      (input as { sippApplyTaxRelief?: unknown }).sippApplyTaxRelief,
+    ),
     sippWithdrawalStrategy: coerceString(input.sippWithdrawalStrategy) as
       | SippWithdrawalStrategy
       | undefined,
@@ -501,10 +503,7 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "sippRealInterestPercent",
       settings.sippRealInterestPercent,
     ),
-    sippApplyTaxRelief: normalizeSetting(
-      "sippApplyTaxRelief",
-      settings.sippApplyTaxRelief,
-    ),
+    sippTaxReliefRate: normalizeSetting("sippTaxReliefRate", settings.sippTaxReliefRate),
     sippWithdrawalStrategy: normalizeSetting(
       "sippWithdrawalStrategy",
       settings.sippWithdrawalStrategy,
@@ -598,10 +597,32 @@ function normalizeSippWithdrawalStrategy(value: unknown): SippWithdrawalStrategy
     : defaultSettings.sippWithdrawalStrategy;
 }
 
+function normalizeSippTaxReliefRate(value: unknown): SippTaxReliefRate {
+  return value === "none" || value === "20" || value === "40"
+    ? value
+    : defaultSettings.sippTaxReliefRate;
+}
+
 function normalizeIsaWithdrawalStrategy(value: unknown): IsaWithdrawalStrategy {
   return value === "percentage" || value === "zero_at_death"
     ? value
     : defaultSettings.isaWithdrawalStrategy;
+}
+
+function coerceSippTaxReliefRate(value: unknown, legacyBooleanValue: unknown) {
+  if (value === "none" || value === "20" || value === "40") {
+    return value;
+  }
+
+  if (legacyBooleanValue === true) {
+    return "20";
+  }
+
+  if (legacyBooleanValue === false) {
+    return "none";
+  }
+
+  return undefined;
 }
 
 function coerceAddedPensionLumpSums(value: unknown) {
