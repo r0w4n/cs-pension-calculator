@@ -1,4 +1,11 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   type CurrencyInputField,
   fieldGroups,
@@ -11,6 +18,7 @@ import {
 import {
   createProjectionTable,
   generatePensionSummary,
+  type RetirementIncomeDisplay,
   type ProjectionRow,
 } from "./projection";
 import {
@@ -53,6 +61,8 @@ const OPTIONAL_SECTION_TOGGLES = [
 function App() {
   const [settings, setSettings] = useState<PensionSettings>(loadStoredSettings);
   const [settingsFormVersion, setSettingsFormVersion] = useState(0);
+  const [retirementIncomeDisplay, setRetirementIncomeDisplay] =
+    useState<RetirementIncomeDisplay>("monthly");
   const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(
     loadAcknowledgementState,
   );
@@ -73,6 +83,33 @@ function App() {
   const pensionSummary = useMemo(
     () => generatePensionSummary(projectionRows, deferredSettings),
     [projectionRows, deferredSettings],
+  );
+  const retirementIncomeTitle =
+    retirementIncomeDisplay === "monthly"
+      ? "Monthly retirement income"
+      : "Annual retirement income";
+  const retirementIncomeItems = pensionSummary.retirementIncome.sources.map((source) => ({
+    label:
+      retirementIncomeDisplay === "monthly"
+        ? `Monthly ${source.label}`
+        : `Annual ${source.label}`,
+    value: formatCurrencyDetailed(
+      retirementIncomeDisplay === "monthly" ? source.monthlyIncome : source.annualIncome,
+    ),
+  }));
+  const retirementIncomeTotal = formatCurrencyDetailed(
+    retirementIncomeDisplay === "monthly"
+      ? pensionSummary.retirementIncome.totalMonthlyIncome
+      : pensionSummary.retirementIncome.totalAnnualIncome,
+  );
+  const retirementIncomeTargetTitle =
+    retirementIncomeDisplay === "monthly"
+      ? "Monthly target retirement income"
+      : "Annual target retirement income";
+  const retirementIncomeTarget = formatCurrencyDetailed(
+    retirementIncomeDisplay === "monthly"
+      ? settings.desiredRetirementIncome / 12
+      : settings.desiredRetirementIncome,
   );
 
   useEffect(() => {
@@ -241,50 +278,52 @@ function App() {
         title="Pension Summary"
         headingLevel={2}
         variant="feature"
-        description="The headline outcomes below are all derived from the same monthly projection rows shown in the table."
-        groupTitle="Alpha Pension"
-        items={[
-          {
-            label: "Annual Alpha Pension at retirement",
-            value: formatCurrencyDetailed(pensionSummary.alphaPension.annualAtDraw),
-          },
-          {
-            label: "Total Alpha pension added after today",
-            value: formatCurrencyDetailed(pensionSummary.alphaPension.totalAddedAfterToday),
-          },
-          {
-            label: "Monthly income at Alpha pension start",
-            value: formatCurrencyDetailed(
-              pensionSummary.incomeOverTime.monthlyAtAlphaStart,
-            ),
-          },
-          ...(settings.showSipp
-            ? [
-                {
-                  label: "SIPP pot at SIPP draw start",
-                  value: formatCurrencyDetailed(pensionSummary.sippPension.potAtDraw),
-                },
-              ]
-            : []),
-          ...(settings.showIsa
-            ? [
-                {
-                  label: "ISA pot at ISA draw start",
-                  value: formatCurrencyDetailed(pensionSummary.isaPension.potAtDraw),
-                },
-              ]
-            : []),
-          ...(settings.showStatePension
-            ? [
-                {
-                  label: "Total Monthly Pension at State Pension start",
-                  value: formatCurrencyDetailed(
-                    pensionSummary.incomeOverTime.monthlyAtStateStart,
-                  ),
-                },
-              ]
-            : []),
-        ]}
+        description="This summary is generated from the current calculation result, so the same structure can later support side-by-side scenario comparisons."
+        items={retirementIncomeItems}
+        controls={
+          <div
+            className="summary-toggle"
+            role="group"
+            aria-label="Pension Summary display"
+          >
+            <button
+              type="button"
+              className={
+                retirementIncomeDisplay === "monthly"
+                  ? "summary-toggle-button summary-toggle-button--active"
+                  : "summary-toggle-button"
+              }
+              aria-pressed={retirementIncomeDisplay === "monthly"}
+              onClick={() => setRetirementIncomeDisplay("monthly")}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              className={
+                retirementIncomeDisplay === "annual"
+                  ? "summary-toggle-button summary-toggle-button--active"
+                  : "summary-toggle-button"
+              }
+              aria-pressed={retirementIncomeDisplay === "annual"}
+              onClick={() => setRetirementIncomeDisplay("annual")}
+            >
+              Annual
+            </button>
+          </div>
+        }
+        footer={
+          <>
+            <div className="summary-total" aria-label={retirementIncomeTitle}>
+              <span>{retirementIncomeTitle}</span>
+              <strong>{retirementIncomeTotal}</strong>
+            </div>
+            <div className="summary-target" aria-label={retirementIncomeTargetTitle}>
+              <span>{retirementIncomeTargetTitle}</span>
+              <strong>{retirementIncomeTarget}</strong>
+            </div>
+          </>
+        }
       />
 
       <section className="layout">
@@ -487,6 +526,8 @@ type SummarySectionProps = {
   description?: string;
   groupTitle?: string;
   variant?: "compact" | "feature";
+  controls?: ReactNode;
+  footer?: ReactNode;
 };
 
 function SummarySection({
@@ -496,12 +537,17 @@ function SummarySection({
   description,
   groupTitle,
   variant = "compact",
+  controls,
+  footer,
 }: SummarySectionProps) {
   const Heading = headingLevel === 2 ? "h2" : "h3";
 
   return (
     <section className={`summary-section summary-section--${variant}`}>
-      <Heading>{title}</Heading>
+      <div className="summary-section-header">
+        <Heading>{title}</Heading>
+        {controls}
+      </div>
       {description ? <p className="section-copy">{description}</p> : null}
       <div className="summary-section-inner">
         {groupTitle ? <h3>{groupTitle}</h3> : null}
@@ -520,6 +566,7 @@ function SummarySection({
             </div>
           ))}
         </dl>
+        {footer}
       </div>
     </section>
   );

@@ -144,6 +144,48 @@ vi.mock("./projection", async () => {
         statePensionAge: settings.normalPensionAge,
         earlyRetirementReductionPercent: 0,
       },
+      retirementIncome: {
+        sources: [
+          {
+            key: "alpha",
+            label: "Alpha pension",
+            monthlyIncome: rows.at(-1)?.monthlyAlphaPensionTakeHome ?? 0,
+            annualIncome: (rows.at(-1)?.monthlyAlphaPensionTakeHome ?? 0) * 12,
+          },
+          ...(settings.showSipp
+            ? [
+                {
+                  key: "sipp" as const,
+                  label: "SIPP",
+                  monthlyIncome: rows.at(-1)?.monthlySippPension ?? 0,
+                  annualIncome: (rows.at(-1)?.monthlySippPension ?? 0) * 12,
+                },
+              ]
+            : []),
+          ...(settings.showIsa
+            ? [
+                {
+                  key: "isa" as const,
+                  label: "ISA",
+                  monthlyIncome: rows.at(-1)?.monthlyIsaPension ?? 0,
+                  annualIncome: (rows.at(-1)?.monthlyIsaPension ?? 0) * 12,
+                },
+              ]
+            : []),
+          ...(settings.showStatePension
+            ? [
+                {
+                  key: "statePension" as const,
+                  label: "State Pension",
+                  monthlyIncome: rows.at(-1)?.monthlyStatePension ?? 0,
+                  annualIncome: (rows.at(-1)?.monthlyStatePension ?? 0) * 12,
+                },
+              ]
+            : []),
+        ],
+        totalMonthlyIncome: rows.at(-1)?.totalMonthlyPensionTakeHomePay ?? 0,
+        totalAnnualIncome: (rows.at(-1)?.totalMonthlyPensionTakeHomePay ?? 0) * 12,
+      },
       }),
     ),
   };
@@ -304,8 +346,14 @@ describe("App settings form", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "Pension Summary" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Alpha Pension" })).toBeInTheDocument();
-    expect(screen.getByText("Annual Alpha Pension at retirement")).toBeInTheDocument();
+    expect(screen.getByText("Monthly Alpha pension")).toBeInTheDocument();
+    expect(screen.getByText("Monthly SIPP")).toBeInTheDocument();
+    expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
+    expect(screen.getByText("Monthly State Pension")).toBeInTheDocument();
+    expect(screen.getByLabelText("Monthly retirement income")).toHaveTextContent("£2,950.00");
+    expect(screen.getByLabelText("Monthly target retirement income")).toHaveTextContent(
+      "£2,641.67",
+    );
     expect(screen.getByRole("heading", { name: "Calculated details" })).toBeInTheDocument();
     expect(screen.getByText("At State Pension start")).toBeInTheDocument();
     expect(screen.getByText("SIPP at SIPP draw start")).toBeInTheDocument();
@@ -348,6 +396,21 @@ describe("App settings form", () => {
     expect(
       screen.getByRole("button", { name: "Reset assumed CPI to default" }),
     ).toBeInTheDocument();
+  });
+
+  it("toggles the pension summary between monthly and annual values", () => {
+    renderAcknowledgedApp();
+
+    fireEvent.click(screen.getByRole("button", { name: "Annual" }));
+
+    expect(screen.getByText("Annual Alpha pension")).toBeInTheDocument();
+    expect(screen.getByText("Annual SIPP")).toBeInTheDocument();
+    expect(screen.getByText("Annual ISA")).toBeInTheDocument();
+    expect(screen.getByText("Annual State Pension")).toBeInTheDocument();
+    expect(screen.getByLabelText("Annual retirement income")).toHaveTextContent("£35,400.00");
+    expect(screen.getByLabelText("Annual target retirement income")).toHaveTextContent(
+      "£31,700.00",
+    );
   });
 
   it("updates settings and saves to local storage", () => {
@@ -832,6 +895,10 @@ describe("App settings form", () => {
     expect(screen.queryByText("At State Pension start")).not.toBeInTheDocument();
     expect(screen.queryByText("SIPP at SIPP draw start")).not.toBeInTheDocument();
     expect(screen.queryByText("ISA at ISA draw start")).not.toBeInTheDocument();
+    expect(screen.queryByText("Monthly SIPP")).not.toBeInTheDocument();
+    expect(screen.queryByText("Monthly ISA")).not.toBeInTheDocument();
+    expect(screen.queryByText("Monthly State Pension")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Monthly retirement income")).toHaveTextContent("£1,600.00");
     expect(
       screen.queryByRole("columnheader", { name: "Monthly State pension" }),
     ).not.toBeInTheDocument();

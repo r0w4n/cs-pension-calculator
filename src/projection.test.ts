@@ -1144,6 +1144,34 @@ describe("projection calculations", () => {
       stateRow?.monthlyStatePension ?? 0,
       6,
     );
+    expect(summary.retirementIncome.sources).toEqual([
+      expect.objectContaining({
+        key: "alpha",
+        label: "Alpha pension",
+        monthlyIncome: summary.alphaPension.monthlyAtDraw,
+      }),
+      expect.objectContaining({
+        key: "sipp",
+        label: "SIPP",
+      }),
+      expect.objectContaining({
+        key: "isa",
+        label: "ISA",
+      }),
+      expect.objectContaining({
+        key: "statePension",
+        label: "State Pension",
+        monthlyIncome: summary.incomeOverTime.monthlyStatePension,
+      }),
+    ]);
+    expect(summary.retirementIncome.totalMonthlyIncome).toBeCloseTo(
+      summary.retirementIncome.sources.reduce((total, source) => total + source.monthlyIncome, 0),
+      6,
+    );
+    expect(summary.retirementIncome.totalAnnualIncome).toBeCloseTo(
+      summary.retirementIncome.totalMonthlyIncome * 12,
+      6,
+    );
   });
 
   it("updates the summary when pension parameters change", () => {
@@ -1203,6 +1231,16 @@ describe("projection calculations", () => {
     expect(summary.sippPension.potAtDraw).toBe(0);
     expect(summary.isaPension.potAtDraw).toBe(0);
     expect(summary.incomeOverTime.monthlyStatePension).toBe(0);
+    expect(summary.retirementIncome.sources).toEqual([
+      expect.objectContaining({
+        key: "alpha",
+        monthlyIncome: summary.alphaPension.monthlyAtDraw,
+      }),
+    ]);
+    expect(summary.retirementIncome.totalMonthlyIncome).toBeCloseTo(
+      summary.alphaPension.monthlyAtDraw,
+      6,
+    );
   });
 
   it("returns no rows and a safe zeroed summary when settings are invalid", () => {
@@ -1217,5 +1255,6 @@ describe("projection calculations", () => {
     expect(rows).toEqual([]);
     expect(summary.alphaPension.maximumAnnualAccrued).toBe(0);
     expect(summary.incomeOverTime.monthlyAtStateStart).toBe(0);
+    expect(summary.retirementIncome.totalMonthlyIncome).toBe(0);
   });
 });

@@ -80,6 +80,22 @@ export type PensionSummary = {
     statePensionAge: number;
     earlyRetirementReductionPercent: number;
   };
+  retirementIncome: RetirementIncomeSummary;
+};
+
+export type RetirementIncomeDisplay = "monthly" | "annual";
+
+export type RetirementIncomeSource = {
+  key: "alpha" | "sipp" | "isa" | "statePension";
+  label: string;
+  monthlyIncome: number;
+  annualIncome: number;
+};
+
+export type RetirementIncomeSummary = {
+  sources: RetirementIncomeSource[];
+  totalMonthlyIncome: number;
+  totalAnnualIncome: number;
 };
 
 const MONTHLY_ALPHA_ACCRUAL_RATE = 0.0232 / 12;
@@ -611,6 +627,13 @@ export function generatePensionSummary(
         statePensionAge: calculateAge(settings.dateOfBirth, settings.statePensionDrawDate),
         earlyRetirementReductionPercent: Math.max(0, (1 - reductionFactor) * 100),
       },
+      retirementIncome: buildRetirementIncomeSummary({
+        alphaMonthlyIncome: 0,
+        sippMonthlyIncome: 0,
+        isaMonthlyIncome: 0,
+        statePensionMonthlyIncome: 0,
+        settings,
+      }),
     };
   }
 
@@ -692,6 +715,67 @@ export function generatePensionSummary(
       statePensionAge: calculateAge(settings.dateOfBirth, statePensionStartDate),
       earlyRetirementReductionPercent: Math.max(0, (1 - reductionFactor) * 100),
     },
+    retirementIncome: buildRetirementIncomeSummary({
+      alphaMonthlyIncome: alphaDrawRow?.monthlyAlphaPensionTakeHome ?? 0,
+      sippMonthlyIncome: sippDrawRow?.monthlySippPension ?? 0,
+      isaMonthlyIncome: isaDrawRow?.monthlyIsaPension ?? 0,
+      statePensionMonthlyIncome: statePensionRow?.monthlyStatePension ?? 0,
+      settings,
+    }),
+  };
+}
+
+function buildRetirementIncomeSummary({
+  alphaMonthlyIncome,
+  sippMonthlyIncome,
+  isaMonthlyIncome,
+  statePensionMonthlyIncome,
+  settings,
+}: {
+  alphaMonthlyIncome: number;
+  sippMonthlyIncome: number;
+  isaMonthlyIncome: number;
+  statePensionMonthlyIncome: number;
+  settings: PensionSettings;
+}): RetirementIncomeSummary {
+  const sources: RetirementIncomeSource[] = [
+    createRetirementIncomeSource("alpha", "Alpha pension", alphaMonthlyIncome),
+    ...(settings.showSipp
+      ? [createRetirementIncomeSource("sipp", "SIPP", sippMonthlyIncome)]
+      : []),
+    ...(settings.showIsa
+      ? [createRetirementIncomeSource("isa", "ISA", isaMonthlyIncome)]
+      : []),
+    ...(settings.showStatePension
+      ? [
+          createRetirementIncomeSource(
+            "statePension",
+            "State Pension",
+            statePensionMonthlyIncome,
+          ),
+        ]
+      : []),
+  ];
+
+  const totalMonthlyIncome = sources.reduce((total, source) => total + source.monthlyIncome, 0);
+
+  return {
+    sources,
+    totalMonthlyIncome,
+    totalAnnualIncome: totalMonthlyIncome * 12,
+  };
+}
+
+function createRetirementIncomeSource(
+  key: RetirementIncomeSource["key"],
+  label: string,
+  monthlyIncome: number,
+): RetirementIncomeSource {
+  return {
+    key,
+    label,
+    monthlyIncome,
+    annualIncome: monthlyIncome * 12,
   };
 }
 
