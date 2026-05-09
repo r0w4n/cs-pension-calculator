@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   type CurrencyInputField,
   fieldGroups,
@@ -770,7 +770,6 @@ function YearSettingField({
   onChange: FieldProps["onChange"];
 }) {
   const draftYear = getAlphaAbsYear(value);
-  const [localYear, setLocalYear] = useState(draftYear.toString());
   const currentYear = new Date().getUTCFullYear();
   const firstAbsYear = 2015;
   const yearOptions = Array.from(
@@ -778,9 +777,29 @@ function YearSettingField({
     (_, index) => currentYear - index,
   );
 
-  useLayoutEffect(() => {
-    setLocalYear(draftYear.toString());
-  }, [draftYear]);
+  return (
+    <YearSettingFieldEditor
+      key={value}
+      field={field}
+      initialYear={draftYear.toString()}
+      yearOptions={yearOptions}
+      onChange={onChange}
+    />
+  );
+}
+
+function YearSettingFieldEditor({
+  field,
+  initialYear,
+  yearOptions,
+  onChange,
+}: {
+  field: DateField & { type: "year" };
+  initialYear: string;
+  yearOptions: number[];
+  onChange: FieldProps["onChange"];
+}) {
+  const [localYear, setLocalYear] = useState(initialYear);
 
   return (
     <label className="field-card">
@@ -817,11 +836,26 @@ function SelectSettingField({
   value: string;
   onChange: FieldProps["onChange"];
 }) {
-  const [draftValue, setDraftValue] = useState(value);
+  return (
+    <SelectSettingFieldEditor
+      key={value}
+      field={field}
+      initialValue={value}
+      onChange={onChange}
+    />
+  );
+}
 
-  useLayoutEffect(() => {
-    setDraftValue(value);
-  }, [value]);
+function SelectSettingFieldEditor({
+  field,
+  initialValue,
+  onChange,
+}: {
+  field: SelectField;
+  initialValue: string;
+  onChange: FieldProps["onChange"];
+}) {
+  const [draftValue, setDraftValue] = useState(initialValue);
 
   return (
     <label className="field-card">
@@ -861,16 +895,35 @@ function CurrencySettingField({
   value: number;
   onChange: FieldProps["onChange"];
 }) {
-  const [draftValue, setDraftValue] = useState(value.toString());
   const resetValue = defaultSettings[field.id] as PensionSettings[typeof field.id];
 
-  useLayoutEffect(() => {
-    setDraftValue(value.toString());
-  }, [value]);
+  return (
+    <CurrencySettingFieldEditor
+      key={value}
+      field={field}
+      initialValue={value}
+      resetValue={resetValue}
+      onChange={onChange}
+    />
+  );
+}
+
+function CurrencySettingFieldEditor({
+  field,
+  initialValue,
+  resetValue,
+  onChange,
+}: {
+  field: CurrencyInputField;
+  initialValue: number;
+  resetValue: PensionSettings[typeof field.id];
+  onChange: FieldProps["onChange"];
+}) {
+  const [draftValue, setDraftValue] = useState(initialValue.toString());
 
   const commitDraftValue = (nextDraftValue: string) => {
     const parsedValue = nextDraftValue.trim() === "" ? 0 : Number(nextDraftValue);
-    const nextValue = Number.isFinite(parsedValue) ? parsedValue : value;
+    const nextValue = Number.isFinite(parsedValue) ? parsedValue : initialValue;
     onChange(field.id, nextValue as PensionSettings[typeof field.id]);
     setDraftValue(
       normalizeSetting(field.id, nextValue as PensionSettings[typeof field.id]).toString(),
@@ -932,24 +985,28 @@ function RangeSettingField({
   disabled?: boolean;
   hideOnMobile?: boolean;
 }) {
-  const [draftValue, setDraftValue] = useState(value);
-  const [draftExactValue, setDraftExactValue] = useState(value.toString());
-  const [isEditingExactValue, setIsEditingExactValue] = useState(false);
+  const [draftValue, setDraftValue] = useState<number | null>(null);
+  const [draftExactValue, setDraftExactValue] = useState<string | null>(null);
   const canResetToDefault = field.id === "assumedCpiPercent";
-  const displayedExactValue = isEditingExactValue ? draftExactValue : draftValue.toString();
   const resetValue = defaultSettings[field.id] as PensionSettings[typeof field.id];
-
-  useLayoutEffect(() => {
-    if (!isEditingExactValue) {
-      setDraftValue(value);
-      setDraftExactValue(value.toString());
-    }
-  }, [value, isEditingExactValue]);
+  const isEditingExactValue = draftExactValue !== null;
+  const parsedDraftExactValue =
+    draftExactValue === null || draftExactValue.trim() === ""
+      ? Number.NaN
+      : Number(draftExactValue);
+  const hasValidDraftExactValue =
+    Number.isFinite(parsedDraftExactValue) &&
+    parsedDraftExactValue >= field.min &&
+    parsedDraftExactValue <= field.max;
+  const displayedRangeValue = hasValidDraftExactValue
+    ? parsedDraftExactValue
+    : draftValue ?? value;
+  const displayedExactValue = draftExactValue ?? displayedRangeValue.toString();
 
   const commitRangeValue = (nextValue: number) => {
     onChange(field.id, nextValue as PensionSettings[typeof field.id]);
-    setDraftValue(nextValue);
-    setDraftExactValue(nextValue.toString());
+    setDraftValue(null);
+    setDraftExactValue(null);
   };
 
   const updateDraftExactValue = (nextDraftValue: string) => {
@@ -969,13 +1026,10 @@ function RangeSettingField({
     const parsedValue = Number(nextDraftValue);
     const nextValue =
       nextDraftValue.trim() === "" || !Number.isFinite(parsedValue)
-        ? draftValue
+        ? displayedRangeValue
         : parsedValue;
 
     commitRangeValue(nextValue);
-    setDraftExactValue(
-      normalizeSetting(field.id, nextValue as PensionSettings[typeof field.id]).toString(),
-    );
   };
 
   return (
@@ -992,12 +1046,14 @@ function RangeSettingField({
             min={field.min}
             max={field.max}
             step={field.step}
-            value={draftValue}
+            value={displayedRangeValue}
             disabled={disabled}
             onChange={(event) => {
               const nextValue = Number(event.target.value);
               setDraftValue(nextValue);
-              setDraftExactValue(nextValue.toString());
+              if (!isEditingExactValue) {
+                setDraftExactValue(null);
+              }
             }}
             onMouseUp={(event) => commitRangeValue(Number(event.currentTarget.value))}
             onTouchEnd={(event) => commitRangeValue(Number(event.currentTarget.value))}
@@ -1019,7 +1075,6 @@ function RangeSettingField({
           disabled={disabled}
           onFocus={(event) => {
             setDraftExactValue(event.currentTarget.value);
-            setIsEditingExactValue(true);
           }}
           onChange={(event) => {
             const nextDraftValue = event.target.value;
@@ -1027,7 +1082,6 @@ function RangeSettingField({
             updateDraftExactValue(nextDraftValue);
           }}
           onBlur={(event) => {
-            setIsEditingExactValue(false);
             normalizeExactValue(event.target.value);
           }}
           onKeyDown={(event) => {
@@ -1046,9 +1100,9 @@ function RangeSettingField({
           disabled={disabled}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
-            setDraftValue(resetValue as number);
-            setDraftExactValue((resetValue as number).toString());
             onChange(field.id, resetValue);
+            setDraftValue(null);
+            setDraftExactValue(null);
           }}
         >
           Reset to default
