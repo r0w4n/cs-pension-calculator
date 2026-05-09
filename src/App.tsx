@@ -1384,6 +1384,11 @@ type ProjectionTableColumn = {
 
 const projectionTableColumns: ProjectionTableColumn[] = [
   { key: "date", label: "Date", width: "7rem" },
+  {
+    key: "totalMonthlyPensionTakeHomePay",
+    label: "Total Monthly Pension Income",
+    width: "8rem",
+  },
   { key: "age", label: "Age (years/months)", width: "7rem" },
   { key: "monthlyAddedPension", label: "Monthly Added Pension", width: "7rem" },
   { key: "lumpSumAddedPension", label: "Lump sum added pension", width: "7rem" },
@@ -1414,7 +1419,6 @@ const projectionTableColumns: ProjectionTableColumn[] = [
     width: "7rem",
     setting: "showIsa",
   },
-  { key: "totalMonthlyPensionTakeHomePay", label: "Total Monthly Pension take-home pay", width: "8rem" },
 ] as const;
 
 function ProjectionTable({ rows, settings }: ProjectionTableProps) {
@@ -1517,6 +1521,7 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
                     ) : null}
                   </div>
                 </td>
+                <td>{formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay)}</td>
                 <td>{formatAge(row.age, row.ageMonths)}</td>
                 <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
                 <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
@@ -1534,7 +1539,6 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
                 {settings.showIsa ? (
                   <td>{formatCurrencyDetailed(row.monthlyIsaPension)}</td>
                 ) : null}
-                <td>{formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay)}</td>
               </tr>
             ))}
           </tbody>

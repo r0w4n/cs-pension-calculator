@@ -324,7 +324,7 @@ describe("App settings form", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", {
-        name: "Total Monthly Pension take-home pay",
+        name: "Total Monthly Pension Income",
       }),
     ).toBeInTheDocument();
     expect(
