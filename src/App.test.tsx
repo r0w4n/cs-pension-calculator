@@ -41,6 +41,9 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(
       defaultSettings.currentStatePension,
     );
+    expect(screen.getByLabelText("Project State Pension future growth")).not.toBeChecked();
+    expect(screen.getByLabelText("State Pension CPI (%)")).toBeDisabled();
+    expect(screen.getByLabelText("State Pension wage growth (%)")).toBeDisabled();
     expect(screen.getByLabelText("Apply Alpha pension increases")).not.toBeChecked();
     expect(screen.getByLabelText("Assumed CPI (%)")).toHaveValue("2");
     expect(screen.getByLabelText("Assumed CPI (%)")).toBeDisabled();
@@ -181,6 +184,9 @@ describe("App settings form", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      statePensionApplyFutureGrowth: defaultSettings.statePensionApplyFutureGrowth,
+      statePensionCpiPercent: defaultSettings.statePensionCpiPercent,
+      statePensionWageGrowthPercent: defaultSettings.statePensionWageGrowthPercent,
       applyPensionIncreases: defaultSettings.applyPensionIncreases,
       assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: "2024",
@@ -219,6 +225,9 @@ describe("App settings form", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      statePensionApplyFutureGrowth: defaultSettings.statePensionApplyFutureGrowth,
+      statePensionCpiPercent: defaultSettings.statePensionCpiPercent,
+      statePensionWageGrowthPercent: defaultSettings.statePensionWageGrowthPercent,
       applyPensionIncreases: defaultSettings.applyPensionIncreases,
       assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
@@ -248,6 +257,9 @@ describe("App settings form", () => {
       dateOfBirth: "1977-04-10",
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      statePensionApplyFutureGrowth: defaultSettings.statePensionApplyFutureGrowth,
+      statePensionCpiPercent: defaultSettings.statePensionCpiPercent,
+      statePensionWageGrowthPercent: defaultSettings.statePensionWageGrowthPercent,
       applyPensionIncreases: defaultSettings.applyPensionIncreases,
       assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
@@ -333,6 +345,37 @@ describe("App settings form", () => {
     expect(cpiInput).toHaveValue(defaultSettings.assumedCpiPercent);
   });
 
+  it("can apply projected State Pension future growth", () => {
+    renderAcknowledgedApp();
+
+    const applyStateGrowthToggle = screen.getByLabelText(
+      "Project State Pension future growth",
+    );
+    const cpiInput = screen.getByLabelText("State Pension CPI (%) exact value");
+    const wageGrowthInput = screen.getByLabelText(
+      "State Pension wage growth (%) exact value",
+    );
+
+    fireEvent.click(applyStateGrowthToggle);
+    fireEvent.change(cpiInput, {
+      target: { value: "3.1" },
+    });
+    fireEvent.change(wageGrowthInput, {
+      target: { value: "4.2" },
+    });
+
+    expect(applyStateGrowthToggle).toBeChecked();
+    expect(cpiInput).toHaveValue(3.1);
+    expect(wageGrowthInput).toHaveValue(4.2);
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        statePensionApplyFutureGrowth: true,
+        statePensionCpiPercent: 3.1,
+        statePensionWageGrowthPercent: 4.2,
+      }),
+    );
+  });
+
   it("resets all parameters back to their defaults", () => {
     renderAcknowledgedApp();
 
@@ -363,6 +406,9 @@ describe("App settings form", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: defaultSettings.lifeExpectancy,
       currentStatePension: defaultSettings.currentStatePension,
+      statePensionApplyFutureGrowth: defaultSettings.statePensionApplyFutureGrowth,
+      statePensionCpiPercent: defaultSettings.statePensionCpiPercent,
+      statePensionWageGrowthPercent: defaultSettings.statePensionWageGrowthPercent,
       applyPensionIncreases: defaultSettings.applyPensionIncreases,
       assumedCpiPercent: defaultSettings.assumedCpiPercent,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,

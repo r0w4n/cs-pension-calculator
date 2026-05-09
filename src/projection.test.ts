@@ -5,6 +5,7 @@ import {
   calculateAccruedAlphaPension,
   calculateAge,
   calculateAlphaPensionRevaluationFactor,
+  calculateAnnualStatePensionAtDraw,
   calculateAnnualAlphaPensionIncludingReduction,
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
@@ -280,6 +281,31 @@ describe("projection calculations", () => {
       958.333333,
       6,
     );
+  });
+
+  it("projects State Pension future growth using the highest triple-lock input", () => {
+    expect(
+      calculateAnnualStatePensionAtDraw({
+        ...defaultSettings,
+        startDate: "2026-01-01",
+        statePensionDrawDate: "2028-01-01",
+        currentStatePension: 10000,
+        statePensionApplyFutureGrowth: true,
+        statePensionCpiPercent: 3,
+        statePensionWageGrowthPercent: 4,
+      }),
+    ).toBeCloseTo(10816, 6);
+    expect(
+      calculateAnnualStatePensionAtDraw({
+        ...defaultSettings,
+        startDate: "2026-01-01",
+        statePensionDrawDate: "2028-01-01",
+        currentStatePension: 10000,
+        statePensionApplyFutureGrowth: false,
+        statePensionCpiPercent: 10,
+        statePensionWageGrowthPercent: 10,
+      }),
+    ).toBe(10000);
   });
 
   it("derives projection inputs from valid settings", () => {

@@ -16,6 +16,8 @@ export type DateField = {
 export type RangeField = {
   id:
     | "lifeExpectancy"
+    | "statePensionCpiPercent"
+    | "statePensionWageGrowthPercent"
     | "assumedCpiPercent"
     | "alphaAddedPensionMonthly"
     | "alphaPensionLeaveAge"
@@ -39,6 +41,7 @@ export type RangeField = {
 export type CheckboxField = {
   id:
     | "applyPensionIncreases"
+    | "statePensionApplyFutureGrowth"
     | "alphaEpaEnabled"
     | "sippApplyRealInterest"
     | "sippApplyTaxRelief";
@@ -117,6 +120,14 @@ export const fieldGroups: FieldGroup[] = [
           "https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/healthandlifeexpectancies/articles/lifeexpectancycalculator/2019-06-07",
         infoLinkText: "Estimate life expectancy",
       },
+    ],
+  },
+  {
+    id: "state",
+    eyebrow: "State Pension",
+    title: "State pension details",
+    description: "Current forecast and optional future uprating assumptions.",
+    fields: [
       {
         id: "currentStatePension",
         label: "Current Full State Pension (£ per year)",
@@ -127,6 +138,29 @@ export const fieldGroups: FieldGroup[] = [
         format: "currency",
         infoUrl: "https://www.gov.uk/check-state-pension",
         infoLinkText: "Check State Pension",
+      },
+      {
+        id: "statePensionApplyFutureGrowth",
+        label: "Project State Pension future growth",
+        type: "checkbox",
+        description:
+          "Uprate the current forecast each year until State Pension age using the highest of CPI, wage growth, and 2.5%.",
+      },
+      {
+        id: "statePensionCpiPercent",
+        label: "State Pension CPI (%)",
+        type: "range",
+        min: 0,
+        max: 10,
+        step: 0.1,
+      },
+      {
+        id: "statePensionWageGrowthPercent",
+        label: "State Pension wage growth (%)",
+        type: "range",
+        min: 0,
+        max: 10,
+        step: 0.1,
       },
     ],
   },

@@ -486,6 +486,10 @@ function SettingsFields({
 function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
+    (["statePensionCpiPercent", "statePensionWageGrowthPercent"].includes(
+      fieldId,
+    ) &&
+      !settings.statePensionApplyFutureGrowth) ||
     (fieldId === "sippRealInterestPercent" && !settings.sippApplyRealInterest) ||
     (fieldId === "sippWithdrawalPercent" &&
       settings.sippWithdrawalStrategy !== "percentage") ||
@@ -499,6 +503,10 @@ function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettin
 function isFieldHiddenOnMobile(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
+    (["statePensionCpiPercent", "statePensionWageGrowthPercent"].includes(
+      fieldId,
+    ) &&
+      !settings.statePensionApplyFutureGrowth) ||
     (fieldId === "sippRealInterestPercent" && !settings.sippApplyRealInterest) ||
     (fieldId === "sippWithdrawalPercent" &&
       settings.sippWithdrawalStrategy !== "percentage") ||

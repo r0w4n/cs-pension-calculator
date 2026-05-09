@@ -19,6 +19,9 @@ export type PensionSettings = {
   normalPensionAge: number;
   currentStatePension: number;
   statePensionDrawDate: string;
+  statePensionApplyFutureGrowth: boolean;
+  statePensionCpiPercent: number;
+  statePensionWageGrowthPercent: number;
   applyPensionIncreases: boolean;
   assumedCpiPercent: number;
   alphaPensionAbsDate: string;
@@ -55,6 +58,8 @@ type StoredPensionSettings = Omit<
 const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
   currentStatePension: { min: 0, max: 15000, step: 0.01 },
+  statePensionCpiPercent: { min: 0, max: 10, step: 0.1 },
+  statePensionWageGrowthPercent: { min: 0, max: 10, step: 0.1 },
   assumedCpiPercent: { min: 0, max: 10, step: 0.1 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
   alphaPensionLeaveAge: { min: 40, max: 70, step: 1 },
@@ -77,6 +82,9 @@ export const defaultSettings: PensionSettings = {
   normalPensionAge: 68,
   currentStatePension: 12547.6,
   statePensionDrawDate: "2055-06-15",
+  statePensionApplyFutureGrowth: false,
+  statePensionCpiPercent: 2,
+  statePensionWageGrowthPercent: 3,
   applyPensionIncreases: false,
   assumedCpiPercent: 2,
   alphaPensionAbsDate: "2025",
@@ -156,6 +164,7 @@ export function normalizeSetting<K extends keyof PensionSettings>(
         defaultSettings.statePensionDrawDate,
       ) as PensionSettings[K];
     case "applyPensionIncreases":
+    case "statePensionApplyFutureGrowth":
     case "alphaEpaEnabled":
     case "sippApplyRealInterest":
       return Boolean(value) as PensionSettings[K];
@@ -194,6 +203,13 @@ function coerceSettings(
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
     currentStatePension: coerceNumber(input.currentStatePension),
+    statePensionApplyFutureGrowth: coerceBoolean(
+      input.statePensionApplyFutureGrowth,
+    ),
+    statePensionCpiPercent: coerceNumber(input.statePensionCpiPercent),
+    statePensionWageGrowthPercent: coerceNumber(
+      input.statePensionWageGrowthPercent,
+    ),
     applyPensionIncreases: coerceBoolean(input.applyPensionIncreases),
     assumedCpiPercent: coerceNumber(input.assumedCpiPercent),
     alphaPensionAbsDate: coerceString(input.alphaPensionAbsDate),
@@ -358,6 +374,15 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       settings.currentStatePension,
     ),
     statePensionDrawDate: calculateStatePensionDrawDate(dateOfBirth),
+    statePensionApplyFutureGrowth: Boolean(settings.statePensionApplyFutureGrowth),
+    statePensionCpiPercent: normalizeSetting(
+      "statePensionCpiPercent",
+      settings.statePensionCpiPercent,
+    ),
+    statePensionWageGrowthPercent: normalizeSetting(
+      "statePensionWageGrowthPercent",
+      settings.statePensionWageGrowthPercent,
+    ),
     applyPensionIncreases: Boolean(settings.applyPensionIncreases),
     assumedCpiPercent: normalizeSetting(
       "assumedCpiPercent",

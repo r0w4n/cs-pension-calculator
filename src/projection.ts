@@ -256,7 +256,7 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
     const monthlyStatePension = calculateMonthlyStatePension(
       rowDate,
       settings.statePensionDrawDate,
-      settings.currentStatePension,
+      calculateAnnualStatePensionAtDraw(settings),
     );
     const totalMonthlyPensionTakeHomePay = calculateTotalGrossMonthlyPension(
       monthlyAlphaPensionTakeHome,
@@ -425,7 +425,7 @@ function createProjectionTableWithPensionIncreases(
     const monthlyStatePension = calculateMonthlyStatePension(
       rowDate,
       settings.statePensionDrawDate,
-      settings.currentStatePension,
+      calculateAnnualStatePensionAtDraw(settings),
     );
 
     previousRowDate = rowDate;
@@ -989,9 +989,28 @@ export function calculateMonthlyAlphaPensionIncludingReduction(
 export function calculateMonthlyStatePension(
   rowDate: string,
   statePensionStartDate: string,
-  currentFullStatePension: number,
+  annualStatePensionAtDraw: number,
 ) {
-  return rowDate >= statePensionStartDate ? currentFullStatePension / 12 : 0;
+  return rowDate >= statePensionStartDate ? annualStatePensionAtDraw / 12 : 0;
+}
+
+export function calculateAnnualStatePensionAtDraw(settings: PensionSettings) {
+  if (!settings.statePensionApplyFutureGrowth) {
+    return settings.currentStatePension;
+  }
+
+  const annualGrowthRate =
+    Math.max(
+      settings.statePensionCpiPercent,
+      settings.statePensionWageGrowthPercent,
+      2.5,
+    ) / 100;
+  const growthYears = calculateWholeYearDifference(
+    settings.startDate,
+    settings.statePensionDrawDate,
+  );
+
+  return settings.currentStatePension * (1 + annualGrowthRate) ** growthYears;
 }
 
 export function calculateTotalGrossMonthlyPension(
@@ -1353,7 +1372,7 @@ function createHistoricalProjectionRows(input: {
     const monthlyStatePension = calculateMonthlyStatePension(
       rowDate,
       settings.statePensionDrawDate,
-      settings.currentStatePension,
+      calculateAnnualStatePensionAtDraw(settings),
     );
 
     rows.push({
