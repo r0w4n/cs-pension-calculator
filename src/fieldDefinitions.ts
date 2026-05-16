@@ -101,6 +101,7 @@ export type CurrencyInputField = {
 
 export type SelectField = {
   id:
+    | "alphaAddedPensionFactorType"
     | "sippTaxReliefRate"
     | "sippWithdrawalStrategy"
     | "isaWithdrawalStrategy";
@@ -109,6 +110,7 @@ export type SelectField = {
   options: {
     value:
       | PensionSettings["sippTaxReliefRate"]
+      | PensionSettings["alphaAddedPensionFactorType"]
       | PensionSettings["sippWithdrawalStrategy"]
       | PensionSettings["isaWithdrawalStrategy"];
     label: string;
@@ -347,6 +349,21 @@ export const fieldGroups: FieldGroup[] = [
         valuePrefix: "/mo",
         infoUrl: knowledgeLinks.alphaAddedPensionFactors,
         infoLinkText: "Added pension factors",
+      },
+      {
+        id: "alphaAddedPensionFactorType",
+        label: "Monthly Added Alpha Pension cover",
+        type: "select",
+        options: [
+          {
+            value: "self",
+            label: "Self only",
+          },
+          {
+            value: "self_plus_beneficiaries",
+            label: "Self and dependants",
+          },
+        ],
       },
       {
         id: "alphaEpaEnabled",

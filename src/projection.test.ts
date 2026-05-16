@@ -338,6 +338,7 @@ describe("projection calculations", () => {
 
   it("loads the added pension factor from JSON", () => {
     expect(getAddedPensionFactorForAge(60)).toBe(12.82);
+    expect(getAddedPensionFactorForAge(60, "self_plus_beneficiaries")).toBe(13.77);
   });
 
   it("handles blank added pension factors safely", () => {
@@ -361,6 +362,18 @@ describe("projection calculations", () => {
         addedPensionMonthlyContribution: 150,
       }),
     ).toBeCloseTo(11.7004680187, 6);
+  });
+
+  it("calculates monthly added pension with the self and dependants factor", () => {
+    expect(
+      calculateMonthlyAddedPension({
+        rowDate: "2047-06-15",
+        stopDate: "2047-06-15",
+        dateOfBirth: "1987-06-15",
+        addedPensionMonthlyContribution: 137.7,
+        factorType: "self_plus_beneficiaries",
+      }),
+    ).toBeCloseTo(10, 6);
   });
 
   it("carries regular monthly added pension purchases into accrued Alpha pension", () => {
@@ -389,6 +402,33 @@ describe("projection calculations", () => {
     );
     expect(findRowByDate(rows, "2047-05-01")?.monthlyAddedPension).toBe(0);
     expect(findRowByDate(rows, "2047-05-01")?.annualAccruedAlphaPension).toBeCloseTo(
+      10,
+      6,
+    );
+  });
+
+  it("uses the selected added pension factor in projected monthly purchases", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-04-01",
+      dateOfBirth: "1987-04-01",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      lifeExpectancy: 61,
+      showStatePension: false,
+      showSipp: false,
+      showIsa: false,
+      accruedPensionAtLastAbs: 0,
+      alphaPensionAbsDate: "2047",
+      pensionableEarnings: 0,
+      alphaAddedPensionMonthly: 137.7,
+      alphaAddedPensionFactorType: "self_plus_beneficiaries",
+    };
+
+    const rows = createProjectionTable(settings);
+
+    expect(findRowByDate(rows, "2047-04-01")?.monthlyAddedPension).toBeCloseTo(10, 6);
+    expect(findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
       10,
       6,
     );
@@ -441,6 +481,60 @@ describe("projection calculations", () => {
         ],
       }),
     ).toBeCloseTo(1000, 6);
+  });
+
+  it("calculates lump sum added pension with the self and dependants factor", () => {
+    expect(
+      calculateLumpSumAddedPension({
+        rowDate: "2047-06-15",
+        dateOfBirth: "1987-06-15",
+        lumpSums: [
+          {
+            id: "one-off",
+            amount: 13770,
+            startDate: "2047-06-15",
+            cadence: "once",
+            endDate: "2047-06-15",
+            factorType: "self_plus_beneficiaries",
+          },
+        ],
+      }),
+    ).toBeCloseTo(1000, 6);
+  });
+
+  it("uses a lump sum's own added pension factor independently from monthly purchases", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-04-01",
+      dateOfBirth: "1987-04-01",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      lifeExpectancy: 61,
+      showStatePension: false,
+      showSipp: false,
+      showIsa: false,
+      accruedPensionAtLastAbs: 0,
+      alphaPensionAbsDate: "2047",
+      pensionableEarnings: 0,
+      alphaAddedPensionMonthly: 128.2,
+      alphaAddedPensionFactorType: "self",
+      alphaAddedPensionLumpSums: [
+        {
+          id: "dependants-lump-sum",
+          amount: 13770,
+          startDate: "2047-04-01",
+          cadence: "once",
+          endDate: "2047-04-01",
+          factorType: "self_plus_beneficiaries",
+        },
+      ],
+    };
+
+    const rows = createProjectionTable(settings);
+    const purchaseRow = findRowByDate(rows, "2047-04-01");
+
+    expect(purchaseRow?.monthlyAddedPension).toBeCloseTo(10, 6);
+    expect(purchaseRow?.lumpSumAddedPension).toBeCloseTo(1000, 6);
   });
 
   it("applies a lump sum on the first projection row after its payment date", () => {

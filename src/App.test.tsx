@@ -275,6 +275,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     assumedCpiPercent: defaultSettings.assumedCpiPercent,
     alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
     alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
+    alphaAddedPensionFactorType: defaultSettings.alphaAddedPensionFactorType,
     alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
     accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
     pensionableEarnings: defaultSettings.pensionableEarnings,
@@ -633,6 +634,49 @@ describe("App settings form", () => {
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         sippTaxReliefRate: "40",
+      }),
+    );
+  });
+
+  it("allows selecting self and dependants cover for monthly added pension", () => {
+    renderAcknowledgedApp();
+
+    const factorTypeSelect = screen.getByLabelText("Monthly Added Alpha Pension cover");
+
+    fireEvent.change(factorTypeSelect, {
+      target: { value: "self_plus_beneficiaries" },
+    });
+    fireEvent.blur(factorTypeSelect);
+
+    expect(factorTypeSelect).toHaveValue("self_plus_beneficiaries");
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        alphaAddedPensionFactorType: "self_plus_beneficiaries",
+      }),
+    );
+  });
+
+  it("allows selecting self and dependants cover for a lump sum purchase", () => {
+    renderAcknowledgedApp();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add lump sum purchase" }));
+
+    const factorTypeSelect = screen.getByLabelText("Lump sum cover 1");
+
+    expect(factorTypeSelect).toHaveValue("self");
+
+    fireEvent.change(factorTypeSelect, {
+      target: { value: "self_plus_beneficiaries" },
+    });
+
+    expect(factorTypeSelect).toHaveValue("self_plus_beneficiaries");
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        alphaAddedPensionLumpSums: [
+          expect.objectContaining({
+            factorType: "self_plus_beneficiaries",
+          }),
+        ],
       }),
     );
   });

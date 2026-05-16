@@ -39,6 +39,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     assumedCpiPercent: defaultSettings.assumedCpiPercent,
     alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
     alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
+    alphaAddedPensionFactorType: defaultSettings.alphaAddedPensionFactorType,
     alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
     accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
     pensionableEarnings: defaultSettings.pensionableEarnings,
@@ -108,6 +109,10 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("currentStatePension", 12547.6)).toBe(12547.6);
     expect(normalizeSetting("desiredRetirementIncome", 250000)).toBe(200000);
     expect(normalizeSetting("desiredRetirementIncome", 43899.6)).toBe(43900);
+    expect(normalizeSetting("alphaAddedPensionFactorType", "self_plus_beneficiaries")).toBe(
+      "self_plus_beneficiaries",
+    );
+    expect(normalizeSetting("alphaAddedPensionFactorType", "bad-value" as never)).toBe("self");
     expect(normalizeSetting("statePensionCpiPercent", 2.34)).toBe(2.34);
     expect(normalizeSetting("statePensionWageGrowthPercent", 11)).toBe(10);
     expect(normalizeSetting("partialRetirementStartAge", 75)).toBe(70);
@@ -146,6 +151,7 @@ describe("settings unit tests", () => {
       ...createDefaultSettings(),
       startDate: "2026-05-01",
       alphaAddedPensionMonthly: 233,
+      alphaAddedPensionFactorType: "self_plus_beneficiaries",
       desiredRetirementIncome: 60600,
     };
 
@@ -154,6 +160,7 @@ describe("settings unit tests", () => {
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expectedStoredSettings({
         alphaAddedPensionMonthly: 233,
+        alphaAddedPensionFactorType: "self_plus_beneficiaries",
         desiredRetirementIncome: 60600,
       }),
     );
@@ -172,6 +179,7 @@ describe("settings unit tests", () => {
         statePensionDrawDate: "bad-date",
         alphaPensionAbsDate: "bad-date",
         alphaAddedPensionMonthly: 233,
+        alphaAddedPensionFactorType: "bad-value",
         alphaPensionLeaveAge: 10,
         accruedPensionAtLastAbs: 12444,
         pensionableEarnings: 56321,
@@ -211,6 +219,7 @@ describe("settings unit tests", () => {
       assumedCpiPercent: 2.34,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: 233,
+      alphaAddedPensionFactorType: defaultSettings.alphaAddedPensionFactorType,
       alphaPensionLeaveAge: 40,
       accruedPensionAtLastAbs: 12444,
       pensionableEarnings: 56321,
@@ -226,6 +235,7 @@ describe("settings unit tests", () => {
           startDate: getTodayIsoDate(),
           cadence: "yearly",
           endDate: "2020-01-01",
+          factorType: "self",
         },
       ],
       nuvosPensionAbsDate: defaultSettings.nuvosPensionAbsDate,
@@ -550,6 +560,7 @@ describe("settings unit tests", () => {
           startDate: "bad-date",
           cadence: "once",
           endDate: "2030-06-15",
+          factorType: "self_plus_beneficiaries",
         },
       ]),
     ).toEqual([
@@ -559,6 +570,7 @@ describe("settings unit tests", () => {
         startDate: getTodayIsoDate(),
         cadence: "once",
         endDate: getTodayIsoDate(),
+        factorType: "self_plus_beneficiaries",
       },
     ]);
   });

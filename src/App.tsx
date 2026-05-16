@@ -510,6 +510,7 @@ function App() {
                     lumpSums={settings.alphaAddedPensionLumpSums}
                     defaultStartDate={settings.startDate}
                     useDropdownDates={useDropdownDates}
+                    showFactorType
                     validationIssues={getValidationIssuesForField(
                       validationIssues,
                       "alphaAddedPensionLumpSums",
@@ -2029,6 +2030,7 @@ type AddedPensionLumpSumsEditorProps = {
   itemLabel?: string;
   addButtonLabel?: string;
   removeButtonLabel?: string;
+  showFactorType?: boolean;
   validationIssues?: PensionValidationIssue[];
   onChange: (nextLumpSums: AddedPensionLumpSum[]) => void;
 };
@@ -2043,6 +2045,7 @@ function AddedPensionLumpSumsEditor({
   itemLabel = "Lump sum",
   addButtonLabel = "Add lump sum purchase",
   removeButtonLabel = "Remove lump sum",
+  showFactorType = false,
   validationIssues = [],
   onChange,
 }: AddedPensionLumpSumsEditorProps) {
@@ -2056,7 +2059,13 @@ function AddedPensionLumpSumsEditor({
   }
 
   function addLumpSum() {
-    onChange([...lumpSums, createDefaultAddedPensionLumpSum(defaultStartDate)]);
+    onChange([
+      ...lumpSums,
+      createDefaultAddedPensionLumpSum(
+        defaultStartDate,
+        showFactorType ? "self" : undefined,
+      ),
+    ]);
   }
 
   function removeLumpSum(id: string) {
@@ -2158,6 +2167,30 @@ function AddedPensionLumpSumsEditor({
               <option value="once">One-off</option>
               <option value="yearly">Yearly</option>
             </select>
+
+            {showFactorType ? (
+              <>
+                <label className="field-label" htmlFor={`lump-sum-factor-type-${lumpSum.id}`}>
+                  Cover
+                </label>
+                <select
+                  id={`lump-sum-factor-type-${lumpSum.id}`}
+                  aria-label={`${itemLabel} cover ${index + 1}`}
+                  className="date-input"
+                  value={lumpSum.factorType ?? "self"}
+                  aria-invalid={hasValidationIssue || undefined}
+                  aria-describedby={validationId}
+                  onChange={(event) =>
+                    updateLumpSum(lumpSum.id, {
+                      factorType: event.target.value as AddedPensionLumpSum["factorType"],
+                    })
+                  }
+                >
+                  <option value="self">Self only</option>
+                  <option value="self_plus_beneficiaries">Self and dependants</option>
+                </select>
+              </>
+            ) : null}
 
             {lumpSum.cadence === "yearly" ? (
               <>

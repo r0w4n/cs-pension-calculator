@@ -7,6 +7,7 @@ import {
   getAlphaEpaDate,
   resolveAlphaAbsDate,
   validateSettings,
+  type AddedPensionFactorType,
   type AddedPensionLumpSum,
   type PensionSettings,
 } from "./settings";
@@ -305,6 +306,7 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       stopDate: addedPensionStopDate,
       dateOfBirth: settings.dateOfBirth,
       addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
+      factorType: settings.alphaAddedPensionFactorType,
       contributionMultiplier: getPartialRetirementContributionMultiplier(
         settings,
         rowDate,
@@ -534,6 +536,7 @@ function createProjectionTableWithPensionIncreases(
           stopDate: addedPensionStopDate,
           dateOfBirth: settings.dateOfBirth,
           addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
+          factorType: settings.alphaAddedPensionFactorType,
           contributionMultiplier: getPartialRetirementContributionMultiplier(
             settings,
             rowDate,
@@ -1236,7 +1239,7 @@ export function calculateMonthlyAddedPension(input: {
   dateOfBirth: string;
   addedPensionMonthlyContribution: number;
   contributionMultiplier?: number;
-  factorType?: "self" | "self_plus_beneficiaries";
+  factorType?: AddedPensionFactorType;
 }) {
   const {
     rowDate,
@@ -1272,7 +1275,7 @@ export function calculateLumpSumAddedPension(input: {
   previousRowDate?: string;
   dateOfBirth: string;
   lumpSums: AddedPensionLumpSum[];
-  factorType?: "self" | "self_plus_beneficiaries";
+  factorType?: AddedPensionFactorType;
 }) {
   const { rowDate, previousRowDate, dateOfBirth, lumpSums, factorType = "self" } = input;
 
@@ -1285,7 +1288,7 @@ export function calculateLumpSumAddedPension(input: {
 
     const purchasedPension = matchingPaymentDates.reduce((runningTotal, paymentDate) => {
       const age = calculateAge(dateOfBirth, paymentDate);
-      const factor = getAddedPensionFactorForAge(age, factorType);
+      const factor = getAddedPensionFactorForAge(age, lumpSum.factorType ?? factorType);
 
       if (!factor) {
         return runningTotal;
@@ -1306,7 +1309,7 @@ export function calculateLumpSumAddedPension(input: {
 
 export function getAddedPensionFactorForAge(
   age: number,
-  factorType: "self" | "self_plus_beneficiaries" = "self",
+  factorType: AddedPensionFactorType = "self",
 ) {
   const match = (addedPensionFactors as AddedPensionFactorRecord[]).find(
     (record) => record.age === age,
@@ -2150,6 +2153,7 @@ function createHistoricalProjectionRows(input: {
             stopDate: addedPensionStopDate,
             dateOfBirth: settings.dateOfBirth,
             addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
+            factorType: settings.alphaAddedPensionFactorType,
             contributionMultiplier: getPartialRetirementContributionMultiplier(
               settings,
               rowDate,

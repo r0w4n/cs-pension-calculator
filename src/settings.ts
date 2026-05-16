@@ -1,6 +1,7 @@
 export const SETTINGS_STORAGE_KEY = "cs-pension-calculator.settings";
 
 export type AddedPensionLumpSumCadence = "once" | "yearly";
+export type AddedPensionFactorType = "self" | "self_plus_beneficiaries";
 
 export type AddedPensionLumpSum = {
   id: string;
@@ -8,6 +9,7 @@ export type AddedPensionLumpSum = {
   startDate: string;
   cadence: AddedPensionLumpSumCadence;
   endDate: string;
+  factorType?: AddedPensionFactorType;
 };
 
 export type SippWithdrawalStrategy = "zero_at_death" | "percentage";
@@ -37,6 +39,7 @@ export type PensionSettings = {
   assumedCpiPercent: number;
   alphaPensionAbsDate: string;
   alphaAddedPensionMonthly: number;
+  alphaAddedPensionFactorType: AddedPensionFactorType;
   alphaPensionLeaveAge: number;
   accruedPensionAtLastAbs: number;
   pensionableEarnings: number;
@@ -167,6 +170,7 @@ export const defaultSettings: PensionSettings = {
   assumedCpiPercent: 2,
   alphaPensionAbsDate: "2025",
   alphaAddedPensionMonthly: 150,
+  alphaAddedPensionFactorType: "self",
   alphaPensionLeaveAge: 60,
   accruedPensionAtLastAbs: 8250,
   pensionableEarnings: 42000,
@@ -279,6 +283,8 @@ export function normalizeSetting<K extends keyof PensionSettings>(
       return Boolean(value) as PensionSettings[K];
     case "sippTaxReliefRate":
       return normalizeSippTaxReliefRate(value) as PensionSettings[K];
+    case "alphaAddedPensionFactorType":
+      return normalizeAddedPensionFactorType(value) as PensionSettings[K];
     case "sippWithdrawalStrategy":
       return normalizeSippWithdrawalStrategy(value) as PensionSettings[K];
     case "isaWithdrawalStrategy":
@@ -293,6 +299,10 @@ export function normalizeSetting<K extends keyof PensionSettings>(
         defaultSettings[key] as string,
       ) as PensionSettings[K];
     case "alphaAddedPensionLumpSums":
+      return normalizeAddedPensionLumpSums(
+        value as AddedPensionLumpSum[],
+        { includeFactorType: true },
+      ) as PensionSettings[K];
     case "isaLumpSums":
     case "sippLumpSums":
       return normalizeAddedPensionLumpSums(
@@ -335,6 +345,9 @@ function coerceSettings(
     assumedCpiPercent: coerceNumber(input.assumedCpiPercent),
     alphaPensionAbsDate: coerceString(input.alphaPensionAbsDate),
     alphaAddedPensionMonthly: coerceNumber(input.alphaAddedPensionMonthly),
+    alphaAddedPensionFactorType: coerceString(input.alphaAddedPensionFactorType) as
+      | AddedPensionFactorType
+      | undefined,
     alphaPensionLeaveAge: coerceNumber(input.alphaPensionLeaveAge),
     accruedPensionAtLastAbs: coerceNumber(input.accruedPensionAtLastAbs),
     pensionableEarnings: coerceNumber(input.pensionableEarnings),
@@ -345,6 +358,7 @@ function coerceSettings(
     alphaEpaEndDate: coerceString(input.alphaEpaEndDate),
     alphaAddedPensionLumpSums: coerceAddedPensionLumpSums(
       input.alphaAddedPensionLumpSums,
+      { includeFactorType: true },
     ),
     nuvosPensionAbsDate: coerceString(input.nuvosPensionAbsDate),
     nuvosAccruedPensionAtLastAbs: coerceNumber(
@@ -768,6 +782,10 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "alphaAddedPensionMonthly",
       settings.alphaAddedPensionMonthly,
     ),
+    alphaAddedPensionFactorType: normalizeSetting(
+      "alphaAddedPensionFactorType",
+      settings.alphaAddedPensionFactorType,
+    ),
     alphaPensionLeaveAge: normalizeSetting(
       "alphaPensionLeaveAge",
       settings.alphaPensionLeaveAge,
@@ -977,6 +995,12 @@ function normalizeSippTaxReliefRate(value: unknown): SippTaxReliefRate {
     : defaultSettings.sippTaxReliefRate;
 }
 
+function normalizeAddedPensionFactorType(value: unknown): AddedPensionFactorType {
+  return value === "self_plus_beneficiaries" || value === "self"
+    ? value
+    : defaultSettings.alphaAddedPensionFactorType;
+}
+
 function normalizeIsaWithdrawalStrategy(value: unknown): IsaWithdrawalStrategy {
   return value === "percentage" || value === "zero_at_death"
     ? value
@@ -999,19 +1023,25 @@ function coerceSippTaxReliefRate(value: unknown, legacyBooleanValue: unknown) {
   return undefined;
 }
 
-function coerceAddedPensionLumpSums(value: unknown) {
+function coerceAddedPensionLumpSums(
+  value: unknown,
+  options: { includeFactorType?: boolean } = {},
+) {
   if (!Array.isArray(value)) {
     return undefined;
   }
 
   const coerced = value
-    .map((entry) => coerceAddedPensionLumpSum(entry))
+    .map((entry) => coerceAddedPensionLumpSum(entry, options))
     .filter((entry): entry is AddedPensionLumpSum => entry !== undefined);
 
   return coerced;
 }
 
-function coerceAddedPensionLumpSum(value: unknown) {
+function coerceAddedPensionLumpSum(
+  value: unknown,
+  options: { includeFactorType?: boolean } = {},
+) {
   if (!value || typeof value !== "object") {
     return undefined;
   }
@@ -1024,6 +1054,9 @@ function coerceAddedPensionLumpSum(value: unknown) {
     startDate: coerceString(input.startDate) ?? getTodayIsoDate(),
     cadence: input.cadence === "yearly" ? "yearly" : "once",
     endDate: coerceString(input.endDate) ?? coerceString(input.startDate) ?? getTodayIsoDate(),
+    ...(options.includeFactorType
+      ? { factorType: normalizeAddedPensionFactorType(input.factorType) }
+      : {}),
   } satisfies AddedPensionLumpSum;
 }
 
@@ -1043,11 +1076,17 @@ function coerceLegacySippLumpSum(value: number | undefined) {
   ] satisfies AddedPensionLumpSum[];
 }
 
-function normalizeAddedPensionLumpSums(value: AddedPensionLumpSum[]) {
-  return value.map((entry) => normalizeAddedPensionLumpSum(entry));
+function normalizeAddedPensionLumpSums(
+  value: AddedPensionLumpSum[],
+  options: { includeFactorType?: boolean } = {},
+) {
+  return value.map((entry) => normalizeAddedPensionLumpSum(entry, options));
 }
 
-function normalizeAddedPensionLumpSum(value: AddedPensionLumpSum) {
+function normalizeAddedPensionLumpSum(
+  value: AddedPensionLumpSum,
+  options: { includeFactorType?: boolean } = {},
+) {
   const startDate = normalizeDate(value.startDate, getTodayIsoDate());
   const amount = normalizeWholeCurrency(value.amount);
   const cadence = value.cadence === "yearly" ? "yearly" : "once";
@@ -1060,11 +1099,15 @@ function normalizeAddedPensionLumpSum(value: AddedPensionLumpSum) {
     startDate,
     cadence,
     endDate,
+    ...(options.includeFactorType
+      ? { factorType: normalizeAddedPensionFactorType(value.factorType) }
+      : {}),
   } satisfies AddedPensionLumpSum;
 }
 
 export function createDefaultAddedPensionLumpSum(
   startDate = getTodayIsoDate(),
+  factorType?: AddedPensionFactorType,
 ): AddedPensionLumpSum {
   return {
     id: createAddedPensionLumpSumId(),
@@ -1072,6 +1115,7 @@ export function createDefaultAddedPensionLumpSum(
     startDate,
     cadence: "once",
     endDate: startDate,
+    ...(factorType ? { factorType } : {}),
   };
 }
 
