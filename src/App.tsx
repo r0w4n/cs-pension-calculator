@@ -38,6 +38,7 @@ import {
   type PensionSettings,
   type PensionValidationIssue,
 } from "./settings";
+import { knowledgeLinks } from "./knowledgeLinks";
 
 const ACKNOWLEDGEMENT_STORAGE_KEY = "cs-pension-calculator.acknowledgement";
 const ACKNOWLEDGEMENT_VERSION = "v1";
@@ -177,10 +178,14 @@ function App() {
             <p className="eyebrow">Before you continue</p>
             <h2 id="acknowledgement-title">Important information</h2>
             <p className="section-copy">
-              This calculator provides estimates for illustrative purposes only. It is not
-              financial advice and is not affiliated with or endorsed by the Civil Service
-              or the Alpha Pension Scheme. Results should not be relied upon without
-              seeking guidance from a qualified financial adviser.
+              This calculator is for planning and illustration only. It is not financial
+              advice and is not affiliated with the Civil Service Pension Scheme, MyCSP,
+              the Cabinet Office, or the Alpha Pension Scheme.
+            </p>
+            <p className="section-copy">
+              Results depend entirely on the assumptions you enter. Check important
+              decisions against your official pension statement and, where appropriate, a
+              regulated financial adviser.
             </p>
             <p className="section-copy">
               Cookies are used for analytics purposes only, and no financial or personal
@@ -501,7 +506,7 @@ function App() {
                       {
                         label: "State Pension draw date",
                         value: formatDate(pensionSummary.keyDates.startsStatePension),
-                        infoUrl: "https://www.gov.uk/state-pension-age",
+                        infoUrl: knowledgeLinks.statePensionAge,
                         infoLinkText: "Check State Pension age",
                       },
                     ]

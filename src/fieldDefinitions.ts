@@ -1,4 +1,5 @@
 import type { PensionSettings } from "./settings";
+import { knowledgeLinks } from "./knowledgeLinks";
 
 export type DateField = {
   id:
@@ -137,7 +138,7 @@ export const fieldGroups: FieldGroup[] = [
         id: "dateOfBirth",
         label: "Your Date of Birth",
         type: "date",
-        infoUrl: "https://www.gov.uk/state-pension-age",
+        infoUrl: knowledgeLinks.statePensionAge,
         infoLinkText: "Check State Pension age",
       },
       {
@@ -147,8 +148,7 @@ export const fieldGroups: FieldGroup[] = [
         min: 75,
         max: 100,
         step: 1,
-        infoUrl:
-          "https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/healthandlifeexpectancies/articles/lifeexpectancycalculator/2019-06-07",
+        infoUrl: knowledgeLinks.lifeExpectancy,
         infoLinkText: "Estimate life expectancy",
       },
       {
@@ -186,7 +186,7 @@ export const fieldGroups: FieldGroup[] = [
             description: "Comfortable standard for two person household",
           },
         ],
-        infoUrl: "https://www.retirementlivingstandards.org.uk/",
+        infoUrl: knowledgeLinks.retirementLivingStandards,
         infoLinkText: "Retirement Living Standards",
       },
     ],
@@ -205,15 +205,14 @@ export const fieldGroups: FieldGroup[] = [
         max: 15000,
         step: 0.01,
         format: "currency",
-        infoUrl: "https://www.gov.uk/check-state-pension",
+        infoUrl: knowledgeLinks.statePensionForecast,
         infoLinkText: "Check State Pension",
       },
       {
         id: "statePensionDrawDate",
         label: "State Pension draw date",
         type: "date",
-        infoUrl:
-          "https://www.gov.uk/deferring-state-pension/if-you-reach-state-pension-age-on-or-after-6-april-2016",
+        infoUrl: knowledgeLinks.statePensionDeferral,
         infoLinkText: "Defer State Pension",
       },
       {
@@ -222,8 +221,7 @@ export const fieldGroups: FieldGroup[] = [
         type: "checkbox",
         description:
           "Uprate the current forecast each year until State Pension age using the highest of CPI, wage growth, and 2.5%.",
-        infoUrl:
-          "https://commonslibrary.parliament.uk/research-briefings/cbp-7812/",
+        infoUrl: knowledgeLinks.statePensionTripleLock,
         infoLinkText: "What is the triple lock?",
       },
       {
@@ -233,6 +231,8 @@ export const fieldGroups: FieldGroup[] = [
         min: 0,
         max: 10,
         step: 0.1,
+        infoUrl: knowledgeLinks.statePensionTripleLock,
+        infoLinkText: "State Pension uprating",
       },
       {
         id: "statePensionWageGrowthPercent",
@@ -254,8 +254,7 @@ export const fieldGroups: FieldGroup[] = [
         id: "alphaPensionAbsDate",
         label: "Last Annual Benifits Statement",
         type: "year",
-        infoUrl:
-          "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/",
+        infoUrl: knowledgeLinks.annualBenefitStatement,
         infoLinkText: "Annual Benefit Statement guide",
       },
       {
@@ -283,6 +282,8 @@ export const fieldGroups: FieldGroup[] = [
         max: 150000,
         step: 500,
         format: "currency",
+        infoUrl: knowledgeLinks.alphaAccrual,
+        infoLinkText: "Alpha accrual rate",
       },
       {
         id: "alphaPensionDrawAge",
@@ -291,6 +292,8 @@ export const fieldGroups: FieldGroup[] = [
         min: 55,
         max: 70,
         step: 1,
+        infoUrl: knowledgeLinks.alphaEarlyRetirementFactors,
+        infoLinkText: "Early retirement factors",
       },
       {
         id: "alphaAddedPensionMonthly",
@@ -301,6 +304,8 @@ export const fieldGroups: FieldGroup[] = [
         step: 25,
         format: "currency",
         valuePrefix: "/mo",
+        infoUrl: knowledgeLinks.alphaAddedPensionFactors,
+        infoLinkText: "Added pension factors",
       },
       {
         id: "alphaEpaEnabled",
@@ -333,6 +338,8 @@ export const fieldGroups: FieldGroup[] = [
         type: "checkbox",
         description:
           "Benefits increase annually by CPI + 1.6% while active, then by CPI after leaving Alpha service.",
+        infoUrl: knowledgeLinks.alphaAccrual,
+        infoLinkText: "Alpha pension increases",
       },
       {
         id: "assumedCpiPercent",
@@ -341,6 +348,8 @@ export const fieldGroups: FieldGroup[] = [
         min: 0,
         max: 10,
         step: 0.1,
+        infoUrl: knowledgeLinks.civilServicePensionIncreases,
+        infoLinkText: "Pensions Increase CPI",
       },
     ],
   },

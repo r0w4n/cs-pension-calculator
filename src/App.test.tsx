@@ -429,6 +429,10 @@ describe("App settings form", () => {
       "href",
       "https://commonslibrary.parliament.uk/research-briefings/cbp-7812/",
     );
+    expect(screen.getByRole("link", { name: "State Pension uprating" })).toHaveAttribute(
+      "href",
+      "https://commonslibrary.parliament.uk/research-briefings/cbp-7812/",
+    );
     expect(screen.getAllByRole("link", { name: "Check State Pension age" })).toHaveLength(
       2,
     );
@@ -439,6 +443,26 @@ describe("App settings form", () => {
     expect(screen.getByRole("link", { name: "Defer State Pension" })).toHaveAttribute(
       "href",
       "https://www.gov.uk/deferring-state-pension/if-you-reach-state-pension-age-on-or-after-6-april-2016",
+    );
+    expect(screen.getByRole("link", { name: "Alpha accrual rate" })).toHaveAttribute(
+      "href",
+      "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01107",
+    );
+    expect(screen.getByRole("link", { name: "Early retirement factors" })).toHaveAttribute(
+      "href",
+      "https://gadfactorguidancehub.co.uk/guidance/csps_gb/erf-and-lrf/csps_gb__csops__early-payment-reduction-normal-health-and-age-addition/tables",
+    );
+    expect(screen.getByRole("link", { name: "Added pension factors" })).toHaveAttribute(
+      "href",
+      "https://gadfactorguidancehub.co.uk/guidance/csps_gb/added-pension/csps_gb__csops__added-pension/tables",
+    );
+    expect(screen.getByRole("link", { name: "Alpha pension increases" })).toHaveAttribute(
+      "href",
+      "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01107",
+    );
+    expect(screen.getByRole("link", { name: "Pensions Increase CPI" })).toHaveAttribute(
+      "href",
+      "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01215",
     );
     expect(screen.getByRole("link", { name: "Check pension tax relief" })).toHaveAttribute(
       "href",
