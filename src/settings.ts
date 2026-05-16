@@ -1,4 +1,6 @@
 export const SETTINGS_STORAGE_KEY = "cs-pension-modeller.settings";
+export const FIRST_UNSUPPORTED_ADDED_PENSION_PURCHASE_AGE = 68;
+export const MAX_ADDED_PENSION_PURCHASE_INPUT_AGE = 67.9;
 
 export type AddedPensionLumpSumCadence = "once" | "yearly";
 export type AddedPensionFactorType = "self" | "self_plus_beneficiaries";
@@ -216,12 +218,7 @@ export const defaultSettings: PensionSettings = {
 
 export function loadStoredSettings(): PensionSettings {
   const defaults = createDefaultSettings();
-
-  if (typeof window === "undefined") {
-    return defaults;
-  }
-
-  const stored = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+  const stored = readStorageItem(SETTINGS_STORAGE_KEY);
 
   if (!stored) {
     return defaults;
@@ -240,10 +237,6 @@ export function loadStoredSettings(): PensionSettings {
 }
 
 export function saveSettings(settings: PensionSettings) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
   const normalizedSettings = normalizeSettings(settings);
   const {
     startDate: _startDate,
@@ -251,7 +244,32 @@ export function saveSettings(settings: PensionSettings) {
     ...storedSettings
   } = normalizedSettings;
 
-  window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(storedSettings));
+  writeStorageItem(SETTINGS_STORAGE_KEY, JSON.stringify(storedSettings));
+}
+
+export function readStorageItem(key: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function writeStorageItem(key: string, value: string) {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function normalizeSetting<K extends keyof PensionSettings>(
@@ -450,7 +468,17 @@ export function createDefaultSettings(): PensionSettings {
 }
 
 export function getTodayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+  return formatLocalIsoDate(new Date());
+}
+
+export function formatLocalIsoDate(
+  date: Pick<Date, "getFullYear" | "getMonth" | "getDate">,
+) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 export function isValidIsoDate(value: string) {
@@ -495,6 +523,9 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     alphaDrawDate <= alphaLeaveDate ? alphaDrawDate : alphaLeaveDate;
   const alphaAbsDate = resolveAlphaAbsDate(settings.alphaPensionAbsDate);
   const alphaEpaAgeDate = getAlphaEpaDate(settings);
+  const latestAlphaAddedPensionPurchaseDate = getLatestAlphaAddedPensionPurchaseDate(
+    settings.dateOfBirth,
+  );
   const nuvosDrawDate = addYearsToIsoDate(
     settings.dateOfBirth,
     settings.nuvosPensionDrawAge,
@@ -611,6 +642,17 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
+  if (
+    settings.alphaAddedPensionMonthly > 0 &&
+    alphaAccrualStopDate > latestAlphaAddedPensionPurchaseDate
+  ) {
+    issues.push({
+      field: "alphaAddedPensionMonthly",
+      message:
+        "Monthly added pension purchases must stop before age 68 because the factor table does not include age 68 or later.",
+    });
+  }
+
   if (settings.showNuvos && nuvosAbsDate > settings.startDate) {
     issues.push({
       field: "nuvosPensionAbsDate",
@@ -662,9 +704,12 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
       field: "alphaAddedPensionLumpSums",
       label: "Alpha lump sum",
       earliestDate: alphaAbsDate,
-      latestDate: alphaAccrualStopDate,
+      latestDate:
+        alphaAccrualStopDate < latestAlphaAddedPensionPurchaseDate
+          ? alphaAccrualStopDate
+          : latestAlphaAddedPensionPurchaseDate,
       rangeMessage:
-        "Alpha lump sums must fall between the last Annual Benefits Statement and the end of Alpha accrual.",
+        "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
     }),
     ...(settings.showSipp
       ? validateLumpSums(settings.sippLumpSums, {
@@ -1136,6 +1181,13 @@ export function getPartialRetirementContributionMultiplier(
     : 1;
 }
 
+export function getLatestAlphaAddedPensionPurchaseDate(dateOfBirth: string) {
+  return addDaysToIsoDate(
+    addYearsToIsoDate(dateOfBirth, FIRST_UNSUPPORTED_ADDED_PENSION_PURCHASE_AGE),
+    -1,
+  );
+}
+
 function createAddedPensionLumpSumId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -1257,4 +1309,12 @@ function addMonthsToIsoDate(value: string, monthsToAdd: number) {
 
 function addYearsToIsoDate(value: string, years: number) {
   return addMonthsToIsoDate(value, Math.round(years * 12));
+}
+
+function addDaysToIsoDate(value: string, daysToAdd: number) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  return new Date(Date.UTC(year, month - 1, day + daysToAdd))
+    .toISOString()
+    .slice(0, 10);
 }

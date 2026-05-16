@@ -31,10 +31,13 @@ import {
   getAlphaAbsYear,
   calculateStatePensionDrawDate,
   loadStoredSettings,
+  MAX_ADDED_PENSION_PURCHASE_INPUT_AGE,
   normalizeSetting,
   normalizeStatePensionDrawDate,
+  readStorageItem,
   saveSettings,
   validateSettings,
+  writeStorageItem,
   type AddedPensionLumpSum,
   type PensionSettings,
   type PensionValidationIssue,
@@ -637,13 +640,7 @@ function App() {
 
   function acknowledgeNotice() {
     setHasAcknowledgedNotice(true);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        ACKNOWLEDGEMENT_STORAGE_KEY,
-        ACKNOWLEDGEMENT_VERSION,
-      );
-    }
+    writeStorageItem(ACKNOWLEDGEMENT_STORAGE_KEY, ACKNOWLEDGEMENT_VERSION);
   }
 
   function selectAppMode(mode: AppMode) {
@@ -1431,6 +1428,7 @@ function Field({
       <RangeSettingField
         field={field}
         value={value as number}
+        settings={settings}
         onChange={onChange}
         disabled={disabled}
         hideOnMobile={hideOnMobile}
@@ -1793,6 +1791,7 @@ function CurrencySettingFieldEditor({
 function RangeSettingField({
   field,
   value,
+  settings,
   onChange,
   disabled = false,
   hideOnMobile = false,
@@ -1800,11 +1799,13 @@ function RangeSettingField({
 }: {
   field: RangeField;
   value: number;
+  settings: PensionSettings;
   onChange: FieldProps["onChange"];
   disabled?: boolean;
   hideOnMobile?: boolean;
   validationIssue?: PensionValidationIssue;
 }) {
+  const effectiveField = getEffectiveRangeField(field, settings);
   const [draftValue, setDraftValue] = useState<number | null>(null);
   const [draftExactValue, setDraftExactValue] = useState<string | null>(null);
   const canResetToDefault = field.id === "assumedCpiPercent";
@@ -1816,16 +1817,21 @@ function RangeSettingField({
       : Number(draftExactValue);
   const hasValidDraftExactValue =
     Number.isFinite(parsedDraftExactValue) &&
-    parsedDraftExactValue >= field.min &&
-    parsedDraftExactValue <= field.max;
+    parsedDraftExactValue >= effectiveField.min &&
+    parsedDraftExactValue <= effectiveField.max;
   const displayedRangeValue = hasValidDraftExactValue
     ? parsedDraftExactValue
-    : draftValue ?? value;
+    : Math.min(effectiveField.max, Math.max(effectiveField.min, draftValue ?? value));
   const displayedExactValue = draftExactValue ?? displayedRangeValue.toString();
   const validationId = validationIssue ? `${field.id}-validation` : undefined;
 
   const commitRangeValue = (nextValue: number) => {
-    onChange(field.id, nextValue as PensionSettings[typeof field.id]);
+    const boundedValue = Math.min(
+      effectiveField.max,
+      Math.max(effectiveField.min, nextValue),
+    );
+
+    onChange(field.id, boundedValue as PensionSettings[typeof field.id]);
     setDraftValue(null);
     setDraftExactValue(null);
   };
@@ -1836,8 +1842,8 @@ function RangeSettingField({
     if (
       nextDraftValue.trim() !== "" &&
       Number.isFinite(parsedValue) &&
-      parsedValue >= field.min &&
-      parsedValue <= field.max
+      parsedValue >= effectiveField.min &&
+      parsedValue <= effectiveField.max
     ) {
       setDraftValue(parsedValue);
     }
@@ -1856,17 +1862,17 @@ function RangeSettingField({
   return (
     <div className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
       <span className="field-header">
-        <FieldLabel field={field} />
+        <FieldLabel field={effectiveField} />
       </span>
       <div className="range-control-grid">
         <div className="range-slider-group">
           <input
-            aria-label={field.label}
+            aria-label={effectiveField.label}
             className="range-input"
             type="range"
-            min={field.min}
-            max={field.max}
-            step={field.step}
+            min={effectiveField.min}
+            max={effectiveField.max}
+            step={effectiveField.step}
             value={displayedRangeValue}
             disabled={disabled}
             aria-invalid={Boolean(validationIssue) || undefined}
@@ -1883,17 +1889,17 @@ function RangeSettingField({
             onBlur={(event) => commitRangeValue(Number(event.currentTarget.value))}
           />
           <div className="range-scale">
-            <span>{formatFieldValue(field.min, field.format)}</span>
-            <span>{formatFieldValue(field.max, field.format)}</span>
+            <span>{formatFieldValue(effectiveField.min, effectiveField.format)}</span>
+            <span>{formatFieldValue(effectiveField.max, effectiveField.format)}</span>
           </div>
         </div>
         <input
-          aria-label={`${field.label} exact value`}
+          aria-label={`${effectiveField.label} exact value`}
           className="number-input"
           type="number"
-          min={field.min}
-          max={field.max}
-          step={field.inputStep ?? field.step}
+          min={effectiveField.min}
+          max={effectiveField.max}
+          step={effectiveField.inputStep ?? effectiveField.step}
           value={displayedExactValue}
           disabled={disabled}
           aria-invalid={Boolean(validationIssue) || undefined}
@@ -1936,6 +1942,29 @@ function RangeSettingField({
       <FieldValidationMessage id={validationId} issue={validationIssue} />
     </div>
   );
+}
+
+function getEffectiveRangeField(field: RangeField, settings: PensionSettings): RangeField {
+  if (
+    settings.alphaAddedPensionMonthly <= 0 ||
+    (field.id !== "alphaPensionDrawAge" && field.id !== "alphaPensionLeaveAge")
+  ) {
+    return field;
+  }
+
+  const pairedStopAge =
+    field.id === "alphaPensionDrawAge"
+      ? settings.alphaPensionLeaveAge
+      : settings.alphaPensionDrawAge;
+
+  if (pairedStopAge <= MAX_ADDED_PENSION_PURCHASE_INPUT_AGE) {
+    return field;
+  }
+
+  return {
+    ...field,
+    max: Math.min(field.max, MAX_ADDED_PENSION_PURCHASE_INPUT_AGE),
+  };
 }
 
 type DateParts = {
@@ -2864,32 +2893,17 @@ function useMobileDateDropdowns() {
 }
 
 function loadAcknowledgementState() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return (
-    window.localStorage.getItem(ACKNOWLEDGEMENT_STORAGE_KEY) ===
-    ACKNOWLEDGEMENT_VERSION
-  );
+  return readStorageItem(ACKNOWLEDGEMENT_STORAGE_KEY) === ACKNOWLEDGEMENT_VERSION;
 }
 
 function loadStoredAppMode(): AppMode | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const storedMode = window.localStorage.getItem(APP_MODE_STORAGE_KEY);
+  const storedMode = readStorageItem(APP_MODE_STORAGE_KEY);
 
   return storedMode === "journey" || storedMode === "expert" ? storedMode : null;
 }
 
 function saveStoredAppMode(mode: AppMode) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(APP_MODE_STORAGE_KEY, mode);
+  writeStorageItem(APP_MODE_STORAGE_KEY, mode);
 }
 
 export default App;

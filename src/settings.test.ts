@@ -5,8 +5,10 @@ import {
   createAlphaAbsDateFromYear,
   createDefaultSettings,
   defaultSettings,
+  formatLocalIsoDate,
   getTodayIsoDate,
   getPartialRetirementContributionMultiplier,
+  getLatestAlphaAddedPensionPurchaseDate,
   isValidIsoDate,
   loadStoredSettings,
   normalizeSetting,
@@ -95,12 +97,24 @@ describe("settings unit tests", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
   it("uses today for the default calculation start date", () => {
     expect(getTodayIsoDate()).toBe("2026-04-25");
     expect(createDefaultSettings().startDate).toBe("2026-04-25");
+  });
+
+  it("formats today from local calendar parts instead of the UTC ISO date", () => {
+    const localDateParts = {
+      getFullYear: () => 2026,
+      getMonth: () => 3,
+      getDate: () => 25,
+      toISOString: () => "2026-04-24T23:30:00.000Z",
+    };
+
+    expect(formatLocalIsoDate(localDateParts)).toBe("2026-04-25");
   });
 
   it("normalizes numeric settings to allowed ranges and whole-number steps", () => {
@@ -281,6 +295,22 @@ describe("settings unit tests", () => {
     expect(loadStoredSettings()).toEqual(createDefaultSettings());
   });
 
+  it("falls back to defaults when local storage cannot be read", () => {
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new Error("Storage is unavailable.");
+    });
+
+    expect(loadStoredSettings()).toEqual(createDefaultSettings());
+  });
+
+  it("does not throw when local storage cannot be written", () => {
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("Storage quota exceeded.");
+    });
+
+    expect(() => saveSettings(createDefaultSettings())).not.toThrow();
+  });
+
   it("migrates legacy SIPP tax relief booleans to the new rate setting", () => {
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
@@ -338,6 +368,44 @@ describe("settings unit tests", () => {
         "2042-06-15",
       ),
     ).toBe(0.6);
+  });
+
+  it("limits Alpha added pension purchases to supported factor ages", () => {
+    expect(getLatestAlphaAddedPensionPurchaseDate("1987-06-15")).toBe("2055-06-14");
+
+    const issues = validateSettings({
+      ...defaultSettings,
+      startDate: "2026-04-25",
+      dateOfBirth: "1987-06-15",
+      alphaAddedPensionMonthly: 150,
+      alphaPensionDrawAge: 70,
+      alphaPensionLeaveAge: 70,
+      alphaAddedPensionLumpSums: [
+        {
+          id: "unsupported-age",
+          amount: 5000,
+          startDate: "2055-06-15",
+          cadence: "once",
+          endDate: "2055-06-15",
+          factorType: "self",
+        },
+      ],
+    });
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "alphaAddedPensionMonthly",
+          message:
+            "Monthly added pension purchases must stop before age 68 because the factor table does not include age 68 or later.",
+        }),
+        expect.objectContaining({
+          field: "alphaAddedPensionLumpSums",
+          message:
+            "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
+        }),
+      ]),
+    );
   });
 
   it("reports relational validation issues for inconsistent pension settings", () => {
@@ -499,7 +567,7 @@ describe("settings unit tests", () => {
           field: "alphaAddedPensionLumpSums",
           itemId: "alpha-lump",
           message:
-            "Alpha lump sums must fall between the last Annual Benefits Statement and the end of Alpha accrual.",
+            "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
         }),
         expect.objectContaining({
           field: "sippLumpSums",

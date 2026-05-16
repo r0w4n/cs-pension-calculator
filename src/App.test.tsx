@@ -346,6 +346,7 @@ describe("App settings form", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -389,6 +390,24 @@ describe("App settings form", () => {
       "aria-pressed",
       "true",
     );
+    expect(
+      screen.getByRole("heading", { name: "Your retirement assumptions" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps working when local storage is unavailable", () => {
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new Error("Storage is unavailable.");
+    });
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("Storage quota exceeded.");
+    });
+
+    expect(() => render(<App />)).not.toThrow();
+
+    fireEvent.click(screen.getByRole("button", { name: "I understand" }));
+    fireEvent.click(screen.getByRole("button", { name: /Use expert mode/i }));
+
     expect(
       screen.getByRole("heading", { name: "Your retirement assumptions" }),
     ).toBeInTheDocument();
@@ -743,6 +762,32 @@ describe("App settings form", () => {
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         desiredRetirementIncome: 50000,
+      }),
+    );
+  });
+
+  it("caps Alpha added pension stop ages when the paired stop age is unsupported", () => {
+    renderAcknowledgedApp();
+
+    fireEvent.change(screen.getByLabelText("Planned Alpha Pension Draw Age exact value"), {
+      target: { value: "70" },
+    });
+    fireEvent.blur(screen.getByLabelText("Planned Alpha Pension Draw Age exact value"));
+
+    expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveAttribute(
+      "max",
+      "67.9",
+    );
+
+    fireEvent.change(screen.getByLabelText("Age You Leave Alpha Scheme exact value"), {
+      target: { value: "70" },
+    });
+    fireEvent.blur(screen.getByLabelText("Age You Leave Alpha Scheme exact value"));
+
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        alphaPensionDrawAge: 70,
+        alphaPensionLeaveAge: 67.9,
       }),
     );
   });

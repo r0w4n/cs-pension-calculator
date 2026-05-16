@@ -1457,6 +1457,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-05-15",
       dateOfBirth: "1979-06-15",
+      alphaAddedPensionMonthly: 0,
       alphaPensionDrawAge: 68,
       alphaPensionLeaveAge: 68,
       sippDrawAge: 68,
