@@ -21,6 +21,8 @@ export type RangeField = {
     | "lifeExpectancy"
     | "statePensionCpiPercent"
     | "statePensionWageGrowthPercent"
+    | "partialRetirementStartAge"
+    | "partialRetirementWorkPercent"
     | "assumedCpiPercent"
     | "alphaAddedPensionMonthly"
     | "alphaPensionLeaveAge"
@@ -48,6 +50,7 @@ export type RangeField = {
   min: number;
   max: number;
   step: number;
+  inputStep?: number;
   format?: "currency";
   infoUrl?: string;
   infoLinkText?: string;
@@ -97,7 +100,10 @@ export type CurrencyInputField = {
 };
 
 export type SelectField = {
-  id: "sippTaxReliefRate" | "sippWithdrawalStrategy" | "isaWithdrawalStrategy";
+  id:
+    | "sippTaxReliefRate"
+    | "sippWithdrawalStrategy"
+    | "isaWithdrawalStrategy";
   label: string;
   type: "select";
   options: {
@@ -154,6 +160,7 @@ export const fieldGroups: FieldGroup[] = [
         min: 75,
         max: 100,
         step: 1,
+        inputStep: 0.1,
         infoUrl: knowledgeLinks.lifeExpectancy,
         infoLinkText: "Estimate life expectancy",
       },
@@ -194,6 +201,32 @@ export const fieldGroups: FieldGroup[] = [
         ],
         infoUrl: knowledgeLinks.retirementLivingStandards,
         infoLinkText: "Retirement Living Standards",
+      },
+    ],
+  },
+  {
+    id: "partial-retirement",
+    eyebrow: "Partial Retirement",
+    title: "Partial retirement details",
+    description:
+      "Reduce regular Alpha, nuvos, SIPP and ISA additions after partial retirement begins.",
+    fields: [
+      {
+        id: "partialRetirementStartAge",
+        label: "Partial retirement start age",
+        type: "range",
+        min: 40,
+        max: 70,
+        step: 1,
+        inputStep: 0.1,
+      },
+      {
+        id: "partialRetirementWorkPercent",
+        label: "Pro-rata work and contribution level (%)",
+        type: "range",
+        min: 0,
+        max: 100,
+        step: 1,
       },
     ],
   },
@@ -279,6 +312,7 @@ export const fieldGroups: FieldGroup[] = [
         min: 40,
         max: 70,
         step: 1,
+        inputStep: 0.1,
       },
       {
         id: "pensionableEarnings",
@@ -298,6 +332,7 @@ export const fieldGroups: FieldGroup[] = [
         min: 55,
         max: 70,
         step: 1,
+        inputStep: 0.1,
         infoUrl: knowledgeLinks.alphaEarlyRetirementFactors,
         infoLinkText: "Early retirement factors",
       },
@@ -400,6 +435,7 @@ export const fieldGroups: FieldGroup[] = [
         min: 40,
         max: 70,
         step: 1,
+        inputStep: 0.1,
       },
       {
         id: "nuvosPensionDrawAge",
@@ -408,6 +444,7 @@ export const fieldGroups: FieldGroup[] = [
         min: 55,
         max: 70,
         step: 1,
+        inputStep: 0.1,
         infoUrl: knowledgeLinks.nuvosBenefits,
         infoLinkText: "nuvos pension age",
       },
@@ -464,6 +501,7 @@ export const fieldGroups: FieldGroup[] = [
         min: 55,
         max: 70,
         step: 1,
+        inputStep: 0.1,
       },
       {
         id: "sippTaxReliefRate",
@@ -542,6 +580,7 @@ export const fieldGroups: FieldGroup[] = [
         min: 55,
         max: 70,
         step: 1,
+        inputStep: 0.1,
       },
       {
         id: "isaApplyRealInterest",

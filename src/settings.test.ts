@@ -6,6 +6,7 @@ import {
   createDefaultSettings,
   defaultSettings,
   getTodayIsoDate,
+  getPartialRetirementContributionMultiplier,
   isValidIsoDate,
   loadStoredSettings,
   normalizeSetting,
@@ -25,6 +26,9 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     showSipp: defaultSettings.showSipp,
     showIsa: defaultSettings.showIsa,
     taxationEnabled: defaultSettings.taxationEnabled,
+    partialRetirementEnabled: defaultSettings.partialRetirementEnabled,
+    partialRetirementStartAge: defaultSettings.partialRetirementStartAge,
+    partialRetirementWorkPercent: defaultSettings.partialRetirementWorkPercent,
     currentStatePension: defaultSettings.currentStatePension,
     desiredRetirementIncome: defaultSettings.desiredRetirementIncome,
     statePensionDrawDate: defaultSettings.statePensionDrawDate,
@@ -106,12 +110,16 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("desiredRetirementIncome", 43899.6)).toBe(43900);
     expect(normalizeSetting("statePensionCpiPercent", 2.34)).toBe(2.34);
     expect(normalizeSetting("statePensionWageGrowthPercent", 11)).toBe(10);
+    expect(normalizeSetting("partialRetirementStartAge", 75)).toBe(70);
+    expect(normalizeSetting("partialRetirementStartAge", 55.5)).toBe(55.5);
+    expect(normalizeSetting("partialRetirementWorkPercent", 37.6)).toBe(38);
     expect(normalizeSetting("assumedCpiPercent", 2.34)).toBe(2.34);
     expect(normalizeSetting("assumedCpiPercent", 11)).toBe(10);
     expect(normalizeSetting("alphaAddedPensionMonthly", 233)).toBe(233);
     expect(normalizeSetting("pensionableEarnings", 56321)).toBe(56321);
     expect(normalizeSetting("accruedPensionAtLastAbs", 12444.4)).toBe(12444);
     expect(normalizeSetting("alphaPensionLeaveAge", 20)).toBe(40);
+    expect(normalizeSetting("alphaPensionDrawAge", 60.5)).toBe(60.5);
     expect(normalizeSetting("alphaPensionDrawAge", 200)).toBe(70);
   });
 
@@ -190,6 +198,9 @@ describe("settings unit tests", () => {
       showSipp: defaultSettings.showSipp,
       showIsa: defaultSettings.showIsa,
       taxationEnabled: defaultSettings.taxationEnabled,
+      partialRetirementEnabled: defaultSettings.partialRetirementEnabled,
+      partialRetirementStartAge: defaultSettings.partialRetirementStartAge,
+      partialRetirementWorkPercent: defaultSettings.partialRetirementWorkPercent,
       currentStatePension: 0,
       desiredRetirementIncome: 43900,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
@@ -294,6 +305,29 @@ describe("settings unit tests", () => {
       }),
     );
     expect(loadStoredSettings().statePensionDrawDate).toBe("2056-06-15");
+  });
+
+  it("derives partial retirement contribution multipliers from the start age", () => {
+    const ageBasedSettings: PensionSettings = {
+      ...createDefaultSettings(),
+      dateOfBirth: "1987-06-15",
+      partialRetirementEnabled: true,
+      partialRetirementStartAge: 55,
+      partialRetirementWorkPercent: 60,
+    };
+
+    expect(
+      getPartialRetirementContributionMultiplier(
+        ageBasedSettings,
+        "2042-06-14",
+      ),
+    ).toBe(1);
+    expect(
+      getPartialRetirementContributionMultiplier(
+        ageBasedSettings,
+        "2042-06-15",
+      ),
+    ).toBe(0.6);
   });
 
   it("reports relational validation issues for inconsistent pension settings", () => {

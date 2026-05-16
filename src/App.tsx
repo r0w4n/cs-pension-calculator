@@ -77,6 +77,12 @@ const OPTIONAL_SECTION_TOGGLES = [
     description:
       "Show tax assumptions and estimate take-home income after Income Tax.",
   },
+  {
+    key: "partialRetirementEnabled",
+    label: "Partial retirement",
+    description:
+      "Show partial retirement inputs and pro-rate regular accruals and contributions.",
+  },
 ] as const;
 
 function App() {
@@ -763,6 +769,7 @@ function SettingsFields({
 function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
     (isTaxAssumptionField(fieldId) && !settings.taxationEnabled) ||
+    (isPartialRetirementField(fieldId) && !settings.partialRetirementEnabled) ||
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
     (fieldId === "nuvosAssumedCpiPercent" &&
       !settings.nuvosApplyPensionIncreases) ||
@@ -786,6 +793,7 @@ function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettin
 function isFieldHiddenOnMobile(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
     (isTaxAssumptionField(fieldId) && !settings.taxationEnabled) ||
+    (isPartialRetirementField(fieldId) && !settings.partialRetirementEnabled) ||
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
     (fieldId === "nuvosAssumedCpiPercent" &&
       !settings.nuvosApplyPensionIncreases) ||
@@ -816,6 +824,13 @@ function isTaxAssumptionField(fieldId: FieldDefinition["id"]) {
     "taxHigherRatePercent",
     "taxAdditionalRatePercent",
     "taxSippTaxFreeWithdrawalPercent",
+  ].includes(fieldId);
+}
+
+function isPartialRetirementField(fieldId: FieldDefinition["id"]) {
+  return [
+    "partialRetirementStartAge",
+    "partialRetirementWorkPercent",
   ].includes(fieldId);
 }
 
@@ -914,6 +929,8 @@ function Field({
         field={field as SelectField}
         value={value as string}
         onChange={onChange}
+        disabled={disabled}
+        hideOnMobile={hideOnMobile}
         validationIssue={validationIssue}
       />
     );
@@ -1046,11 +1063,15 @@ function SelectSettingField({
   field,
   value,
   onChange,
+  disabled = false,
+  hideOnMobile = false,
   validationIssue,
 }: {
   field: SelectField;
   value: string;
   onChange: FieldProps["onChange"];
+  disabled?: boolean;
+  hideOnMobile?: boolean;
   validationIssue?: PensionValidationIssue;
 }) {
   return (
@@ -1059,6 +1080,8 @@ function SelectSettingField({
       field={field}
       initialValue={value}
       onChange={onChange}
+      disabled={disabled}
+      hideOnMobile={hideOnMobile}
       validationIssue={validationIssue}
     />
   );
@@ -1068,18 +1091,22 @@ function SelectSettingFieldEditor({
   field,
   initialValue,
   onChange,
+  disabled = false,
+  hideOnMobile = false,
   validationIssue,
 }: {
   field: SelectField;
   initialValue: string;
   onChange: FieldProps["onChange"];
+  disabled?: boolean;
+  hideOnMobile?: boolean;
   validationIssue?: PensionValidationIssue;
 }) {
   const [draftValue, setDraftValue] = useState(initialValue);
   const validationId = validationIssue ? `${field.id}-validation` : undefined;
 
   return (
-    <label className={getFieldCardClassName(false, false, Boolean(validationIssue))}>
+    <label className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
       <span className="field-header">
         <FieldLabel field={field} />
       </span>
@@ -1087,6 +1114,7 @@ function SelectSettingFieldEditor({
         aria-label={field.label}
         className="select-input"
         value={draftValue}
+        disabled={disabled}
         aria-invalid={Boolean(validationIssue) || undefined}
         aria-describedby={validationId}
         onChange={(event) => {
@@ -1349,7 +1377,7 @@ function RangeSettingField({
           type="number"
           min={field.min}
           max={field.max}
-          step={field.step}
+          step={field.inputStep ?? field.step}
           value={displayedExactValue}
           disabled={disabled}
           aria-invalid={Boolean(validationIssue) || undefined}
@@ -1982,6 +2010,10 @@ function isSettingsGroupVisible(groupId: string, settings: PensionSettings) {
 
   if (groupId === "tax") {
     return settings.taxationEnabled;
+  }
+
+  if (groupId === "partial-retirement") {
+    return settings.partialRetirementEnabled;
   }
 
   return true;

@@ -10,6 +10,7 @@ import {
   calculateAnnualAlphaPensionIncludingReduction,
   calculateAnnualIncomeTax,
   calculateAnnualNuvosPensionAtDate,
+  calculateIsaPotAtDate,
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
   calculateMonthlyAlphaAccrual,
@@ -71,6 +72,11 @@ describe("projection calculations", () => {
     expect(addYears("2024-02-29", 1)).toBe("2025-02-28");
   });
 
+  it("supports fractional ages by rounding to the nearest month", () => {
+    expect(addYears("1987-06-15", 60.5)).toBe("2047-12-15");
+    expect(getLifeExpectancyDate("1987-06-15", 88.5)).toBe("2075-12-15");
+  });
+
   it("calculates age in whole years before and after the birthday", () => {
     expect(calculateAge("1987-06-15", "2026-06-14")).toBe(38);
     expect(calculateAge("1987-06-15", "2026-06-15")).toBe(39);
@@ -78,6 +84,39 @@ describe("projection calculations", () => {
 
   it("calculates monthly alpha accrual at 2.32 percent divided by 12", () => {
     expect(calculateMonthlyAlphaAccrual(42000)).toBeCloseTo(81.2, 6);
+  });
+
+  it("applies partial retirement to regular Alpha accrual and added pension purchases", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2042-04-01",
+      dateOfBirth: "1987-06-15",
+      alphaPensionAbsDate: "2042",
+      accruedPensionAtLastAbs: 0,
+      pensionableEarnings: 12000,
+      alphaAddedPensionMonthly: 128.2,
+      alphaPensionLeaveAge: 56,
+      alphaPensionDrawAge: 56,
+      lifeExpectancy: 57,
+      showStatePension: false,
+      showSipp: false,
+      showIsa: false,
+      partialRetirementEnabled: true,
+      partialRetirementStartAge: 54,
+      partialRetirementWorkPercent: 50,
+    };
+
+    const rows = createProjectionTable(settings);
+    const partialRow = findRowByDate(rows, "2042-04-01");
+
+    expect(partialRow?.monthlyAddedPension).toBeCloseTo(
+      64.1 / getAddedPensionFactorForAge(54),
+      6,
+    );
+    expect(partialRow?.annualAccruedAlphaPension).toBeCloseTo(
+      (12000 * 0.0232) / 12 / 2 + 64.1 / getAddedPensionFactorForAge(54),
+      6,
+    );
   });
 
   it("calculates nuvos accrual at 2.3 percent of pensionable earnings", () => {
@@ -102,6 +141,32 @@ describe("projection calculations", () => {
         accrualStopDate: "2026-04-01",
       }),
     ).toBeCloseTo(1276, 6);
+  });
+
+  it("applies partial retirement to nuvos accrual", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      showNuvos: true,
+      startDate: "2042-05-01",
+      dateOfBirth: "1987-06-15",
+      nuvosPensionAbsDate: "2042",
+      nuvosAccruedPensionAtLastAbs: 0,
+      nuvosPensionableEarnings: 12000,
+      nuvosPensionLeaveAge: 56,
+      nuvosPensionDrawAge: 56,
+      partialRetirementEnabled: true,
+      partialRetirementStartAge: 54,
+      partialRetirementWorkPercent: 50,
+    };
+
+    expect(
+      calculateAnnualNuvosPensionAtDate({
+        settings,
+        rowDate: "2042-05-01",
+        nuvosAbsDate: "2042-04-01",
+        accrualStopDate: "2043-06-15",
+      }),
+    ).toBeCloseTo((12000 * 0.023) / 12 / 2, 6);
   });
 
   it("uses age 65 as the nuvos pension age for early payment reductions", () => {
@@ -420,6 +485,13 @@ describe("projection calculations", () => {
     expect(getEarlyRetirementReductionFactor(68, 60)).toBe(0.648);
   });
 
+  it("interpolates early retirement reduction factors for decimal ages", () => {
+    expect(getEarlyRetirementReductionFactor(68, 60.5)).toBeCloseTo(
+      (0.648 + 0.68) / 2,
+      6,
+    );
+  });
+
   it("applies early retirement reduction when draw date is on or before NPA", () => {
     expect(
       calculateAnnualAlphaPensionIncludingReduction(
@@ -651,6 +723,67 @@ describe("projection calculations", () => {
         drawDate: "2026-01-01",
       }),
     ).toBe(11375);
+  });
+
+  it("applies partial retirement to regular SIPP contributions but not lump sums", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2026-01-01",
+      dateOfBirth: "1986-01-01",
+      sippCurrentPot: 0,
+      sippMonthlyContribution: 100,
+      sippLumpSums: [
+        {
+          id: "sipp-lump",
+          amount: 1000,
+          startDate: "2026-02-01",
+          cadence: "once",
+          endDate: "2026-02-01",
+        },
+      ],
+      sippTaxReliefRate: "20",
+      partialRetirementEnabled: true,
+      partialRetirementStartAge: 40,
+      partialRetirementWorkPercent: 50,
+    };
+
+    expect(
+      calculateSippPotAtDate({
+        settings,
+        rowDate: "2026-03-01",
+        drawDate: "2027-01-01",
+      }),
+    ).toBe(1437.5);
+  });
+
+  it("applies partial retirement to regular ISA contributions but not lump sums", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2026-01-01",
+      dateOfBirth: "1986-01-01",
+      isaCurrentPot: 0,
+      isaMonthlyContribution: 100,
+      isaLumpSums: [
+        {
+          id: "isa-lump",
+          amount: 1000,
+          startDate: "2026-02-01",
+          cadence: "once",
+          endDate: "2026-02-01",
+        },
+      ],
+      partialRetirementEnabled: true,
+      partialRetirementStartAge: 40,
+      partialRetirementWorkPercent: 50,
+    };
+
+    expect(
+      calculateIsaPotAtDate({
+        settings,
+        rowDate: "2026-03-01",
+        drawDate: "2027-01-01",
+      }),
+    ).toBe(1150);
   });
 
   it("projects yearly SIPP lump sums on their scheduled dates", () => {

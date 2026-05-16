@@ -24,6 +24,9 @@ export type PensionSettings = {
   showSipp: boolean;
   showIsa: boolean;
   taxationEnabled: boolean;
+  partialRetirementEnabled: boolean;
+  partialRetirementStartAge: number;
+  partialRetirementWorkPercent: number;
   currentStatePension: number;
   desiredRetirementIncome: number;
   statePensionDrawDate: string;
@@ -94,6 +97,8 @@ const numericSettingRules = {
   desiredRetirementIncome: { min: 0, max: 200000, step: 1 },
   statePensionCpiPercent: { min: 0, max: 10, step: 0.1 },
   statePensionWageGrowthPercent: { min: 0, max: 10, step: 0.1 },
+  partialRetirementStartAge: { min: 40, max: 70, step: 1 },
+  partialRetirementWorkPercent: { min: 0, max: 100, step: 1 },
   assumedCpiPercent: { min: 0, max: 10, step: 0.1 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
   alphaPensionLeaveAge: { min: 40, max: 70, step: 1 },
@@ -128,6 +133,17 @@ const numericSettingRules = {
 
 type NumericSettingKey = keyof typeof numericSettingRules;
 
+const decimalAgeSettingKeys: readonly NumericSettingKey[] = [
+  "lifeExpectancy",
+  "partialRetirementStartAge",
+  "alphaPensionLeaveAge",
+  "alphaPensionDrawAge",
+  "nuvosPensionLeaveAge",
+  "nuvosPensionDrawAge",
+  "sippDrawAge",
+  "isaDrawAge",
+];
+
 export const defaultSettings: PensionSettings = {
   startDate: getTodayIsoDate(),
   dateOfBirth: "1987-06-15",
@@ -138,6 +154,9 @@ export const defaultSettings: PensionSettings = {
   showSipp: true,
   showIsa: true,
   taxationEnabled: false,
+  partialRetirementEnabled: false,
+  partialRetirementStartAge: 55,
+  partialRetirementWorkPercent: 60,
   currentStatePension: 12547.6,
   desiredRetirementIncome: 31700,
   statePensionDrawDate: "2055-06-15",
@@ -251,6 +270,7 @@ export function normalizeSetting<K extends keyof PensionSettings>(
     case "showSipp":
     case "showIsa":
     case "taxationEnabled":
+    case "partialRetirementEnabled":
     case "statePensionApplyFutureGrowth":
     case "alphaEpaEnabled":
     case "nuvosApplyPensionIncreases":
@@ -298,6 +318,9 @@ function coerceSettings(
     showSipp: coerceBoolean(input.showSipp),
     showIsa: coerceBoolean(input.showIsa),
     taxationEnabled: coerceBoolean(input.taxationEnabled),
+    partialRetirementEnabled: coerceBoolean(input.partialRetirementEnabled),
+    partialRetirementStartAge: coerceNumber(input.partialRetirementStartAge),
+    partialRetirementWorkPercent: coerceNumber(input.partialRetirementWorkPercent),
     currentStatePension: coerceNumber(input.currentStatePension),
     desiredRetirementIncome: coerceNumber(input.desiredRetirementIncome),
     statePensionDrawDate: coerceString(input.statePensionDrawDate),
@@ -469,6 +492,7 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
   const nuvosAbsDate = resolveAlphaAbsDate(settings.nuvosPensionAbsDate);
   const sippDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge);
   const isaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge);
+  const partialRetirementStartDate = getPartialRetirementStartDate(settings);
   const defaultStatePensionDrawDate = calculateStatePensionDrawDate(
     settings.dateOfBirth,
   );
@@ -529,6 +553,26 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     issues.push({
       field: "isaDrawAge",
       message: "ISA draw start age must be within life expectancy.",
+    });
+  }
+
+  if (
+    settings.partialRetirementEnabled &&
+    partialRetirementStartDate <= settings.dateOfBirth
+  ) {
+    issues.push({
+      field: "partialRetirementStartAge",
+      message: "Partial retirement must start after date of birth.",
+    });
+  }
+
+  if (
+    settings.partialRetirementEnabled &&
+    partialRetirementStartDate > lifeExpectancyDate
+  ) {
+    issues.push({
+      field: "partialRetirementStartAge",
+      message: "Partial retirement start must be within life expectancy.",
     });
   }
 
@@ -681,6 +725,15 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     showSipp: Boolean(settings.showSipp),
     showIsa: Boolean(settings.showIsa),
     taxationEnabled: Boolean(settings.taxationEnabled),
+    partialRetirementEnabled: Boolean(settings.partialRetirementEnabled),
+    partialRetirementStartAge: normalizeSetting(
+      "partialRetirementStartAge",
+      settings.partialRetirementStartAge,
+    ),
+    partialRetirementWorkPercent: normalizeSetting(
+      "partialRetirementWorkPercent",
+      settings.partialRetirementWorkPercent,
+    ),
     currentStatePension: normalizeSetting(
       "currentStatePension",
       settings.currentStatePension,
@@ -873,7 +926,7 @@ function normalizeNumericSetting(key: NumericSettingKey, value: unknown) {
   const { min, max, step } = numericSettingRules[key];
   const clamped = Math.min(max, Math.max(min, parsed));
 
-  if (step !== 1) {
+  if (step !== 1 || decimalAgeSettingKeys.includes(key)) {
     return clamped;
   }
 
@@ -1022,6 +1075,23 @@ export function createDefaultAddedPensionLumpSum(
   };
 }
 
+export function getPartialRetirementStartDate(settings: PensionSettings) {
+  return addYearsToIsoDate(settings.dateOfBirth, settings.partialRetirementStartAge);
+}
+
+export function getPartialRetirementContributionMultiplier(
+  settings: PensionSettings,
+  rowDate: string,
+) {
+  if (!settings.partialRetirementEnabled) {
+    return 1;
+  }
+
+  return rowDate >= getPartialRetirementStartDate(settings)
+    ? settings.partialRetirementWorkPercent / 100
+    : 1;
+}
+
 function createAddedPensionLumpSumId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -1142,10 +1212,5 @@ function addMonthsToIsoDate(value: string, monthsToAdd: number) {
 }
 
 function addYearsToIsoDate(value: string, years: number) {
-  const [year, month, day] = value.split("-").map(Number);
-  const nextYear = year + years;
-  const maxDay = new Date(Date.UTC(nextYear, month, 0)).getUTCDate();
-  const safeDay = Math.min(day, maxDay);
-
-  return new Date(Date.UTC(nextYear, month - 1, safeDay)).toISOString().slice(0, 10);
+  return addMonthsToIsoDate(value, Math.round(years * 12));
 }
