@@ -19,6 +19,7 @@ import {
   createProjectionTable,
   generatePensionSummary,
   type RetirementIncomeDisplay,
+  type PensionSummary,
   type ProjectionRow,
 } from "./projection";
 import {
@@ -85,9 +86,192 @@ const OPTIONAL_SECTION_TOGGLES = [
   },
 ] as const;
 
+type AppMode = "journey" | "expert";
+
+type JourneyStepDefinition =
+  | {
+      id: string;
+      eyebrow: string;
+      title: string;
+      description: string;
+      kind: "optional-sections" | "answer";
+      visible?: (settings: PensionSettings) => boolean;
+    }
+  | {
+      id: string;
+      eyebrow: string;
+      title: string;
+      description: string;
+      kind: "fields";
+      fieldIds: readonly FieldDefinition["id"][];
+      visible?: (settings: PensionSettings) => boolean;
+    };
+
+type JourneyDefinition = {
+  id: string;
+  title: string;
+  description: string;
+  steps: readonly JourneyStepDefinition[];
+};
+
+const GUIDED_JOURNEYS = [
+  {
+    id: "retirement-date",
+    title: "When would you like to retire?",
+    description:
+      "Start with a planned retirement age, choose the sections that matter, then collect the details needed to estimate your retirement income.",
+    steps: [
+      {
+        id: "include",
+        eyebrow: "Step 1",
+        title: "What should we include?",
+        description:
+          "Choose the parts of your retirement picture you want to model. You can come back and add more later.",
+        kind: "optional-sections",
+      },
+      {
+        id: "basics",
+        eyebrow: "Step 2",
+        title: "Your planning basics",
+        description:
+          "These dates and income targets anchor every projection in the moddler.",
+        kind: "fields",
+        fieldIds: ["dateOfBirth", "lifeExpectancy", "desiredRetirementIncome"],
+      },
+      {
+        id: "alpha",
+        eyebrow: "Step 3",
+        title: "Your Alpha pension plan",
+        description:
+          "Tell us when you expect to leave Alpha, when you want to draw it, and what your latest statement says.",
+        kind: "fields",
+        fieldIds: [
+          "alphaPensionDrawAge",
+          "alphaPensionLeaveAge",
+          "alphaPensionAbsDate",
+          "accruedPensionAtLastAbs",
+          "pensionableEarnings",
+          "alphaAddedPensionMonthly",
+          "alphaAddedPensionFactorType",
+          "applyPensionIncreases",
+          "assumedCpiPercent",
+        ],
+      },
+      {
+        id: "state",
+        eyebrow: "Optional",
+        title: "State Pension",
+        description:
+          "Add your State Pension forecast and any future uprating assumption.",
+        kind: "fields",
+        fieldIds: [
+          "currentStatePension",
+          "statePensionDrawDate",
+          "statePensionApplyFutureGrowth",
+          "statePensionCpiPercent",
+          "statePensionWageGrowthPercent",
+        ],
+        visible: (settings) => settings.showStatePension,
+      },
+      {
+        id: "nuvos",
+        eyebrow: "Optional",
+        title: "nuvos pension",
+        description: "Include any nuvos benefits you want to model alongside Alpha.",
+        kind: "fields",
+        fieldIds: [
+          "nuvosPensionDrawAge",
+          "nuvosPensionLeaveAge",
+          "nuvosPensionAbsDate",
+          "nuvosAccruedPensionAtLastAbs",
+          "nuvosPensionableEarnings",
+          "nuvosApplyPensionIncreases",
+          "nuvosAssumedCpiPercent",
+        ],
+        visible: (settings) => settings.showNuvos,
+      },
+      {
+        id: "sipp",
+        eyebrow: "Optional",
+        title: "SIPP drawdown",
+        description:
+          "Add a personal pension pot, contributions, investment assumptions and drawdown timing.",
+        kind: "fields",
+        fieldIds: [
+          "sippCurrentPot",
+          "sippMonthlyContribution",
+          "sippDrawAge",
+          "sippTaxReliefRate",
+          "sippApplyRealInterest",
+          "sippRealInterestPercent",
+          "sippWithdrawalStrategy",
+          "sippWithdrawalPercent",
+        ],
+        visible: (settings) => settings.showSipp,
+      },
+      {
+        id: "isa",
+        eyebrow: "Optional",
+        title: "ISA income",
+        description:
+          "Add ISA savings, contributions, investment assumptions and drawdown timing.",
+        kind: "fields",
+        fieldIds: [
+          "isaCurrentPot",
+          "isaMonthlyContribution",
+          "isaDrawAge",
+          "isaApplyRealInterest",
+          "isaRealInterestPercent",
+          "isaWithdrawalStrategy",
+          "isaWithdrawalPercent",
+        ],
+        visible: (settings) => settings.showIsa,
+      },
+      {
+        id: "partial-retirement",
+        eyebrow: "Optional",
+        title: "Partial retirement",
+        description:
+          "Model a reduced work pattern and lower regular additions from that point.",
+        kind: "fields",
+        fieldIds: ["partialRetirementStartAge", "partialRetirementWorkPercent"],
+        visible: (settings) => settings.partialRetirementEnabled,
+      },
+      {
+        id: "tax",
+        eyebrow: "Optional",
+        title: "Tax assumptions",
+        description:
+          "Use standard Income Tax assumptions to estimate take-home retirement income.",
+        kind: "fields",
+        fieldIds: [
+          "taxPersonalAllowance",
+          "taxPersonalAllowanceTaperThreshold",
+          "taxBasicRateLimit",
+          "taxAdditionalRateThreshold",
+          "taxBasicRatePercent",
+          "taxHigherRatePercent",
+          "taxAdditionalRatePercent",
+          "taxSippTaxFreeWithdrawalPercent",
+        ],
+        visible: (settings) => settings.taxationEnabled,
+      },
+      {
+        id: "answer",
+        eyebrow: "Result",
+        title: "Your retirement income answer",
+        description:
+          "This is the answer from the assumptions you have just walked through.",
+        kind: "answer",
+      },
+    ],
+  },
+] as const satisfies readonly JourneyDefinition[];
+
 function App() {
   const [settings, setSettings] = useState<PensionSettings>(loadStoredSettings);
   const [settingsFormVersion, setSettingsFormVersion] = useState(0);
+  const [appMode, setAppMode] = useState<AppMode | null>(null);
   const [retirementIncomeDisplay, setRetirementIncomeDisplay] =
     useState<RetirementIncomeDisplay>("monthly");
   const [showLimitations, setShowLimitations] = useState(false);
@@ -244,249 +428,94 @@ function App() {
             </p>
           </div>
 
-          <div className="hero-actions">
-            <article className="summary-card summary-card--accent">
-              <p className="card-label">At Alpha pension draw date</p>
-              <div className="summary-card-amounts">
-                <h2>{formatCurrencyDetailed(pensionSummary.alphaPension.annualAtDraw)}</h2>
-                <p className="summary-card-secondary-amount">
-                  {formatCurrencyDetailed(pensionSummary.alphaPension.monthlyAtDraw)} per month
-                </p>
-              </div>
-              <p>
-                Annual Alpha pension after reduction from{" "}
-                {formatDate(pensionSummary.keyDates.startsAlphaPension)}.
-              </p>
-            </article>
-
-            {settings.showNuvos ? (
-              <article className="summary-card">
-                <p className="card-label">At nuvos pension draw date</p>
-                <div className="summary-card-amounts">
-                  <h2>{formatCurrencyDetailed(pensionSummary.nuvosPension.annualAtDraw)}</h2>
-                  <p className="summary-card-secondary-amount">
-                    {formatCurrencyDetailed(pensionSummary.nuvosPension.monthlyAtDraw)} per month
-                  </p>
-                </div>
-                <p>
-                  Annual nuvos pension after reduction from{" "}
-                  {formatDate(pensionSummary.keyDates.startsNuvosPension)}.
-                </p>
-              </article>
-            ) : null}
-
-            {settings.showSipp ? (
-              <article className="summary-card">
-                <p className="card-label">SIPP at SIPP draw start</p>
-                <div className="summary-card-amounts">
-                  <h2>{formatCurrencyDetailed(pensionSummary.sippPension.potAtDraw)}</h2>
-                  <p className="summary-card-secondary-amount">
-                    {formatCurrencyDetailed(pensionSummary.sippPension.monthlyAtDraw)} per month
-                  </p>
-                </div>
-                <p>
-                  Projected SIPP pot and monthly drawdown from{" "}
-                  {formatDate(pensionSummary.keyDates.startsSippDraw)}.
-                </p>
-              </article>
-            ) : null}
-
-            {settings.showIsa ? (
-              <article className="summary-card">
-                <p className="card-label">ISA at ISA draw start</p>
-                <div className="summary-card-amounts">
-                  <h2>{formatCurrencyDetailed(pensionSummary.isaPension.potAtDraw)}</h2>
-                  <p className="summary-card-secondary-amount">
-                    {formatCurrencyDetailed(pensionSummary.isaPension.monthlyAtDraw)} per month
-                  </p>
-                </div>
-                <p>
-                  Projected ISA pot and monthly drawdown from{" "}
-                  {formatDate(pensionSummary.keyDates.startsIsaDraw)}.
-                </p>
-              </article>
-            ) : null}
-
-            {settings.showStatePension ? (
-              <article className="summary-card">
-                <p className="card-label">At State Pension start</p>
-                <div className="summary-card-amounts">
-                  <h2>
-                    {formatCurrencyDetailed(
-                      pensionSummary.incomeOverTime.monthlyAtStateStart * 12,
-                    )}
-                  </h2>
-                  <p className="summary-card-secondary-amount">
-                    {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyAtStateStart)}{" "}
-                    per month
-                  </p>
-                </div>
-                <p>
-                  Total annual pension from{" "}
-                  {formatDate(pensionSummary.keyDates.startsStatePension)}, including{" "}
-                  {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyStatePension)}{" "}
-                  monthly State Pension.
-                </p>
-              </article>
-            ) : null}
-          </div>
-
-          <div className="hero-limitations" aria-label="Moddler limitations">
-            <p className="section-copy">
-              This moddler supports planning decisions, not scheme statements,
-              HMRC calculations, or regulated advice.
-            </p>
-            <button
-              type="button"
-              className="secondary-button limitations-toggle"
-              aria-expanded={showLimitations}
-              aria-controls="limitations-list"
-              onClick={() => setShowLimitations((current) => !current)}
-            >
-              {showLimitations ? "Hide limitations" : "Show limitations"}
-            </button>
-
-            {showLimitations ? (
-              <div id="limitations-list" className="limitations-content">
-                <p className="section-copy">
-                  Important assumptions and omissions to keep in mind:
-                </p>
-                <ul className="limitations-list">
-                  {MODDLER_LIMITATIONS.map((limitation) => (
-                    <li key={limitation}>{limitation}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
+          <ModeSelectionPanel selectedMode={appMode} onSelectMode={setAppMode} />
         </section>
 
-      <SummarySection
-        title="Pension Summary"
-        headingLevel={2}
-        variant="feature"
-        description="This summary is generated from the current calculation result, so the same structure can later support side-by-side scenario comparisons."
-        items={retirementIncomeItems}
-        controls={
-          <div
-            className="summary-toggle"
-            role="group"
-            aria-label="Pension Summary display"
-          >
-            <button
-              type="button"
-              className={
-                retirementIncomeDisplay === "monthly"
-                  ? "summary-toggle-button summary-toggle-button--active"
-                  : "summary-toggle-button"
-              }
-              aria-pressed={retirementIncomeDisplay === "monthly"}
-              onClick={() => setRetirementIncomeDisplay("monthly")}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              className={
-                retirementIncomeDisplay === "annual"
-                  ? "summary-toggle-button summary-toggle-button--active"
-                  : "summary-toggle-button"
-              }
-              aria-pressed={retirementIncomeDisplay === "annual"}
-              onClick={() => setRetirementIncomeDisplay("annual")}
-            >
-              Annual
-            </button>
-          </div>
-        }
-        footer={
+        {appMode === "journey" ? (
+          <GuidedJourney
+            journey={GUIDED_JOURNEYS[0]}
+            settings={settings}
+            validationIssues={validationIssues}
+            pensionSummary={pensionSummary}
+            retirementIncomeDisplay={retirementIncomeDisplay}
+            retirementIncomeItems={retirementIncomeItems}
+            retirementIncomeTitle={retirementIncomeTitle}
+            retirementIncomeTotal={retirementIncomeTotal}
+            retirementIncomeTargetTitle={retirementIncomeTargetTitle}
+            retirementIncomeTarget={retirementIncomeTarget}
+            useDropdownDates={useDropdownDates}
+            onChange={updateSetting}
+            onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
+            showLimitations={showLimitations}
+            onToggleLimitations={() => setShowLimitations((current) => !current)}
+          />
+        ) : null}
+
+        {appMode === "expert" ? (
           <>
-            <div className="summary-total" aria-label={retirementIncomeTitle}>
-              <span>{retirementIncomeTitle}</span>
-              <strong>{retirementIncomeTotal}</strong>
-            </div>
-            <div className="summary-target" aria-label={retirementIncomeTargetTitle}>
-              <span>{retirementIncomeTargetTitle}</span>
-              <strong>{retirementIncomeTarget}</strong>
-            </div>
-          </>
-        }
-      />
+            <SummarySection
+              title="Pension Summary"
+              headingLevel={2}
+              variant="feature"
+              description="This summary is generated from the current calculation result, so the same structure can later support side-by-side scenario comparisons."
+              items={retirementIncomeItems}
+              controls={
+                <RetirementIncomeDisplayToggle
+                  value={retirementIncomeDisplay}
+                  onChange={setRetirementIncomeDisplay}
+                />
+              }
+              footer={
+                <>
+                  <RetirementIncomeSummaryFooter
+                    totalLabel={retirementIncomeTitle}
+                    totalValue={retirementIncomeTotal}
+                    targetLabel={retirementIncomeTargetTitle}
+                    targetValue={retirementIncomeTarget}
+                  />
+                  <ModdlerLimitations
+                    showLimitations={showLimitations}
+                    onToggleLimitations={() => setShowLimitations((current) => !current)}
+                  />
+                </>
+              }
+            />
 
-      <section className="layout">
-        <section className="panel settings-panel">
-          <div className="panel-heading">
-            <h2>Your retirement assumptions</h2>
-            <p className="section-copy">
-              These inputs define your pension scenario, letting you see how
-              different assumptions affect your outcome.
-            </p>
-            <button
-              type="button"
-              className="secondary-button settings-reset-button"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={resetSettings}
-            >
-              Reset parameters
-            </button>
-          </div>
-
-          <div className="settings-sections" key={settingsFormVersion}>
-            {validationIssues.length > 0 ? (
-              <section className="settings-section" aria-live="polite">
-                <div className="section-heading">
-                  <h3>Check these assumptions</h3>
+            <section className="layout">
+              <section className="panel settings-panel">
+                <div className="panel-heading">
+                  <h2>Your retirement assumptions</h2>
                   <p className="section-copy">
-                    The projection is paused until these settings are brought back
-                    into a valid range.
+                    These inputs define your pension scenario, letting you see how
+                    different assumptions affect your outcome.
                   </p>
+                  <button
+                    type="button"
+                    className="secondary-button settings-reset-button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={resetSettings}
+                  >
+                    Reset parameters
+                  </button>
                 </div>
 
-                <ul className="section-copy">
-                  {validationIssues.map((issue) => (
-                    <li key={`${issue.field}-${issue.itemId ?? "field"}-${issue.message}`}>
-                      {issue.message}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
+                <div className="settings-sections" key={settingsFormVersion}>
+                  <ValidationIssuesSection validationIssues={validationIssues} />
 
-            <section className="settings-section">
-              <div className="section-heading">
-                <h3>Optional sections</h3>
-                <p className="section-copy">
-                  Show or hide the optional moddler sections without losing any
-                  settings you have already entered.
-                </p>
-              </div>
+                  <section className="settings-section">
+                    <div className="section-heading">
+                      <h3>Optional sections</h3>
+                      <p className="section-copy">
+                        Show or hide the optional moddler sections without losing any
+                        settings you have already entered.
+                      </p>
+                    </div>
 
-              <div className="field-grid">
-                {OPTIONAL_SECTION_TOGGLES.map((toggle) => (
-                  <label key={toggle.key} className="field-card checkbox-field-card">
-                    <span className="field-header">
-                      <span className="field-label-group">
-                        <span className="field-label">{toggle.label}</span>
-                      </span>
-                    </span>
-                    <span className="checkbox-row">
-                      <input
-                        aria-label={toggle.label}
-                        type="checkbox"
-                        checked={settings[toggle.key]}
-                        onChange={(event) =>
-                          updateSetting(
-                            toggle.key,
-                            event.target.checked as PensionSettings[typeof toggle.key],
-                          )
-                        }
-                      />
-                      <span>{toggle.description}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </section>
+                    <OptionalSectionToggleGrid
+                      settings={settings}
+                      onChange={updateSetting}
+                    />
+                  </section>
 
             {fieldGroups
               .filter((group) => isSettingsGroupVisible(group.id, settings))
@@ -584,21 +613,23 @@ function App() {
                   : []),
               ]}
             />
-          </div>
-        </section>
-      </section>
+                </div>
+              </section>
+            </section>
 
-      <section className="panel">
-        <div className="panel-heading">
-          <h2>Monthly pension projection table</h2>
-          <p className="section-copy">
-            The table is generated from the projection layer so each row stays
-            traceable back to the moddler inputs and factor tables.
-          </p>
-        </div>
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Monthly pension projection table</h2>
+                <p className="section-copy">
+                  The table is generated from the projection layer so each row stays
+                  traceable back to the moddler inputs and factor tables.
+                </p>
+              </div>
 
-        <ProjectionTable rows={projectionRows} settings={settings} />
-        </section>
+              <ProjectionTable rows={projectionRows} settings={settings} />
+            </section>
+          </>
+        ) : null}
       </main>
     </>
   );
@@ -613,6 +644,484 @@ function App() {
       );
     }
   }
+}
+
+type ModeSelectionPanelProps = {
+  selectedMode: AppMode | null;
+  onSelectMode: (mode: AppMode) => void;
+};
+
+function ModeSelectionPanel({
+  selectedMode,
+  onSelectMode,
+}: ModeSelectionPanelProps) {
+  return (
+    <section className="mode-panel" aria-labelledby="mode-selection-title">
+      <div className="panel-heading">
+        <p className="eyebrow">Choose your route</p>
+        <h2 id="mode-selection-title">How would you like to use the moddler?</h2>
+        <p className="section-copy">
+          Start with a guided journey if you want the questions one at a time, or
+          use expert mode to edit every assumption directly.
+        </p>
+      </div>
+
+      <div className="mode-card-grid">
+        <button
+          type="button"
+          className={getModeCardClassName(selectedMode === "journey")}
+          aria-pressed={selectedMode === "journey"}
+          onClick={() => onSelectMode("journey")}
+        >
+          <span className="card-label">Guided journey</span>
+          <strong>Take me through a journey</strong>
+          <span>
+            Answer a smaller set of questions in order, with optional sections
+            included only when you choose them.
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className={getModeCardClassName(selectedMode === "expert")}
+          aria-pressed={selectedMode === "expert"}
+          onClick={() => onSelectMode("expert")}
+        >
+          <span className="card-label">Expert mode</span>
+          <strong>Use expert mode</strong>
+          <span>
+            Keep the current full assumptions form, optional sections, lump sums
+            and detailed projection table.
+          </span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function getModeCardClassName(isActive: boolean) {
+  return ["mode-card", isActive ? "mode-card--active" : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+type GuidedJourneyProps = {
+  journey: JourneyDefinition;
+  settings: PensionSettings;
+  validationIssues: PensionValidationIssue[];
+  pensionSummary: PensionSummary;
+  retirementIncomeDisplay: RetirementIncomeDisplay;
+  retirementIncomeItems: SummaryItem[];
+  retirementIncomeTitle: string;
+  retirementIncomeTotal: string;
+  retirementIncomeTargetTitle: string;
+  retirementIncomeTarget: string;
+  useDropdownDates: boolean;
+  onChange: FieldProps["onChange"];
+  onRetirementIncomeDisplayChange: (display: RetirementIncomeDisplay) => void;
+  showLimitations: boolean;
+  onToggleLimitations: () => void;
+};
+
+function GuidedJourney({
+  journey,
+  settings,
+  validationIssues,
+  pensionSummary,
+  retirementIncomeDisplay,
+  retirementIncomeItems,
+  retirementIncomeTitle,
+  retirementIncomeTotal,
+  retirementIncomeTargetTitle,
+  retirementIncomeTarget,
+  useDropdownDates,
+  onChange,
+  onRetirementIncomeDisplayChange,
+  showLimitations,
+  onToggleLimitations,
+}: GuidedJourneyProps) {
+  const visibleSteps = journey.steps.filter(
+    (step) => !step.visible || step.visible(settings),
+  );
+  const [activeStepId, setActiveStepId] = useState(visibleSteps[0]?.id ?? "");
+  const activeStep = visibleSteps.find((step) => step.id === activeStepId) ?? visibleSteps[0];
+  const activeStepIndex = Math.max(
+    0,
+    visibleSteps.findIndex((step) => step.id === activeStep.id),
+  );
+  const isFirstStep = activeStepIndex === 0;
+  const isLastStep = activeStepIndex === visibleSteps.length - 1;
+
+  if (!activeStep) {
+    return null;
+  }
+
+  const goToStep = (stepIndex: number) => {
+    const nextStep = visibleSteps[stepIndex];
+
+    if (nextStep) {
+      setActiveStepId(nextStep.id);
+    }
+  };
+
+  return (
+    <section className="panel journey-panel" aria-labelledby="journey-title">
+      <div className="journey-heading">
+        <div>
+          <p className="eyebrow">Guided journey</p>
+          <h2 id="journey-title">{journey.title}</h2>
+          <p className="section-copy">{journey.description}</p>
+        </div>
+        <div className="journey-progress" aria-label="Journey progress">
+          Step {activeStepIndex + 1} of {visibleSteps.length}
+        </div>
+      </div>
+
+      <div className="journey-layout">
+        <nav className="journey-sidebar" aria-label="Journey steps">
+          {visibleSteps.map((step, index) => (
+            <button
+              key={step.id}
+              type="button"
+              className={
+                step.id === activeStep.id
+                  ? "journey-step-button journey-step-button--active"
+                  : "journey-step-button"
+              }
+              aria-current={step.id === activeStep.id ? "step" : undefined}
+              onClick={() => setActiveStepId(step.id)}
+            >
+              <span>{index + 1}</span>
+              {step.title}
+            </button>
+          ))}
+        </nav>
+
+        <section className="journey-step" aria-labelledby={`journey-step-${activeStep.id}`}>
+          <div className="section-heading">
+            <p className="eyebrow">{activeStep.eyebrow}</p>
+            <h3 id={`journey-step-${activeStep.id}`}>{activeStep.title}</h3>
+            <p className="section-copy">{activeStep.description}</p>
+          </div>
+
+          <JourneyStepContent
+            step={activeStep}
+            settings={settings}
+            validationIssues={validationIssues}
+            pensionSummary={pensionSummary}
+            retirementIncomeDisplay={retirementIncomeDisplay}
+            retirementIncomeItems={retirementIncomeItems}
+            retirementIncomeTitle={retirementIncomeTitle}
+            retirementIncomeTotal={retirementIncomeTotal}
+            retirementIncomeTargetTitle={retirementIncomeTargetTitle}
+            retirementIncomeTarget={retirementIncomeTarget}
+            useDropdownDates={useDropdownDates}
+            onChange={onChange}
+            onRetirementIncomeDisplayChange={onRetirementIncomeDisplayChange}
+            showLimitations={showLimitations}
+            onToggleLimitations={onToggleLimitations}
+          />
+
+          <div className="journey-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={isFirstStep}
+              onClick={() => goToStep(activeStepIndex - 1)}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={isLastStep}
+              onClick={() => goToStep(activeStepIndex + 1)}
+            >
+              {activeStepIndex === visibleSteps.length - 2 ? "Show my answer" : "Next"}
+            </button>
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+type JourneyStepContentProps = Omit<GuidedJourneyProps, "journey"> & {
+  step: JourneyStepDefinition;
+};
+
+function JourneyStepContent({
+  step,
+  settings,
+  validationIssues,
+  pensionSummary,
+  retirementIncomeDisplay,
+  retirementIncomeItems,
+  retirementIncomeTitle,
+  retirementIncomeTotal,
+  retirementIncomeTargetTitle,
+  retirementIncomeTarget,
+  useDropdownDates,
+  onChange,
+  onRetirementIncomeDisplayChange,
+  showLimitations,
+  onToggleLimitations,
+}: JourneyStepContentProps) {
+  if (step.kind === "optional-sections") {
+    return <OptionalSectionToggleGrid settings={settings} onChange={onChange} />;
+  }
+
+  if (step.kind === "answer") {
+    return (
+      <div className="journey-answer">
+        {validationIssues.length > 0 ? (
+          <ValidationIssuesSection validationIssues={validationIssues} />
+        ) : null}
+
+        <SummarySection
+          title="Pension Summary"
+          variant="feature"
+          description="This answer updates automatically as you adjust the journey assumptions."
+          items={retirementIncomeItems}
+          controls={
+            <RetirementIncomeDisplayToggle
+              value={retirementIncomeDisplay}
+              onChange={onRetirementIncomeDisplayChange}
+            />
+          }
+          footer={
+            <>
+              <RetirementIncomeSummaryFooter
+                totalLabel={retirementIncomeTitle}
+                totalValue={retirementIncomeTotal}
+                targetLabel={retirementIncomeTargetTitle}
+                targetValue={retirementIncomeTarget}
+              />
+              <ModdlerLimitations
+                showLimitations={showLimitations}
+                onToggleLimitations={onToggleLimitations}
+              />
+            </>
+          }
+        />
+
+        <SummarySection
+          title="Key dates"
+          items={[
+            {
+              label: "Alpha pension starts",
+              value: formatDate(pensionSummary.keyDates.startsAlphaPension),
+            },
+            ...(settings.showStatePension
+              ? [
+                  {
+                    label: "State Pension starts",
+                    value: formatDate(pensionSummary.keyDates.startsStatePension),
+                  },
+                ]
+              : []),
+            {
+              label: "Normal Pension Age",
+              value: `${pensionSummary.calculated.normalPensionAge}`,
+            },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  if (step.kind === "fields") {
+    return (
+      <SettingsFields
+        fields={getFieldsByIds(step.fieldIds)}
+        settings={settings}
+        validationIssues={validationIssues}
+        onChange={onChange}
+        useDropdownDates={useDropdownDates}
+      />
+    );
+  }
+
+  return null;
+}
+
+function OptionalSectionToggleGrid({
+  settings,
+  onChange,
+}: {
+  settings: PensionSettings;
+  onChange: FieldProps["onChange"];
+}) {
+  return (
+    <div className="field-grid">
+      {OPTIONAL_SECTION_TOGGLES.map((toggle) => (
+        <label key={toggle.key} className="field-card checkbox-field-card">
+          <span className="field-header">
+            <span className="field-label-group">
+              <span className="field-label">{toggle.label}</span>
+            </span>
+          </span>
+          <span className="checkbox-row">
+            <input
+              aria-label={toggle.label}
+              type="checkbox"
+              checked={settings[toggle.key]}
+              onChange={(event) =>
+                onChange(
+                  toggle.key,
+                  event.target.checked as PensionSettings[typeof toggle.key],
+                )
+              }
+            />
+            <span>{toggle.description}</span>
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function ValidationIssuesSection({
+  validationIssues,
+}: {
+  validationIssues: PensionValidationIssue[];
+}) {
+  if (validationIssues.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="settings-section" aria-live="polite">
+      <div className="section-heading">
+        <h3>Check these assumptions</h3>
+        <p className="section-copy">
+          The projection is paused until these settings are brought back into a
+          valid range.
+        </p>
+      </div>
+
+      <ul className="section-copy">
+        {validationIssues.map((issue) => (
+          <li key={`${issue.field}-${issue.itemId ?? "field"}-${issue.message}`}>
+            {issue.message}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ModdlerLimitations({
+  showLimitations,
+  onToggleLimitations,
+}: {
+  showLimitations: boolean;
+  onToggleLimitations: () => void;
+}) {
+  return (
+    <div className="summary-limitations" aria-label="Moddler limitations">
+      <p className="section-copy">
+        This moddler supports planning decisions, not scheme statements, HMRC
+        calculations, or regulated advice.
+      </p>
+      <button
+        type="button"
+        className="secondary-button limitations-toggle"
+        aria-expanded={showLimitations}
+        aria-controls="pension-summary-limitations-list"
+        onClick={onToggleLimitations}
+      >
+        {showLimitations ? "Hide limitations" : "Show limitations"}
+      </button>
+
+      {showLimitations ? (
+        <div id="pension-summary-limitations-list" className="limitations-content">
+          <p className="section-copy">
+            Important assumptions and omissions to keep in mind:
+          </p>
+          <ul className="limitations-list">
+            {MODDLER_LIMITATIONS.map((limitation) => (
+              <li key={limitation}>{limitation}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RetirementIncomeDisplayToggle({
+  value,
+  onChange,
+}: {
+  value: RetirementIncomeDisplay;
+  onChange: (display: RetirementIncomeDisplay) => void;
+}) {
+  return (
+    <div
+      className="summary-toggle"
+      role="group"
+      aria-label="Pension Summary display"
+    >
+      <button
+        type="button"
+        className={
+          value === "monthly"
+            ? "summary-toggle-button summary-toggle-button--active"
+            : "summary-toggle-button"
+        }
+        aria-pressed={value === "monthly"}
+        onClick={() => onChange("monthly")}
+      >
+        Monthly
+      </button>
+      <button
+        type="button"
+        className={
+          value === "annual"
+            ? "summary-toggle-button summary-toggle-button--active"
+            : "summary-toggle-button"
+        }
+        aria-pressed={value === "annual"}
+        onClick={() => onChange("annual")}
+      >
+        Annual
+      </button>
+    </div>
+  );
+}
+
+function RetirementIncomeSummaryFooter({
+  totalLabel,
+  totalValue,
+  targetLabel,
+  targetValue,
+}: {
+  totalLabel: string;
+  totalValue: string;
+  targetLabel: string;
+  targetValue: string;
+}) {
+  return (
+    <>
+      <div className="summary-total" aria-label={totalLabel}>
+        <span>{totalLabel}</span>
+        <strong>{totalValue}</strong>
+      </div>
+      <div className="summary-target" aria-label={targetLabel}>
+        <span>{targetLabel}</span>
+        <strong>{targetValue}</strong>
+      </div>
+    </>
+  );
+}
+
+function getFieldsByIds(fieldIds: readonly FieldDefinition["id"][]) {
+  return fieldIds
+    .map((fieldId) =>
+      fieldGroups.flatMap((group) => group.fields).find((field) => field.id === fieldId),
+    )
+    .filter((field): field is FieldDefinition => Boolean(field));
 }
 
 type SummaryItem = {

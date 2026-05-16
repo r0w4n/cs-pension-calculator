@@ -323,9 +323,21 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderAcknowledgedApp() {
+function renderAcknowledgedApp(options: { mode?: "expert" | "journey" | null } = {}) {
+  const { mode = "expert" } = options;
+
   render(<App />);
   fireEvent.click(screen.getByRole("button", { name: "I understand" }));
+
+  if (mode === "expert") {
+    fireEvent.click(screen.getByRole("button", { name: /Use expert mode/i }));
+  }
+
+  if (mode === "journey") {
+    fireEvent.click(
+      screen.getByRole("button", { name: /Take me through a journey/i }),
+    );
+  }
 }
 
 describe("App settings form", () => {
@@ -337,9 +349,71 @@ describe("App settings form", () => {
     vi.useRealTimers();
   });
 
+  it("asks users to choose guided journey or expert mode after the notice", () => {
+    renderAcknowledgedApp({ mode: null });
+    const titleSection = screen
+      .getByRole("heading", {
+        level: 1,
+        name: "Retirement Income Moddler",
+      })
+      .closest("section");
+
+    expect(
+      within(titleSection as HTMLElement).getByRole("heading", {
+        name: "How would you like to use the moddler?",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Take me through a journey/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Use expert mode/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Your retirement assumptions" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("supports a guided retirement date journey with an answer step", () => {
+    renderAcknowledgedApp({ mode: "journey" });
+
+    expect(
+      screen.getByRole("heading", { name: "When would you like to retire?" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What should we include?" })).toBeInTheDocument();
+    expect(screen.getByLabelText("State Pension")).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: "Your planning basics" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: "Your Alpha pension plan" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Planned Alpha Pension Draw Age exact value"), {
+      target: { value: "62" },
+    });
+    fireEvent.blur(screen.getByLabelText("Planned Alpha Pension Draw Age exact value"));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Your retirement income answer/i }),
+    );
+
+    expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Monthly retirement income before tax")).toHaveTextContent(
+      "£2,950.00",
+    );
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        alphaPensionDrawAge: 62,
+      }),
+    );
+  });
+
   it("renders sensible default values", () => {
     renderAcknowledgedApp();
 
+    expect(screen.getByRole("button", { name: /Use expert mode/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
     expect(screen.getByLabelText("Your Date of Birth")).toHaveValue(defaultSettings.dateOfBirth);
     expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveAttribute(
@@ -396,7 +470,6 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("ISA draw start age")).toHaveValue(
       defaultSettings.isaDrawAge.toString(),
     );
-    expect(screen.getByText("ISA at ISA draw start")).toBeInTheDocument();
     expect(screen.getByLabelText("Last Annual Benefits Statement")).toHaveValue(
       "2025",
     );
@@ -443,9 +516,9 @@ describe("App settings form", () => {
     expect(titleSection).not.toBeNull();
     expect(
       within(titleSection as HTMLElement).getByRole("button", {
-        name: "Show limitations",
+        name: /Use expert mode/i,
       }),
-    ).toHaveAttribute("aria-expanded", "false");
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Monthly Alpha pension")).toBeInTheDocument();
     expect(screen.getByText("Monthly SIPP")).toBeInTheDocument();
     expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
@@ -455,8 +528,6 @@ describe("App settings form", () => {
       "£2,641.67",
     );
     expect(screen.getByRole("heading", { name: "Calculated details" })).toBeInTheDocument();
-    expect(screen.getByText("At State Pension start")).toBeInTheDocument();
-    expect(screen.getByText("SIPP at SIPP draw start")).toBeInTheDocument();
     expect(screen.getAllByText("Starts Drawing Alpha Pension").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
@@ -559,10 +630,19 @@ describe("App settings form", () => {
 
   it("shows concise moddler limitations on request", () => {
     renderAcknowledgedApp();
+    const summarySection = screen
+      .getByRole("heading", { name: "Pension Summary" })
+      .closest("section");
 
     expect(screen.queryByText(/Scottish tax bands/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show limitations" }));
+    expect(summarySection).not.toBeNull();
+
+    fireEvent.click(
+      within(summarySection as HTMLElement).getByRole("button", {
+        name: "Show limitations",
+      }),
+    );
 
     expect(screen.getByRole("button", { name: "Hide limitations" })).toHaveAttribute(
       "aria-expanded",
@@ -572,7 +652,11 @@ describe("App settings form", () => {
     expect(screen.getByText(/pre-2016 deferral rules/i)).toBeInTheDocument();
     expect(screen.getByText(/Scheme-specific edge cases/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide limitations" }));
+    fireEvent.click(
+      within(summarySection as HTMLElement).getByRole("button", {
+        name: "Hide limitations",
+      }),
+    );
 
     expect(screen.queryByText(/Scottish tax bands/i)).not.toBeInTheDocument();
   });
@@ -776,7 +860,7 @@ describe("App settings form", () => {
     renderAcknowledgedApp();
 
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(getTodayIsoDate());
-    expect(screen.getAllByText(/At State Pension start/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("Monthly State Pension")).toBeInTheDocument();
   });
 
   it("resets the state pension slider back to its default value", () => {
@@ -1153,7 +1237,7 @@ describe("App settings form", () => {
       target: { value: "5000" },
     });
 
-    expect(screen.getByText("ISA at ISA draw start")).toBeInTheDocument();
+    expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Monthly ISA pension" })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
