@@ -104,6 +104,12 @@ select {
   gap: 1rem;
 }
 
+.hero-copy {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+}
+
 .panel {
   padding: clamp(1.25rem, 3vw, 2rem);
 }
@@ -484,6 +490,40 @@ h3 {
 .settings-panel {
   display: grid;
   gap: 1.5rem;
+}
+
+.hero-limitations {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: start;
+  gap: 0.85rem;
+  max-width: 56rem;
+  margin-top: 0.5rem;
+}
+
+.limitations-toggle {
+  justify-self: start;
+}
+
+.limitations-content {
+  width: 100%;
+  max-width: 48rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.limitations-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.85rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body);
+}
+
+.limitations-list li::marker {
+  color: var(--accent);
 }
 
 .settings-sections {

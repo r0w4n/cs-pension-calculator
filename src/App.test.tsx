@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import type { PensionSummary, ProjectionRow } from "./projection";
 import type { PensionSettings } from "./settings";
@@ -389,6 +389,20 @@ describe("App settings form", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "Pension Summary" }),
     ).toBeInTheDocument();
+
+    const titleSection = screen
+      .getByRole("heading", {
+        level: 1,
+        name: "Retirement Income Calculator",
+      })
+      .closest("section");
+
+    expect(titleSection).not.toBeNull();
+    expect(
+      within(titleSection as HTMLElement).getByRole("button", {
+        name: "Show limitations",
+      }),
+    ).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("Monthly Alpha pension")).toBeInTheDocument();
     expect(screen.getByText("Monthly SIPP")).toBeInTheDocument();
     expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
@@ -477,6 +491,26 @@ describe("App settings form", () => {
     expect(
       screen.getByRole("button", { name: "Reset assumed CPI to default" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows concise modeller limitations on request", () => {
+    renderAcknowledgedApp();
+
+    expect(screen.queryByText(/Scottish tax bands/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show limitations" }));
+
+    expect(screen.getByRole("button", { name: "Hide limitations" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByText(/Scottish tax bands/i)).toBeInTheDocument();
+    expect(screen.getByText(/pre-2016 deferral rules/i)).toBeInTheDocument();
+    expect(screen.getByText(/Scheme-specific edge cases/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide limitations" }));
+
+    expect(screen.queryByText(/Scottish tax bands/i)).not.toBeInTheDocument();
   });
 
   it("toggles the pension summary between monthly and annual values", () => {

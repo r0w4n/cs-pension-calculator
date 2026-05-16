@@ -42,6 +42,13 @@ import { knowledgeLinks } from "./knowledgeLinks";
 
 const ACKNOWLEDGEMENT_STORAGE_KEY = "cs-pension-calculator.acknowledgement";
 const ACKNOWLEDGEMENT_VERSION = "v1";
+const MODELLER_LIMITATIONS = [
+  "Income Tax is estimated from configurable standard assumptions. It does not cover Scottish tax bands, benefit interactions, tax code changes, or other personal reliefs.",
+  "Inflation is only modelled where explicit CPI or growth assumptions are enabled.",
+  "State Pension modelling does not cover benefit interactions, overseas rules, lump-sum arrears choices, or pre-2016 deferral rules.",
+  "Added pension purchase revaluation is simplified.",
+  "Scheme-specific edge cases are not exhaustively represented.",
+] as const;
 const OPTIONAL_SECTION_TOGGLES = [
   {
     key: "showSipp",
@@ -72,6 +79,7 @@ function App() {
   const [settingsFormVersion, setSettingsFormVersion] = useState(0);
   const [retirementIncomeDisplay, setRetirementIncomeDisplay] =
     useState<RetirementIncomeDisplay>("monthly");
+  const [showLimitations, setShowLimitations] = useState(false);
   const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(
     loadAcknowledgementState,
   );
@@ -216,86 +224,115 @@ function App() {
         ) : null}
 
         <section className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Civil Service</p>
-          <h1>Retirement Income Calculator</h1>
-          <p className="lead">
-            Plan your retirement income by modelling your Alpha pension together
-            with SIPP withdrawals, ISA income and State Pension payments.
-          </p>
-        </div>
-
-        <div className="hero-actions">
-          <article className="summary-card summary-card--accent">
-            <p className="card-label">At Alpha pension draw date</p>
-            <div className="summary-card-amounts">
-              <h2>{formatCurrencyDetailed(pensionSummary.alphaPension.annualAtDraw)}</h2>
-              <p className="summary-card-secondary-amount">
-                {formatCurrencyDetailed(pensionSummary.alphaPension.monthlyAtDraw)} per month
-              </p>
-            </div>
-            <p>
-              Annual Alpha pension after reduction from{" "}
-              {formatDate(pensionSummary.keyDates.startsAlphaPension)}.
+          <div className="hero-copy">
+            <p className="eyebrow">Civil Service</p>
+            <h1>Retirement Income Calculator</h1>
+            <p className="lead">
+              Plan your retirement income by modelling your Alpha pension together
+              with SIPP withdrawals, ISA income and State Pension payments.
             </p>
-          </article>
+          </div>
 
-          {settings.showSipp ? (
-            <article className="summary-card">
-              <p className="card-label">SIPP at SIPP draw start</p>
+          <div className="hero-actions">
+            <article className="summary-card summary-card--accent">
+              <p className="card-label">At Alpha pension draw date</p>
               <div className="summary-card-amounts">
-                <h2>{formatCurrencyDetailed(pensionSummary.sippPension.potAtDraw)}</h2>
+                <h2>{formatCurrencyDetailed(pensionSummary.alphaPension.annualAtDraw)}</h2>
                 <p className="summary-card-secondary-amount">
-                  {formatCurrencyDetailed(pensionSummary.sippPension.monthlyAtDraw)} per month
+                  {formatCurrencyDetailed(pensionSummary.alphaPension.monthlyAtDraw)} per month
                 </p>
               </div>
               <p>
-                Projected SIPP pot and monthly drawdown from{" "}
-                {formatDate(pensionSummary.keyDates.startsSippDraw)}.
+                Annual Alpha pension after reduction from{" "}
+                {formatDate(pensionSummary.keyDates.startsAlphaPension)}.
               </p>
             </article>
-          ) : null}
 
-          {settings.showIsa ? (
-            <article className="summary-card">
-              <p className="card-label">ISA at ISA draw start</p>
-              <div className="summary-card-amounts">
-                <h2>{formatCurrencyDetailed(pensionSummary.isaPension.potAtDraw)}</h2>
-                <p className="summary-card-secondary-amount">
-                  {formatCurrencyDetailed(pensionSummary.isaPension.monthlyAtDraw)} per month
+            {settings.showSipp ? (
+              <article className="summary-card">
+                <p className="card-label">SIPP at SIPP draw start</p>
+                <div className="summary-card-amounts">
+                  <h2>{formatCurrencyDetailed(pensionSummary.sippPension.potAtDraw)}</h2>
+                  <p className="summary-card-secondary-amount">
+                    {formatCurrencyDetailed(pensionSummary.sippPension.monthlyAtDraw)} per month
+                  </p>
+                </div>
+                <p>
+                  Projected SIPP pot and monthly drawdown from{" "}
+                  {formatDate(pensionSummary.keyDates.startsSippDraw)}.
                 </p>
-              </div>
-              <p>
-                Projected ISA pot and monthly drawdown from{" "}
-                {formatDate(pensionSummary.keyDates.startsIsaDraw)}.
-              </p>
-            </article>
-          ) : null}
+              </article>
+            ) : null}
 
-          {settings.showStatePension ? (
-            <article className="summary-card">
-              <p className="card-label">At State Pension start</p>
-              <div className="summary-card-amounts">
-                <h2>
-                  {formatCurrencyDetailed(
-                    pensionSummary.incomeOverTime.monthlyAtStateStart * 12,
-                  )}
-                </h2>
-                <p className="summary-card-secondary-amount">
-                  {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyAtStateStart)} per
-                  month
+            {settings.showIsa ? (
+              <article className="summary-card">
+                <p className="card-label">ISA at ISA draw start</p>
+                <div className="summary-card-amounts">
+                  <h2>{formatCurrencyDetailed(pensionSummary.isaPension.potAtDraw)}</h2>
+                  <p className="summary-card-secondary-amount">
+                    {formatCurrencyDetailed(pensionSummary.isaPension.monthlyAtDraw)} per month
+                  </p>
+                </div>
+                <p>
+                  Projected ISA pot and monthly drawdown from{" "}
+                  {formatDate(pensionSummary.keyDates.startsIsaDraw)}.
                 </p>
+              </article>
+            ) : null}
+
+            {settings.showStatePension ? (
+              <article className="summary-card">
+                <p className="card-label">At State Pension start</p>
+                <div className="summary-card-amounts">
+                  <h2>
+                    {formatCurrencyDetailed(
+                      pensionSummary.incomeOverTime.monthlyAtStateStart * 12,
+                    )}
+                  </h2>
+                  <p className="summary-card-secondary-amount">
+                    {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyAtStateStart)}{" "}
+                    per month
+                  </p>
+                </div>
+                <p>
+                  Total annual pension from{" "}
+                  {formatDate(pensionSummary.keyDates.startsStatePension)}, including{" "}
+                  {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyStatePension)}{" "}
+                  monthly State Pension.
+                </p>
+              </article>
+            ) : null}
+          </div>
+
+          <div className="hero-limitations" aria-label="Calculator limitations">
+            <p className="section-copy">
+              This modeller supports planning decisions, not scheme statements,
+              HMRC calculations, or regulated advice.
+            </p>
+            <button
+              type="button"
+              className="secondary-button limitations-toggle"
+              aria-expanded={showLimitations}
+              aria-controls="limitations-list"
+              onClick={() => setShowLimitations((current) => !current)}
+            >
+              {showLimitations ? "Hide limitations" : "Show limitations"}
+            </button>
+
+            {showLimitations ? (
+              <div id="limitations-list" className="limitations-content">
+                <p className="section-copy">
+                  Important assumptions and omissions to keep in mind:
+                </p>
+                <ul className="limitations-list">
+                  {MODELLER_LIMITATIONS.map((limitation) => (
+                    <li key={limitation}>{limitation}</li>
+                  ))}
+                </ul>
               </div>
-              <p>
-                Total annual pension from{" "}
-                {formatDate(pensionSummary.keyDates.startsStatePension)}, including{" "}
-                {formatCurrencyDetailed(pensionSummary.incomeOverTime.monthlyStatePension)}{" "}
-                monthly State Pension.
-              </p>
-            </article>
-          ) : null}
-        </div>
-      </section>
+            ) : null}
+          </div>
+        </section>
 
       <SummarySection
         title="Pension Summary"
