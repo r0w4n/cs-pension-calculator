@@ -388,7 +388,7 @@ function App() {
             <h2 id="acknowledgement-title">Important information</h2>
             <p className="section-copy">
               This moddler is for planning and illustration only. It is not financial
-              advice and is not affiliated with the Civil Service Pension Scheme, MyCSP,
+              advice and is not affiliated with the Civil Service Pension Scheme, Capita,
               the Cabinet Office, or the Alpha Pension Scheme.
             </p>
             <p className="section-copy">
