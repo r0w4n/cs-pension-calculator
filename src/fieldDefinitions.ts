@@ -7,6 +7,7 @@ export type DateField = {
     | "dateOfBirth"
     | "statePensionDrawDate"
     | "alphaPensionAbsDate"
+    | "nuvosPensionAbsDate"
     | "alphaEpaStartDate"
     | "alphaEpaEndDate";
   label: string;
@@ -26,6 +27,10 @@ export type RangeField = {
     | "pensionableEarnings"
     | "alphaPensionDrawAge"
     | "alphaEpaYearsBeforeNpa"
+    | "nuvosPensionableEarnings"
+    | "nuvosPensionLeaveAge"
+    | "nuvosPensionDrawAge"
+    | "nuvosAssumedCpiPercent"
     | "sippDrawAge"
     | "sippMonthlyContribution"
     | "sippRealInterestPercent"
@@ -54,6 +59,7 @@ export type CheckboxField = {
     | "applyPensionIncreases"
     | "statePensionApplyFutureGrowth"
     | "alphaEpaEnabled"
+    | "nuvosApplyPensionIncreases"
     | "isaApplyRealInterest"
     | "sippApplyRealInterest";
   label: string;
@@ -67,6 +73,7 @@ export type CurrencyInputField = {
   id:
     | "currentStatePension"
     | "accruedPensionAtLastAbs"
+    | "nuvosAccruedPensionAtLastAbs"
     | "desiredRetirementIncome"
     | "sippCurrentPot"
     | "isaCurrentPot"
@@ -126,7 +133,7 @@ export const fieldGroups: FieldGroup[] = [
     id: "personal",
     eyebrow: "Personal Details",
     title: "Personal details",
-    description: "Core personal dates and assumptions used across the calculator.",
+    description: "Core personal dates and assumptions used across the moddler.",
     fields: [
       {
         id: "startDate",
@@ -343,6 +350,79 @@ export const fieldGroups: FieldGroup[] = [
       {
         id: "assumedCpiPercent",
         label: "Assumed CPI (%)",
+        type: "range",
+        min: 0,
+        max: 10,
+        step: 0.1,
+        infoUrl: knowledgeLinks.civilServicePensionIncreases,
+        infoLinkText: "Pensions Increase CPI",
+      },
+    ],
+  },
+  {
+    id: "nuvos",
+    eyebrow: "nuvos Pension",
+    title: "nuvos pension details",
+    description:
+      "nuvos scheme dates, 2.3% CARE accrual, and age 65 pension age assumptions.",
+    fields: [
+      {
+        id: "nuvosPensionAbsDate",
+        label: "nuvos Last Annual Benefits Statement",
+        type: "year",
+        infoUrl: knowledgeLinks.annualBenefitStatement,
+        infoLinkText: "Annual Benefit Statement guide",
+      },
+      {
+        id: "nuvosAccruedPensionAtLastAbs",
+        label: "nuvos Pension Accrued at Last Statement (£ per year)",
+        type: "currency-input",
+        min: 0,
+        max: 50000,
+        step: 1,
+        format: "currency",
+      },
+      {
+        id: "nuvosPensionableEarnings",
+        label: "nuvos Pensionable Earnings (£ per year)",
+        type: "range",
+        min: 10000,
+        max: 150000,
+        step: 500,
+        format: "currency",
+        infoUrl: knowledgeLinks.nuvosBenefits,
+        infoLinkText: "nuvos accrual rate",
+      },
+      {
+        id: "nuvosPensionLeaveAge",
+        label: "Age You Leave nuvos Scheme",
+        type: "range",
+        min: 40,
+        max: 70,
+        step: 1,
+      },
+      {
+        id: "nuvosPensionDrawAge",
+        label: "Planned nuvos Pension Draw Age",
+        type: "range",
+        min: 55,
+        max: 70,
+        step: 1,
+        infoUrl: knowledgeLinks.nuvosBenefits,
+        infoLinkText: "nuvos pension age",
+      },
+      {
+        id: "nuvosApplyPensionIncreases",
+        label: "Apply nuvos pension increases",
+        type: "checkbox",
+        description:
+          "Increase accrued nuvos pension by assumed CPI each year, reflecting cost-of-living revaluation.",
+        infoUrl: knowledgeLinks.nuvosBenefits,
+        infoLinkText: "nuvos pension increases",
+      },
+      {
+        id: "nuvosAssumedCpiPercent",
+        label: "nuvos assumed CPI (%)",
         type: "range",
         min: 0,
         max: 10,

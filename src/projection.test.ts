@@ -9,11 +9,13 @@ import {
   calculateAnnualStatePensionAtDate,
   calculateAnnualAlphaPensionIncludingReduction,
   calculateAnnualIncomeTax,
+  calculateAnnualNuvosPensionAtDate,
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
   calculateMonthlyAlphaAccrual,
   calculateMonthlyAlphaPensionTakeHome,
   calculateMonthlySippPension,
+  calculateNuvosPensionRevaluationFactor,
   calculateStartingAlphaPensionAtStartDate,
   calculateWholeMonthDifference,
   calculateMonthlyStatePension,
@@ -76,6 +78,110 @@ describe("projection calculations", () => {
 
   it("calculates monthly alpha accrual at 2.32 percent divided by 12", () => {
     expect(calculateMonthlyAlphaAccrual(42000)).toBeCloseTo(81.2, 6);
+  });
+
+  it("calculates nuvos accrual at 2.3 percent of pensionable earnings", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      showNuvos: true,
+      startDate: "2025-04-01",
+      dateOfBirth: "1960-04-01",
+      lifeExpectancy: 90,
+      nuvosPensionAbsDate: "2025",
+      nuvosAccruedPensionAtLastAbs: 1000,
+      nuvosPensionableEarnings: 12000,
+      nuvosPensionLeaveAge: 65,
+      nuvosPensionDrawAge: 65,
+    };
+
+    expect(
+      calculateAnnualNuvosPensionAtDate({
+        settings,
+        rowDate: "2026-04-01",
+        nuvosAbsDate: "2025-04-01",
+        accrualStopDate: "2026-04-01",
+      }),
+    ).toBeCloseTo(1276, 6);
+  });
+
+  it("uses age 65 as the nuvos pension age for early payment reductions", () => {
+    const derivedInputs = deriveProjectionInputs({
+      ...defaultSettings,
+      showNuvos: true,
+      nuvosPensionDrawAge: 60,
+      nuvosPensionLeaveAge: 65,
+    });
+
+    expect(derivedInputs).toMatchObject({
+      nuvosNpaDate: "2052-06-15",
+      nuvosDrawDate: "2047-06-15",
+      nuvosAccrualStopDate: "2047-06-15",
+      nuvosReductionFactor: 0.771,
+    });
+  });
+
+  it("does not reduce nuvos pension drawn at age 65", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      showNuvos: true,
+      showStatePension: false,
+      showSipp: false,
+      showIsa: false,
+      startDate: "2025-04-01",
+      dateOfBirth: "1960-04-01",
+      lifeExpectancy: 66,
+      alphaPensionAbsDate: "2025",
+      alphaPensionDrawAge: 65,
+      alphaPensionLeaveAge: 65,
+      nuvosPensionAbsDate: "2025",
+      nuvosAccruedPensionAtLastAbs: 12000,
+      nuvosPensionableEarnings: 12000,
+      nuvosPensionLeaveAge: 65,
+      nuvosPensionDrawAge: 65,
+    };
+
+    const rows = createProjectionTable(settings);
+    const summary = generatePensionSummary(rows, settings);
+
+    expect(summary.nuvosPension.annualAtDraw).toBeCloseTo(12000, 6);
+    expect(summary.nuvosPension.monthlyAtDraw).toBeCloseTo(1000, 6);
+  });
+
+  it("actuarially reduces nuvos pension drawn before age 65", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      showNuvos: true,
+      showStatePension: false,
+      showSipp: false,
+      showIsa: false,
+      startDate: "2020-04-01",
+      dateOfBirth: "1960-04-01",
+      lifeExpectancy: 66,
+      alphaPensionAbsDate: "2020",
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      nuvosPensionAbsDate: "2020",
+      nuvosAccruedPensionAtLastAbs: 12000,
+      nuvosPensionableEarnings: 12000,
+      nuvosPensionLeaveAge: 60,
+      nuvosPensionDrawAge: 60,
+    };
+
+    const rows = createProjectionTable(settings);
+    const summary = generatePensionSummary(rows, settings);
+
+    expect(summary.nuvosPension.annualAtDraw).toBeCloseTo(12000 * 0.771, 6);
+    expect(summary.nuvosPension.monthlyAtDraw).toBeCloseTo((12000 * 0.771) / 12, 6);
+  });
+
+  it("applies nuvos CPI revaluation without the Alpha active-service uplift", () => {
+    expect(
+      calculateNuvosPensionRevaluationFactor({
+        fromDate: "2025-04-01",
+        rowDate: "2027-04-01",
+        cpiPercent: 2,
+      }),
+    ).toBeCloseTo(1.0404, 6);
   });
 
   it("uses whole-month differences and ignores days", () => {
@@ -440,6 +546,13 @@ describe("projection calculations", () => {
     expect(calculateTotalGrossMonthlyPension(648, 958.33)).toBeCloseTo(1606.33, 6);
   });
 
+  it("adds nuvos monthly pension into gross monthly pension", () => {
+    expect(calculateTotalGrossMonthlyPension(648, 958.33, 0, 0, 500)).toBeCloseTo(
+      2106.33,
+      6,
+    );
+  });
+
   it("adds SIPP monthly pension into gross monthly pension", () => {
     expect(calculateTotalGrossMonthlyPension(648, 958.33, 250)).toBeCloseTo(
       1856.33,
@@ -487,6 +600,26 @@ describe("projection calculations", () => {
         monthlySippPension: 1000,
       }),
     ).toBeCloseTo(6486 / 12, 6);
+  });
+
+  it("includes nuvos pension in taxable retirement income", () => {
+    expect(
+      calculateMonthlyIncomeTax({
+        settings: {
+          ...defaultSettings,
+          taxationEnabled: true,
+          taxPersonalAllowance: 0,
+          taxBasicRateLimit: 50000,
+          taxBasicRatePercent: 20,
+          taxHigherRatePercent: 40,
+          taxAdditionalRatePercent: 45,
+        },
+        monthlyAlphaPension: 100,
+        monthlyNuvosPension: 50,
+        monthlyStatePension: 0,
+        monthlySippPension: 0,
+      }),
+    ).toBeCloseTo(30, 6);
   });
 
   it("projects SIPP pot with tax relief and optional real interest", () => {
@@ -1327,6 +1460,45 @@ describe("projection calculations", () => {
     );
   });
 
+  it("includes visible nuvos pension in retirement income sources", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      showNuvos: true,
+      showStatePension: false,
+      showSipp: false,
+      showIsa: false,
+      startDate: "2025-04-01",
+      dateOfBirth: "1960-04-01",
+      lifeExpectancy: 66,
+      alphaPensionAbsDate: "2025",
+      alphaPensionDrawAge: 65,
+      alphaPensionLeaveAge: 65,
+      nuvosPensionAbsDate: "2025",
+      nuvosAccruedPensionAtLastAbs: 12000,
+      nuvosPensionableEarnings: 12000,
+      nuvosPensionLeaveAge: 65,
+      nuvosPensionDrawAge: 65,
+    };
+
+    const rows = createProjectionTable(settings);
+    const summary = generatePensionSummary(rows, settings);
+
+    expect(summary.retirementIncome.sources).toEqual([
+      expect.objectContaining({
+        key: "alpha",
+      }),
+      expect.objectContaining({
+        key: "nuvos",
+        label: "nuvos pension",
+        monthlyIncome: 1000,
+      }),
+    ]);
+    expect(summary.retirementIncome.totalMonthlyIncome).toBeCloseTo(
+      summary.alphaPension.monthlyAtDraw + summary.nuvosPension.monthlyAtDraw,
+      6,
+    );
+  });
+
   it("updates the summary when pension parameters change", () => {
     const baseRows = createProjectionTable(defaultSettings);
     const baseSummary = generatePensionSummary(baseRows, defaultSettings);
@@ -1358,9 +1530,12 @@ describe("projection calculations", () => {
       statePensionDrawDate: "2055-06-15",
       lifeExpectancy: 68,
       showStatePension: false,
+      showNuvos: false,
       showSipp: false,
       showIsa: false,
       currentStatePension: 12547.6,
+      nuvosAccruedPensionAtLastAbs: 12000,
+      nuvosPensionableEarnings: 42000,
       sippCurrentPot: 100000,
       sippMonthlyContribution: 500,
       isaCurrentPot: 25000,
@@ -1372,6 +1547,7 @@ describe("projection calculations", () => {
     const summary = generatePensionSummary(rows, settings);
 
     expect(stateRow?.monthlyStatePension).toBe(0);
+    expect(stateRow?.monthlyNuvosPensionTakeHome).toBe(0);
     expect(stateRow?.monthlySippPension).toBe(0);
     expect(stateRow?.monthlyIsaPension).toBe(0);
     expect(stateRow?.totalMonthlyPensionTakeHomePay).toBeCloseTo(
@@ -1381,6 +1557,11 @@ describe("projection calculations", () => {
     expect(rows.some((row) => row.milestones.includes("Starts Drawing State Pension"))).toBe(
       false,
     );
+    expect(rows.some((row) => row.milestones.includes("Starts Drawing nuvos Pension"))).toBe(
+      false,
+    );
+    expect(summary.nuvosPension.monthlyAtDraw).toBe(0);
+    expect(summary.nuvosPension.maximumAnnualAccrued).toBe(0);
     expect(summary.sippPension.potAtDraw).toBe(0);
     expect(summary.isaPension.potAtDraw).toBe(0);
     expect(summary.incomeOverTime.monthlyStatePension).toBe(0);

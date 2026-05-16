@@ -34,6 +34,9 @@ export type ProjectionRow = {
   annualAccruedAlphaPension: number;
   annualAlphaPensionIncludingReduction: number;
   monthlyAlphaPensionTakeHome: number;
+  annualNuvosPension: number;
+  annualNuvosPensionIncludingReduction: number;
+  monthlyNuvosPensionTakeHome: number;
   monthlyStatePension: number;
   sippPot: number;
   monthlySippPension: number;
@@ -48,6 +51,8 @@ export type PensionSummary = {
   keyDates: {
     stopsAlphaAccrual: string;
     startsAlphaPension: string;
+    stopsNuvosAccrual: string;
+    startsNuvosPension: string;
     startsSippDraw: string;
     startsIsaDraw: string;
     startsStatePension: string;
@@ -57,6 +62,11 @@ export type PensionSummary = {
     monthlyAtDraw: number;
     maximumAnnualAccrued: number;
     totalAddedAfterToday: number;
+  };
+  nuvosPension: {
+    annualAtDraw: number;
+    monthlyAtDraw: number;
+    maximumAnnualAccrued: number;
   };
   sippPension: {
     potAtDraw: number;
@@ -89,7 +99,7 @@ export type PensionSummary = {
 export type RetirementIncomeDisplay = "monthly" | "annual";
 
 export type RetirementIncomeSource = {
-  key: "alpha" | "sipp" | "isa" | "statePension" | "incomeTax";
+  key: "alpha" | "nuvos" | "sipp" | "isa" | "statePension" | "incomeTax";
   label: string;
   monthlyIncome: number;
   annualIncome: number;
@@ -102,10 +112,13 @@ export type RetirementIncomeSummary = {
 };
 
 const MONTHLY_ALPHA_ACCRUAL_RATE = 0.0232 / 12;
+const NUVOS_NORMAL_PENSION_AGE = 65;
 const CALCULATION_START_LABEL = "Calculation start";
 const LAST_ABS_STATEMENT_LABEL = "Last ABS";
 const STOPS_ALPHA_ACCRUAL_LABEL = "Leave Alpha Pension Scheme";
 const STARTS_ALPHA_PENSION_LABEL = "Starts Drawing Alpha Pension";
+const STOPS_NUVOS_ACCRUAL_LABEL = "Leave nuvos Pension Scheme";
+const STARTS_NUVOS_PENSION_LABEL = "Starts Drawing nuvos Pension";
 const STARTS_SIPP_LABEL = "Starts Drawing SIPP";
 const STARTS_ISA_LABEL = "Starts Drawing ISA";
 const STARTS_STATE_PENSION_LABEL = "Starts Drawing State Pension";
@@ -114,6 +127,8 @@ const LUMP_SUM_ADDED_PENSION_LABEL = "Lump Sum Added Pension";
 const SIPP_LUMP_SUM_LABEL = "SIPP Lump Sum";
 const ISA_LUMP_SUM_LABEL = "ISA Lump Sum";
 const DEFAULT_ALPHA_ACCRUAL_RATE = 0.0232;
+const DEFAULT_NUVOS_ACCRUAL_RATE = 0.023;
+const MONTHLY_NUVOS_ACCRUAL_RATE = DEFAULT_NUVOS_ACCRUAL_RATE / 12;
 
 type MilestoneDefinition = {
   date: string;
@@ -133,6 +148,10 @@ export type DerivedProjectionInputs = {
   drawDate: string;
   alphaStopDate: string;
   accrualStopDate: string;
+  nuvosDrawDate: string;
+  nuvosAccrualStopDate: string;
+  nuvosNpaDate: string;
+  nuvosReductionFactor: number;
   addedPensionStopDate: string;
   npaDate: string;
   epaDate: string;
@@ -151,6 +170,19 @@ export function deriveProjectionInputs(
   const drawDate = addYears(settings.dateOfBirth, settings.alphaPensionDrawAge);
   const alphaStopDate = addYears(settings.dateOfBirth, settings.alphaPensionLeaveAge);
   const accrualStopDate = minIsoDate(drawDate, alphaStopDate);
+  const nuvosDrawDate = addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge);
+  const nuvosAccrualStopDate = minIsoDate(
+    nuvosDrawDate,
+    addYears(settings.dateOfBirth, settings.nuvosPensionLeaveAge),
+  );
+  const nuvosNpaDate = addYears(settings.dateOfBirth, NUVOS_NORMAL_PENSION_AGE);
+  const nuvosReductionFactor =
+    nuvosDrawDate > nuvosNpaDate
+      ? 1
+      : getEarlyRetirementReductionFactor(
+          NUVOS_NORMAL_PENSION_AGE,
+          settings.nuvosPensionDrawAge,
+        );
   const addedPensionStopDate = accrualStopDate;
   const npaDate = addYears(settings.dateOfBirth, settings.normalPensionAge);
   const epaDate = getAlphaEpaDate(settings);
@@ -172,6 +204,10 @@ export function deriveProjectionInputs(
     drawDate,
     alphaStopDate,
     accrualStopDate,
+    nuvosDrawDate,
+    nuvosAccrualStopDate,
+    nuvosNpaDate,
+    nuvosReductionFactor,
     addedPensionStopDate,
     npaDate,
     epaDate,
@@ -195,6 +231,10 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
     endDate,
     drawDate,
     accrualStopDate,
+    nuvosDrawDate,
+    nuvosAccrualStopDate,
+    nuvosNpaDate,
+    nuvosReductionFactor,
     addedPensionStopDate,
     npaDate,
     epaDate,
@@ -204,6 +244,7 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
   const sippDrawDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
   const isaDrawDate = addYears(settings.dateOfBirth, settings.isaDrawAge);
   const alphaAbsDate = resolveAlphaAbsDate(settings.alphaPensionAbsDate);
+  const nuvosAbsDate = resolveAlphaAbsDate(settings.nuvosPensionAbsDate);
 
   const startingAlphaPortionsAtStartDate = calculateStartingAlphaPortionsAtStartDate({
     settings,
@@ -293,6 +334,24 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       drawDate,
       annualAlphaPensionIncludingReduction,
     );
+    const annualNuvosPension = calculateAnnualNuvosPensionAtDate({
+      settings,
+      rowDate,
+      nuvosAbsDate,
+      accrualStopDate: nuvosAccrualStopDate,
+    });
+    const annualNuvosPensionIncludingReduction =
+      calculateAnnualAlphaPensionIncludingReduction(
+        annualNuvosPension,
+        nuvosDrawDate,
+        nuvosNpaDate,
+        nuvosReductionFactor,
+      );
+    const monthlyNuvosPensionTakeHome = calculateMonthlyAlphaPensionTakeHome(
+      rowDate,
+      nuvosDrawDate,
+      annualNuvosPensionIncludingReduction,
+    );
     const monthlyStatePension = calculateMonthlyStatePension(
       rowDate,
       settings.statePensionDrawDate,
@@ -303,10 +362,12 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       monthlyStatePension,
       sippProjection.monthlySippPension,
       isaProjection.monthlyIsaPension,
+      monthlyNuvosPensionTakeHome,
     );
     const monthlyIncomeTax = calculateMonthlyIncomeTax({
       settings,
       monthlyAlphaPension: monthlyAlphaPensionTakeHome,
+      monthlyNuvosPension: monthlyNuvosPensionTakeHome,
       monthlyStatePension,
       monthlySippPension: sippProjection.monthlySippPension,
     });
@@ -324,6 +385,9 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       annualAccruedAlphaPension,
       annualAlphaPensionIncludingReduction,
       monthlyAlphaPensionTakeHome,
+      annualNuvosPension,
+      annualNuvosPensionIncludingReduction,
+      monthlyNuvosPensionTakeHome,
       monthlyStatePension,
       sippPot: sippProjection.sippPot,
       monthlySippPension: sippProjection.monthlySippPension,
@@ -353,6 +417,9 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
     settings.showSipp ? settings.sippLumpSums : [],
     settings.showIsa ? settings.isaLumpSums : [],
     settings.showStatePension,
+    settings.showNuvos ? nuvosAccrualStopDate : "",
+    settings.showNuvos ? nuvosDrawDate : "",
+    settings.showNuvos ? nuvosAbsDate : "",
   );
   const milestoneRows = buildMilestoneMapForRowDates(
     milestoneDefinitions,
@@ -378,6 +445,10 @@ function createProjectionTableWithPensionIncreases(
     endDate,
     drawDate,
     accrualStopDate,
+    nuvosDrawDate,
+    nuvosAccrualStopDate,
+    nuvosNpaDate,
+    nuvosReductionFactor,
     addedPensionStopDate,
     npaDate,
     epaDate,
@@ -387,7 +458,11 @@ function createProjectionTableWithPensionIncreases(
   const sippDrawDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
   const isaDrawDate = addYears(settings.dateOfBirth, settings.isaDrawAge);
   const alphaAbsDate = resolveAlphaAbsDate(settings.alphaPensionAbsDate);
-  const firstRowDate = minIsoDate(alphaAbsDate, settings.startDate);
+  const nuvosAbsDate = resolveAlphaAbsDate(settings.nuvosPensionAbsDate);
+  const firstRowDate = minIsoDate(
+    minIsoDate(alphaAbsDate, settings.showNuvos ? nuvosAbsDate : settings.startDate),
+    settings.startDate,
+  );
   const benefitComponents: AlphaBenefitComponent[] = [
     {
       amount: settings.accruedPensionAtLastAbs,
@@ -500,6 +575,24 @@ function createProjectionTableWithPensionIncreases(
       drawDate,
       annualAlphaPensionIncludingReduction,
     );
+    const annualNuvosPension = calculateAnnualNuvosPensionAtDate({
+      settings,
+      rowDate,
+      nuvosAbsDate,
+      accrualStopDate: nuvosAccrualStopDate,
+    });
+    const annualNuvosPensionIncludingReduction =
+      calculateAnnualAlphaPensionIncludingReduction(
+        annualNuvosPension,
+        nuvosDrawDate,
+        nuvosNpaDate,
+        nuvosReductionFactor,
+      );
+    const monthlyNuvosPensionTakeHome = calculateMonthlyAlphaPensionTakeHome(
+      rowDate,
+      nuvosDrawDate,
+      annualNuvosPensionIncludingReduction,
+    );
     const monthlyStatePension = calculateMonthlyStatePension(
       rowDate,
       settings.statePensionDrawDate,
@@ -511,10 +604,12 @@ function createProjectionTableWithPensionIncreases(
       monthlyStatePension,
       sippProjection.monthlySippPension,
       isaProjection.monthlyIsaPension,
+      monthlyNuvosPensionTakeHome,
     );
     const monthlyIncomeTax = calculateMonthlyIncomeTax({
       settings,
       monthlyAlphaPension: monthlyAlphaPensionTakeHome,
+      monthlyNuvosPension: monthlyNuvosPensionTakeHome,
       monthlyStatePension,
       monthlySippPension: sippProjection.monthlySippPension,
     });
@@ -532,6 +627,9 @@ function createProjectionTableWithPensionIncreases(
       annualAccruedAlphaPension,
       annualAlphaPensionIncludingReduction,
       monthlyAlphaPensionTakeHome,
+      annualNuvosPension,
+      annualNuvosPensionIncludingReduction,
+      monthlyNuvosPensionTakeHome,
       monthlyStatePension,
       sippPot: sippProjection.sippPot,
       monthlySippPension: sippProjection.monthlySippPension,
@@ -557,6 +655,9 @@ function createProjectionTableWithPensionIncreases(
     settings.showSipp ? settings.sippLumpSums : [],
     settings.showIsa ? settings.isaLumpSums : [],
     settings.showStatePension,
+    settings.showNuvos ? nuvosAccrualStopDate : "",
+    settings.showNuvos ? nuvosDrawDate : "",
+    settings.showNuvos ? nuvosAbsDate : "",
   );
   const milestoneRows = buildMilestoneMapForRowDates(
     milestoneDefinitions,
@@ -593,6 +694,14 @@ export function generatePensionSummary(
     );
     const sippDrawDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
     const isaDrawDate = addYears(settings.dateOfBirth, settings.isaDrawAge);
+    const nuvosPensionDrawDate = addYears(
+      settings.dateOfBirth,
+      settings.nuvosPensionDrawAge,
+    );
+    const nuvosAccrualStopDate = minIsoDate(
+      nuvosPensionDrawDate,
+      addYears(settings.dateOfBirth, settings.nuvosPensionLeaveAge),
+    );
     const alphaAccrualStopDate = minIsoDate(
       alphaPensionDrawDate,
       addYears(settings.dateOfBirth, settings.alphaPensionLeaveAge),
@@ -610,6 +719,8 @@ export function generatePensionSummary(
       keyDates: {
         stopsAlphaAccrual: alphaAccrualStopDate,
         startsAlphaPension: alphaPensionDrawDate,
+        stopsNuvosAccrual: nuvosAccrualStopDate,
+        startsNuvosPension: nuvosPensionDrawDate,
         startsSippDraw: sippDrawDate,
         startsIsaDraw: isaDrawDate,
         startsStatePension: settings.statePensionDrawDate,
@@ -619,6 +730,11 @@ export function generatePensionSummary(
         monthlyAtDraw: 0,
         maximumAnnualAccrued: 0,
         totalAddedAfterToday: 0,
+      },
+      nuvosPension: {
+        annualAtDraw: 0,
+        monthlyAtDraw: 0,
+        maximumAnnualAccrued: 0,
       },
       sippPension: {
         potAtDraw: 0,
@@ -653,6 +769,7 @@ export function generatePensionSummary(
       },
       retirementIncome: buildRetirementIncomeSummary({
         alphaMonthlyIncome: 0,
+        nuvosMonthlyIncome: 0,
         sippMonthlyIncome: 0,
         isaMonthlyIncome: 0,
         statePensionMonthlyIncome: 0,
@@ -668,9 +785,17 @@ export function generatePensionSummary(
   );
   const sippDrawDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
   const isaDrawDate = addYears(settings.dateOfBirth, settings.isaDrawAge);
+  const nuvosPensionDrawDate = addYears(
+    settings.dateOfBirth,
+    settings.nuvosPensionDrawAge,
+  );
   const alphaAccrualStopDate = minIsoDate(
     alphaPensionDrawDate,
     addYears(settings.dateOfBirth, settings.alphaPensionLeaveAge),
+  );
+  const nuvosAccrualStopDate = minIsoDate(
+    nuvosPensionDrawDate,
+    addYears(settings.dateOfBirth, settings.nuvosPensionLeaveAge),
   );
   const statePensionStartDate = settings.statePensionDrawDate;
   const npaDate = addYears(settings.dateOfBirth, settings.normalPensionAge);
@@ -683,6 +808,8 @@ export function generatePensionSummary(
         );
   const alphaDrawRow =
     findFirstRowAtOrAfterDate(tableData, alphaPensionDrawDate) ?? tableData.at(-1);
+  const nuvosDrawRow =
+    findFirstRowAtOrAfterDate(tableData, nuvosPensionDrawDate) ?? tableData.at(-1);
   const statePensionRow =
     findFirstRowAtOrAfterDate(tableData, statePensionStartDate) ?? tableData.at(-1);
   const sippDrawRow =
@@ -690,12 +817,17 @@ export function generatePensionSummary(
   const isaDrawRow =
     findFirstRowAtOrAfterDate(tableData, isaDrawDate) ?? tableData.at(-1);
   const maximumAnnualAccrued = Math.max(...tableData.map((row) => row.annualAccruedAlphaPension));
+  const maximumAnnualNuvosAccrued = settings.showNuvos
+    ? Math.max(...tableData.map((row) => row.annualNuvosPension))
+    : 0;
   const totalAddedAfterToday = maximumAnnualAccrued - startingAlphaPensionAtStartDate;
 
   return {
     keyDates: {
       stopsAlphaAccrual: alphaAccrualStopDate,
       startsAlphaPension: alphaPensionDrawDate,
+      stopsNuvosAccrual: nuvosAccrualStopDate,
+      startsNuvosPension: nuvosPensionDrawDate,
       startsSippDraw: sippDrawDate,
       startsIsaDraw: isaDrawDate,
       startsStatePension: statePensionStartDate,
@@ -705,6 +837,11 @@ export function generatePensionSummary(
       monthlyAtDraw: alphaDrawRow?.monthlyAlphaPensionTakeHome ?? 0,
       maximumAnnualAccrued,
       totalAddedAfterToday,
+    },
+    nuvosPension: {
+      annualAtDraw: nuvosDrawRow?.annualNuvosPensionIncludingReduction ?? 0,
+      monthlyAtDraw: nuvosDrawRow?.monthlyNuvosPensionTakeHome ?? 0,
+      maximumAnnualAccrued: maximumAnnualNuvosAccrued,
     },
     sippPension: {
       potAtDraw: sippDrawRow?.sippPot ?? 0,
@@ -742,12 +879,14 @@ export function generatePensionSummary(
     },
     retirementIncome: buildRetirementIncomeSummary({
       alphaMonthlyIncome: alphaDrawRow?.monthlyAlphaPensionTakeHome ?? 0,
+      nuvosMonthlyIncome: nuvosDrawRow?.monthlyNuvosPensionTakeHome ?? 0,
       sippMonthlyIncome: sippDrawRow?.monthlySippPension ?? 0,
       isaMonthlyIncome: isaDrawRow?.monthlyIsaPension ?? 0,
       statePensionMonthlyIncome: statePensionRow?.monthlyStatePension ?? 0,
       monthlyIncomeTax: calculateMonthlyIncomeTax({
         settings,
         monthlyAlphaPension: alphaDrawRow?.monthlyAlphaPensionTakeHome ?? 0,
+        monthlyNuvosPension: nuvosDrawRow?.monthlyNuvosPensionTakeHome ?? 0,
         monthlyStatePension: statePensionRow?.monthlyStatePension ?? 0,
         monthlySippPension: sippDrawRow?.monthlySippPension ?? 0,
       }),
@@ -758,6 +897,7 @@ export function generatePensionSummary(
 
 function buildRetirementIncomeSummary({
   alphaMonthlyIncome,
+  nuvosMonthlyIncome,
   sippMonthlyIncome,
   isaMonthlyIncome,
   statePensionMonthlyIncome,
@@ -765,6 +905,7 @@ function buildRetirementIncomeSummary({
   settings,
 }: {
   alphaMonthlyIncome: number;
+  nuvosMonthlyIncome: number;
   sippMonthlyIncome: number;
   isaMonthlyIncome: number;
   statePensionMonthlyIncome: number;
@@ -773,6 +914,9 @@ function buildRetirementIncomeSummary({
 }): RetirementIncomeSummary {
   const sources: RetirementIncomeSource[] = [
     createRetirementIncomeSource("alpha", "Alpha pension", alphaMonthlyIncome),
+    ...(settings.showNuvos
+      ? [createRetirementIncomeSource("nuvos", "nuvos pension", nuvosMonthlyIncome)]
+      : []),
     ...(settings.showSipp
       ? [createRetirementIncomeSource("sipp", "SIPP", sippMonthlyIncome)]
       : []),
@@ -948,6 +1092,55 @@ export function calculateStartingAlphaPensionAtStartDate(input: {
   return alphaPensionAccruedAtLastStatement + additionalAccruedAlpha;
 }
 
+export function calculateAnnualNuvosPensionAtDate(input: {
+  settings: PensionSettings;
+  rowDate: string;
+  nuvosAbsDate: string;
+  accrualStopDate: string;
+}) {
+  const { settings, rowDate, nuvosAbsDate, accrualStopDate } = input;
+
+  if (!settings.showNuvos || rowDate < nuvosAbsDate) {
+    return 0;
+  }
+
+  const benefitComponents: { amount: number; startDate: string }[] = [
+    {
+      amount: settings.nuvosAccruedPensionAtLastAbs,
+      startDate: nuvosAbsDate,
+    },
+  ];
+  let accrualDate = addMonths(nuvosAbsDate, 1);
+
+  while (accrualDate <= rowDate && accrualDate <= accrualStopDate) {
+    benefitComponents.push({
+      amount: calculateMonthlyNuvosAccrual(settings),
+      startDate: accrualDate,
+    });
+    accrualDate = addMonths(accrualDate, 1);
+  }
+
+  return benefitComponents.reduce((total, component) => {
+    const revaluationFactor = settings.nuvosApplyPensionIncreases
+      ? calculateNuvosPensionRevaluationFactor({
+          fromDate: component.startDate,
+          rowDate,
+          cpiPercent: settings.nuvosAssumedCpiPercent,
+        })
+      : 1;
+
+    return total + component.amount * revaluationFactor;
+  }, 0);
+}
+
+function calculateMonthlyNuvosAccrual(settings: PensionSettings) {
+  if (!settings.showNuvos) {
+    return 0;
+  }
+
+  return settings.nuvosPensionableEarnings * MONTHLY_NUVOS_ACCRUAL_RATE;
+}
+
 export function calculateAccruedAlphaPension(
   startingAccruedAlphaPension: number,
   cumulativeMonthlyAccrual: number,
@@ -972,6 +1165,18 @@ export function calculateAlphaPensionRevaluationFactor(input: {
   const deferredYears = totalYears - activeYears;
 
   return (1 + activeRate) ** activeYears * (1 + cpiRate) ** deferredYears;
+}
+
+export function calculateNuvosPensionRevaluationFactor(input: {
+  fromDate: string;
+  rowDate: string;
+  cpiPercent: number;
+}) {
+  const { fromDate, rowDate, cpiPercent } = input;
+  const cpiRate = cpiPercent / 100;
+  const totalYears = calculateWholeYearDifference(fromDate, rowDate);
+
+  return (1 + cpiRate) ** totalYears;
 }
 
 function calculateRevaluedAlphaPensionPortions(input: {
@@ -1287,9 +1492,11 @@ export function calculateTotalGrossMonthlyPension(
   monthlyStatePension: number,
   monthlySippPension = 0,
   monthlyIsaPension = 0,
+  monthlyNuvosPensionIncludingReduction = 0,
 ) {
   return (
     monthlyAlphaPensionIncludingReduction +
+    monthlyNuvosPensionIncludingReduction +
     monthlyStatePension +
     monthlySippPension +
     monthlyIsaPension
@@ -1299,12 +1506,14 @@ export function calculateTotalGrossMonthlyPension(
 export function calculateMonthlyIncomeTax(input: {
   settings: PensionSettings;
   monthlyAlphaPension: number;
+  monthlyNuvosPension?: number;
   monthlyStatePension: number;
   monthlySippPension: number;
 }) {
   const {
     settings,
     monthlyAlphaPension,
+    monthlyNuvosPension = 0,
     monthlyStatePension,
     monthlySippPension,
   } = input;
@@ -1316,6 +1525,7 @@ export function calculateMonthlyIncomeTax(input: {
   const taxableSippShare = 1 - settings.taxSippTaxFreeWithdrawalPercent / 100;
   const annualTaxableIncome =
     (monthlyAlphaPension +
+      monthlyNuvosPension +
       monthlyStatePension +
       monthlySippPension * taxableSippShare) *
     12;
@@ -1704,12 +1914,22 @@ export function generateMilestoneDefinitions(
   sippLumpSums: AddedPensionLumpSum[] = [],
   isaLumpSums: AddedPensionLumpSum[] = [],
   includeStatePension = true,
+  nuvosPensionStopDate = "",
+  nuvosPensionDrawDate = "",
+  nuvosAbsDate = "",
 ): MilestoneDefinition[] {
   return [
     ...(alphaAbsDate ? [{ date: alphaAbsDate, label: LAST_ABS_STATEMENT_LABEL }] : []),
+    ...(nuvosAbsDate ? [{ date: nuvosAbsDate, label: "Last nuvos ABS" }] : []),
     { date: startDate, label: CALCULATION_START_LABEL },
     { date: alphaPensionStopDate, label: STOPS_ALPHA_ACCRUAL_LABEL },
     { date: alphaPensionDrawDate, label: STARTS_ALPHA_PENSION_LABEL },
+    ...(nuvosPensionStopDate
+      ? [{ date: nuvosPensionStopDate, label: STOPS_NUVOS_ACCRUAL_LABEL }]
+      : []),
+    ...(nuvosPensionDrawDate
+      ? [{ date: nuvosPensionDrawDate, label: STARTS_NUVOS_PENSION_LABEL }]
+      : []),
     ...(sippDrawDate ? [{ date: sippDrawDate, label: STARTS_SIPP_LABEL }] : []),
     ...(isaDrawDate ? [{ date: isaDrawDate, label: STARTS_ISA_LABEL }] : []),
     ...(includeStatePension
@@ -1925,6 +2145,7 @@ function createHistoricalProjectionRows(input: {
     const monthlyIncomeTax = calculateMonthlyIncomeTax({
       settings,
       monthlyAlphaPension: monthlyAlphaPensionTakeHome,
+      monthlyNuvosPension: 0,
       monthlyStatePension,
       monthlySippPension: 0,
     });
@@ -1940,6 +2161,9 @@ function createHistoricalProjectionRows(input: {
       annualAccruedAlphaPension: annualAccruedAlphaPensionIncludingLumpSums,
       annualAlphaPensionIncludingReduction,
       monthlyAlphaPensionTakeHome,
+      annualNuvosPension: 0,
+      annualNuvosPensionIncludingReduction: 0,
+      monthlyNuvosPensionTakeHome: 0,
       monthlyStatePension,
       sippPot: 0,
       monthlySippPension: 0,

@@ -18,6 +18,9 @@ const projectionFixtures = vi.hoisted(() => {
       annualAccruedAlphaPension: 12000,
       annualAlphaPensionIncludingReduction: 12000,
       monthlyAlphaPensionTakeHome: 900,
+      annualNuvosPension: 0,
+      annualNuvosPensionIncludingReduction: 0,
+      monthlyNuvosPensionTakeHome: 0,
       monthlyStatePension: 0,
       sippPot: 40000,
       monthlySippPension: 0,
@@ -40,6 +43,9 @@ const projectionFixtures = vi.hoisted(() => {
       annualAccruedAlphaPension: 18000,
       annualAlphaPensionIncludingReduction: 18000,
       monthlyAlphaPensionTakeHome: 1300,
+      annualNuvosPension: 5000,
+      annualNuvosPensionIncludingReduction: 5000,
+      monthlyNuvosPensionTakeHome: 416.67,
       monthlyStatePension: 0,
       sippPot: 35000,
       monthlySippPension: 200,
@@ -62,6 +68,9 @@ const projectionFixtures = vi.hoisted(() => {
       annualAccruedAlphaPension: 22000,
       annualAlphaPensionIncludingReduction: 22000,
       monthlyAlphaPensionTakeHome: 1600,
+      annualNuvosPension: 6000,
+      annualNuvosPensionIncludingReduction: 6000,
+      monthlyNuvosPensionTakeHome: 500,
       monthlyStatePension: 900,
       sippPot: 0,
       monthlySippPension: 300,
@@ -98,16 +107,21 @@ vi.mock("./projection", async () => {
               ]
             : row.milestones,
         monthlyStatePension: settings.showStatePension ? row.monthlyStatePension : 0,
+        monthlyNuvosPensionTakeHome: settings.showNuvos
+          ? row.monthlyNuvosPensionTakeHome
+          : 0,
         monthlySippPension: settings.showSipp ? row.monthlySippPension : 0,
         monthlyIsaPension: settings.showIsa ? row.monthlyIsaPension : 0,
         totalMonthlyPensionIncomeBeforeTax:
           row.monthlyAlphaPensionTakeHome +
+          (settings.showNuvos ? row.monthlyNuvosPensionTakeHome : 0) +
           (settings.showStatePension ? row.monthlyStatePension : 0) +
           (settings.showSipp ? row.monthlySippPension : 0) +
           (settings.showIsa ? row.monthlyIsaPension : 0),
         monthlyIncomeTax: settings.taxationEnabled ? 100 : 0,
         totalMonthlyPensionTakeHomePay:
           row.monthlyAlphaPensionTakeHome +
+          (settings.showNuvos ? row.monthlyNuvosPensionTakeHome : 0) +
           (settings.showStatePension ? row.monthlyStatePension : 0) +
           (settings.showSipp ? row.monthlySippPension : 0) +
           (settings.showIsa ? row.monthlyIsaPension : 0) -
@@ -119,6 +133,8 @@ vi.mock("./projection", async () => {
       keyDates: {
         stopsAlphaAccrual: settings.startDate,
         startsAlphaPension: settings.startDate,
+        stopsNuvosAccrual: settings.startDate,
+        startsNuvosPension: settings.startDate,
         startsSippDraw: settings.startDate,
         startsIsaDraw: settings.startDate,
         startsStatePension: settings.statePensionDrawDate,
@@ -131,6 +147,11 @@ vi.mock("./projection", async () => {
           (total, row) => total + row.monthlyAddedPension + row.lumpSumAddedPension,
           0,
         ),
+      },
+      nuvosPension: {
+        annualAtDraw: rows.at(-1)?.annualNuvosPensionIncludingReduction ?? 0,
+        monthlyAtDraw: rows.at(-1)?.monthlyNuvosPensionTakeHome ?? 0,
+        maximumAnnualAccrued: rows.at(-1)?.annualNuvosPension ?? 0,
       },
       sippPension: {
         potAtDraw: rows.at(-1)?.sippPot ?? 0,
@@ -165,6 +186,16 @@ vi.mock("./projection", async () => {
             monthlyIncome: rows.at(-1)?.monthlyAlphaPensionTakeHome ?? 0,
             annualIncome: (rows.at(-1)?.monthlyAlphaPensionTakeHome ?? 0) * 12,
           },
+          ...(settings.showNuvos
+            ? [
+                {
+                  key: "nuvos" as const,
+                  label: "nuvos pension",
+                  monthlyIncome: rows.at(-1)?.monthlyNuvosPensionTakeHome ?? 0,
+                  annualIncome: (rows.at(-1)?.monthlyNuvosPensionTakeHome ?? 0) * 12,
+                },
+              ]
+            : []),
           ...(settings.showSipp
             ? [
                 {
@@ -226,6 +257,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   return {
     dateOfBirth: defaultSettings.dateOfBirth,
     lifeExpectancy: defaultSettings.lifeExpectancy,
+    showNuvos: defaultSettings.showNuvos,
     showStatePension: defaultSettings.showStatePension,
     showSipp: defaultSettings.showSipp,
     showIsa: defaultSettings.showIsa,
@@ -249,6 +281,13 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     alphaEpaStartDate: defaultSettings.alphaEpaStartDate,
     alphaEpaEndDate: defaultSettings.alphaEpaEndDate,
     alphaAddedPensionLumpSums: [],
+    nuvosPensionAbsDate: defaultSettings.nuvosPensionAbsDate,
+    nuvosAccruedPensionAtLastAbs: defaultSettings.nuvosAccruedPensionAtLastAbs,
+    nuvosPensionableEarnings: defaultSettings.nuvosPensionableEarnings,
+    nuvosPensionLeaveAge: defaultSettings.nuvosPensionLeaveAge,
+    nuvosPensionDrawAge: defaultSettings.nuvosPensionDrawAge,
+    nuvosApplyPensionIncreases: defaultSettings.nuvosApplyPensionIncreases,
+    nuvosAssumedCpiPercent: defaultSettings.nuvosAssumedCpiPercent,
     sippCurrentPot: defaultSettings.sippCurrentPot,
     sippMonthlyContribution: defaultSettings.sippMonthlyContribution,
     sippDrawAge: defaultSettings.sippDrawAge,
@@ -383,7 +422,7 @@ describe("App settings form", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Retirement Income Calculator",
+        name: "Retirement Income Moddler",
       }),
     ).toBeInTheDocument();
     expect(
@@ -393,7 +432,7 @@ describe("App settings form", () => {
     const titleSection = screen
       .getByRole("heading", {
         level: 1,
-        name: "Retirement Income Calculator",
+        name: "Retirement Income Moddler",
       })
       .closest("section");
 
@@ -493,7 +532,7 @@ describe("App settings form", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows concise modeller limitations on request", () => {
+  it("shows concise moddler limitations on request", () => {
     renderAcknowledgedApp();
 
     expect(screen.queryByText(/Scottish tax bands/i)).not.toBeInTheDocument();
@@ -755,6 +794,25 @@ describe("App settings form", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset assumed CPI to default" }));
 
     expect(cpiInput).toHaveValue(defaultSettings.assumedCpiPercent);
+  });
+
+  it("disables nuvos assumed CPI unless nuvos pension increases are enabled", () => {
+    renderAcknowledgedApp();
+
+    fireEvent.click(screen.getByLabelText("nuvos"));
+
+    const applyNuvosIncreasesToggle = screen.getByLabelText(
+      "Apply nuvos pension increases",
+    );
+
+    expect(applyNuvosIncreasesToggle).not.toBeChecked();
+    expect(screen.getByLabelText("nuvos assumed CPI (%)")).toBeDisabled();
+    expect(screen.getByLabelText("nuvos assumed CPI (%) exact value")).toBeDisabled();
+
+    fireEvent.click(applyNuvosIncreasesToggle);
+
+    expect(screen.getByLabelText("nuvos assumed CPI (%)")).not.toBeDisabled();
+    expect(screen.getByLabelText("nuvos assumed CPI (%) exact value")).not.toBeDisabled();
   });
 
   it("can apply projected State Pension future growth", () => {

@@ -17,6 +17,10 @@ export const knowledgeLinks = {
     "https://gadfactorguidancehub.co.uk/guidance/csps_gb/added-pension/csps_gb__csops__added-pension/tables",
   annualBenefitStatement:
     "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/",
+  nuvosSchemeGuide:
+    "https://www.civilservicepensionscheme.org.uk/memberhub/knowledge-centre/pension-scheme/nuvos-scheme-guide/",
+  nuvosBenefits:
+    "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01134",
   lifeExpectancy:
     "https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/healthandlifeexpectancies/articles/lifeexpectancycalculator/2019-06-07",
   retirementLivingStandards: "https://www.retirementlivingstandards.org.uk/",

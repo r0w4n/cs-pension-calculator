@@ -19,6 +19,7 @@ export type PensionSettings = {
   dateOfBirth: string;
   lifeExpectancy: number;
   normalPensionAge: number;
+  showNuvos: boolean;
   showStatePension: boolean;
   showSipp: boolean;
   showIsa: boolean;
@@ -42,6 +43,13 @@ export type PensionSettings = {
   alphaEpaStartDate: string;
   alphaEpaEndDate: string;
   alphaAddedPensionLumpSums: AddedPensionLumpSum[];
+  nuvosPensionAbsDate: string;
+  nuvosAccruedPensionAtLastAbs: number;
+  nuvosPensionableEarnings: number;
+  nuvosPensionLeaveAge: number;
+  nuvosPensionDrawAge: number;
+  nuvosApplyPensionIncreases: boolean;
+  nuvosAssumedCpiPercent: number;
   sippCurrentPot: number;
   sippMonthlyContribution: number;
   sippDrawAge: number;
@@ -93,6 +101,11 @@ const numericSettingRules = {
   pensionableEarnings: { min: 10000, max: 150000, step: 500 },
   alphaPensionDrawAge: { min: 55, max: 70, step: 1 },
   alphaEpaYearsBeforeNpa: { min: 1, max: 3, step: 1 },
+  nuvosAccruedPensionAtLastAbs: { min: 0, max: 50000, step: 1 },
+  nuvosPensionableEarnings: { min: 10000, max: 150000, step: 500 },
+  nuvosPensionLeaveAge: { min: 40, max: 70, step: 1 },
+  nuvosPensionDrawAge: { min: 55, max: 70, step: 1 },
+  nuvosAssumedCpiPercent: { min: 0, max: 10, step: 0.1 },
   sippCurrentPot: { min: 0, max: 2_000_000, step: 1 },
   sippMonthlyContribution: { min: 0, max: 5000, step: 25 },
   sippDrawAge: { min: 55, max: 70, step: 1 },
@@ -120,6 +133,7 @@ export const defaultSettings: PensionSettings = {
   dateOfBirth: "1987-06-15",
   lifeExpectancy: 88,
   normalPensionAge: 68,
+  showNuvos: false,
   showStatePension: true,
   showSipp: true,
   showIsa: true,
@@ -143,6 +157,13 @@ export const defaultSettings: PensionSettings = {
   alphaEpaStartDate: "2026-04-01",
   alphaEpaEndDate: "2047-03-31",
   alphaAddedPensionLumpSums: [],
+  nuvosPensionAbsDate: "2025",
+  nuvosAccruedPensionAtLastAbs: 0,
+  nuvosPensionableEarnings: 42000,
+  nuvosPensionLeaveAge: 65,
+  nuvosPensionDrawAge: 65,
+  nuvosApplyPensionIncreases: false,
+  nuvosAssumedCpiPercent: 2,
   sippCurrentPot: 0,
   sippMonthlyContribution: 0,
   sippDrawAge: 60,
@@ -225,12 +246,14 @@ export function normalizeSetting<K extends keyof PensionSettings>(
         defaultSettings.statePensionDrawDate,
       ) as PensionSettings[K];
     case "applyPensionIncreases":
+    case "showNuvos":
     case "showStatePension":
     case "showSipp":
     case "showIsa":
     case "taxationEnabled":
     case "statePensionApplyFutureGrowth":
     case "alphaEpaEnabled":
+    case "nuvosApplyPensionIncreases":
     case "isaApplyRealInterest":
     case "sippApplyRealInterest":
       return Boolean(value) as PensionSettings[K];
@@ -244,9 +267,10 @@ export function normalizeSetting<K extends keyof PensionSettings>(
     case "alphaEpaEndDate":
       return normalizeDate(value as string, defaultSettings[key] as string) as PensionSettings[K];
     case "alphaPensionAbsDate":
+    case "nuvosPensionAbsDate":
       return normalizeAlphaAbsYear(
         value as string,
-        defaultSettings.alphaPensionAbsDate,
+        defaultSettings[key] as string,
       ) as PensionSettings[K];
     case "alphaAddedPensionLumpSums":
     case "isaLumpSums":
@@ -269,6 +293,7 @@ function coerceSettings(
   return {
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
+    showNuvos: coerceBoolean(input.showNuvos),
     showStatePension: coerceBoolean(input.showStatePension),
     showSipp: coerceBoolean(input.showSipp),
     showIsa: coerceBoolean(input.showIsa),
@@ -298,6 +323,15 @@ function coerceSettings(
     alphaAddedPensionLumpSums: coerceAddedPensionLumpSums(
       input.alphaAddedPensionLumpSums,
     ),
+    nuvosPensionAbsDate: coerceString(input.nuvosPensionAbsDate),
+    nuvosAccruedPensionAtLastAbs: coerceNumber(
+      input.nuvosAccruedPensionAtLastAbs,
+    ),
+    nuvosPensionableEarnings: coerceNumber(input.nuvosPensionableEarnings),
+    nuvosPensionLeaveAge: coerceNumber(input.nuvosPensionLeaveAge),
+    nuvosPensionDrawAge: coerceNumber(input.nuvosPensionDrawAge),
+    nuvosApplyPensionIncreases: coerceBoolean(input.nuvosApplyPensionIncreases),
+    nuvosAssumedCpiPercent: coerceNumber(input.nuvosAssumedCpiPercent),
     sippCurrentPot: coerceNumber(input.sippCurrentPot),
     sippMonthlyContribution: coerceNumber(input.sippMonthlyContribution),
     sippDrawAge: coerceNumber(input.sippDrawAge),
@@ -424,6 +458,15 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     alphaDrawDate <= alphaLeaveDate ? alphaDrawDate : alphaLeaveDate;
   const alphaAbsDate = resolveAlphaAbsDate(settings.alphaPensionAbsDate);
   const alphaEpaAgeDate = getAlphaEpaDate(settings);
+  const nuvosDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.nuvosPensionDrawAge,
+  );
+  const nuvosLeaveDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.nuvosPensionLeaveAge,
+  );
+  const nuvosAbsDate = resolveAlphaAbsDate(settings.nuvosPensionAbsDate);
   const sippDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge);
   const isaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge);
   const defaultStatePensionDrawDate = calculateStatePensionDrawDate(
@@ -458,6 +501,13 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
+  if (settings.showNuvos && nuvosDrawDate > lifeExpectancyDate) {
+    issues.push({
+      field: "nuvosPensionDrawAge",
+      message: "nuvos pension draw age must be within life expectancy.",
+    });
+  }
+
   if (
     settings.showStatePension &&
     settings.statePensionDrawDate < defaultStatePensionDrawDate
@@ -489,10 +539,24 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
+  if (settings.showNuvos && nuvosLeaveDate > lifeExpectancyDate) {
+    issues.push({
+      field: "nuvosPensionLeaveAge",
+      message: "nuvos pensionable service leave age must be within life expectancy.",
+    });
+  }
+
   if (alphaAbsDate > settings.startDate) {
     issues.push({
       field: "alphaPensionAbsDate",
       message: "Last Annual Benefits Statement must be on or before the calculation start date.",
+    });
+  }
+
+  if (settings.showNuvos && nuvosAbsDate > settings.startDate) {
+    issues.push({
+      field: "nuvosPensionAbsDate",
+      message: "nuvos Annual Benefit Statement must be on or before the calculation start date.",
     });
   }
 
@@ -612,6 +676,7 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     dateOfBirth,
     lifeExpectancy: normalizeSetting("lifeExpectancy", settings.lifeExpectancy),
     normalPensionAge: calculateNormalPensionAge(dateOfBirth),
+    showNuvos: Boolean(settings.showNuvos),
     showStatePension: Boolean(settings.showStatePension),
     showSipp: Boolean(settings.showSipp),
     showIsa: Boolean(settings.showIsa),
@@ -679,6 +744,31 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     alphaAddedPensionLumpSums: normalizeSetting(
       "alphaAddedPensionLumpSums",
       settings.alphaAddedPensionLumpSums,
+    ),
+    nuvosPensionAbsDate: normalizeSetting(
+      "nuvosPensionAbsDate",
+      settings.nuvosPensionAbsDate,
+    ),
+    nuvosAccruedPensionAtLastAbs: normalizeSetting(
+      "nuvosAccruedPensionAtLastAbs",
+      settings.nuvosAccruedPensionAtLastAbs,
+    ),
+    nuvosPensionableEarnings: normalizeSetting(
+      "nuvosPensionableEarnings",
+      settings.nuvosPensionableEarnings,
+    ),
+    nuvosPensionLeaveAge: normalizeSetting(
+      "nuvosPensionLeaveAge",
+      settings.nuvosPensionLeaveAge,
+    ),
+    nuvosPensionDrawAge: normalizeSetting(
+      "nuvosPensionDrawAge",
+      settings.nuvosPensionDrawAge,
+    ),
+    nuvosApplyPensionIncreases: Boolean(settings.nuvosApplyPensionIncreases),
+    nuvosAssumedCpiPercent: normalizeSetting(
+      "nuvosAssumedCpiPercent",
+      settings.nuvosAssumedCpiPercent,
     ),
     sippCurrentPot: normalizeSetting("sippCurrentPot", settings.sippCurrentPot),
     sippMonthlyContribution: normalizeSetting(

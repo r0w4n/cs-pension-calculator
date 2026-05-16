@@ -42,7 +42,7 @@ import { knowledgeLinks } from "./knowledgeLinks";
 
 const ACKNOWLEDGEMENT_STORAGE_KEY = "cs-pension-calculator.acknowledgement";
 const ACKNOWLEDGEMENT_VERSION = "v1";
-const MODELLER_LIMITATIONS = [
+const MODDLER_LIMITATIONS = [
   "Income Tax is estimated from configurable standard assumptions. It does not cover Scottish tax bands, benefit interactions, tax code changes, or other personal reliefs.",
   "Inflation is only modelled where explicit CPI or growth assumptions are enabled.",
   "State Pension modelling does not cover benefit interactions, overseas rules, lump-sum arrears choices, or pre-2016 deferral rules.",
@@ -51,20 +51,25 @@ const MODELLER_LIMITATIONS = [
 ] as const;
 const OPTIONAL_SECTION_TOGGLES = [
   {
+    key: "showNuvos",
+    label: "nuvos",
+    description: "Show nuvos inputs and include nuvos values in the moddler.",
+  },
+  {
     key: "showSipp",
     label: "SIPP",
-    description: "Show SIPP inputs and include SIPP values in the calculator.",
+    description: "Show SIPP inputs and include SIPP values in the moddler.",
   },
   {
     key: "showStatePension",
     label: "State Pension",
     description:
-      "Show State Pension inputs and include State Pension values in the calculator.",
+      "Show State Pension inputs and include State Pension values in the moddler.",
   },
   {
     key: "showIsa",
     label: "ISA",
-    description: "Show ISA inputs and include ISA values in the calculator.",
+    description: "Show ISA inputs and include ISA values in the moddler.",
   },
   {
     key: "taxationEnabled",
@@ -192,7 +197,7 @@ function App() {
             <p className="eyebrow">Before you continue</p>
             <h2 id="acknowledgement-title">Important information</h2>
             <p className="section-copy">
-              This calculator is for planning and illustration only. It is not financial
+              This moddler is for planning and illustration only. It is not financial
               advice and is not affiliated with the Civil Service Pension Scheme, MyCSP,
               the Cabinet Office, or the Alpha Pension Scheme.
             </p>
@@ -226,10 +231,10 @@ function App() {
         <section className="hero">
           <div className="hero-copy">
             <p className="eyebrow">Civil Service</p>
-            <h1>Retirement Income Calculator</h1>
+            <h1>Retirement Income Moddler</h1>
             <p className="lead">
-              Plan your retirement income by modelling your Alpha pension together
-              with SIPP withdrawals, ISA income and State Pension payments.
+              Plan your retirement income by modelling your Civil Service pension
+              together with SIPP withdrawals, ISA income and State Pension payments.
             </p>
           </div>
 
@@ -247,6 +252,22 @@ function App() {
                 {formatDate(pensionSummary.keyDates.startsAlphaPension)}.
               </p>
             </article>
+
+            {settings.showNuvos ? (
+              <article className="summary-card">
+                <p className="card-label">At nuvos pension draw date</p>
+                <div className="summary-card-amounts">
+                  <h2>{formatCurrencyDetailed(pensionSummary.nuvosPension.annualAtDraw)}</h2>
+                  <p className="summary-card-secondary-amount">
+                    {formatCurrencyDetailed(pensionSummary.nuvosPension.monthlyAtDraw)} per month
+                  </p>
+                </div>
+                <p>
+                  Annual nuvos pension after reduction from{" "}
+                  {formatDate(pensionSummary.keyDates.startsNuvosPension)}.
+                </p>
+              </article>
+            ) : null}
 
             {settings.showSipp ? (
               <article className="summary-card">
@@ -304,9 +325,9 @@ function App() {
             ) : null}
           </div>
 
-          <div className="hero-limitations" aria-label="Calculator limitations">
+          <div className="hero-limitations" aria-label="Moddler limitations">
             <p className="section-copy">
-              This modeller supports planning decisions, not scheme statements,
+              This moddler supports planning decisions, not scheme statements,
               HMRC calculations, or regulated advice.
             </p>
             <button
@@ -325,7 +346,7 @@ function App() {
                   Important assumptions and omissions to keep in mind:
                 </p>
                 <ul className="limitations-list">
-                  {MODELLER_LIMITATIONS.map((limitation) => (
+                  {MODDLER_LIMITATIONS.map((limitation) => (
                     <li key={limitation}>{limitation}</li>
                   ))}
                 </ul>
@@ -429,7 +450,7 @@ function App() {
               <div className="section-heading">
                 <h3>Optional sections</h3>
                 <p className="section-copy">
-                  Show or hide the optional calculator sections without losing any
+                  Show or hide the optional moddler sections without losing any
                   settings you have already entered.
                 </p>
               </div>
@@ -565,7 +586,7 @@ function App() {
           <h2>Monthly pension projection table</h2>
           <p className="section-copy">
             The table is generated from the projection layer so each row stays
-            traceable back to the calculator inputs and factor tables.
+            traceable back to the moddler inputs and factor tables.
           </p>
         </div>
 
@@ -743,6 +764,8 @@ function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettin
   return (
     (isTaxAssumptionField(fieldId) && !settings.taxationEnabled) ||
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
+    (fieldId === "nuvosAssumedCpiPercent" &&
+      !settings.nuvosApplyPensionIncreases) ||
     (["statePensionCpiPercent", "statePensionWageGrowthPercent"].includes(
       fieldId,
     ) &&
@@ -764,6 +787,8 @@ function isFieldHiddenOnMobile(fieldId: FieldDefinition["id"], settings: Pension
   return (
     (isTaxAssumptionField(fieldId) && !settings.taxationEnabled) ||
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
+    (fieldId === "nuvosAssumedCpiPercent" &&
+      !settings.nuvosApplyPensionIncreases) ||
     (["statePensionCpiPercent", "statePensionWageGrowthPercent"].includes(
       fieldId,
     ) &&
@@ -1680,7 +1705,7 @@ type ProjectionTableColumn = {
   key: string;
   label: string;
   width: string;
-  setting?: "showStatePension" | "showSipp" | "showIsa" | "taxationEnabled";
+  setting?: "showNuvos" | "showStatePension" | "showSipp" | "showIsa" | "taxationEnabled";
 };
 
 const projectionTableColumns: ProjectionTableColumn[] = [
@@ -1714,6 +1739,24 @@ const projectionTableColumns: ProjectionTableColumn[] = [
     width: "9rem",
   },
   { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha pension before tax", width: "7rem" },
+  {
+    key: "annualNuvosPension",
+    label: "Annual nuvos Pension",
+    width: "8rem",
+    setting: "showNuvos",
+  },
+  {
+    key: "annualNuvosPensionIncludingReduction",
+    label: "Annual nuvos Pension Including Reduction",
+    width: "9rem",
+    setting: "showNuvos",
+  },
+  {
+    key: "monthlyNuvosPensionTakeHome",
+    label: "Monthly nuvos pension before tax",
+    width: "7rem",
+    setting: "showNuvos",
+  },
   {
     key: "monthlyStatePension",
     label: "Monthly State pension",
@@ -1849,6 +1892,15 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
                 <td>{formatCurrencyDetailed(row.annualAccruedAlphaPension)}</td>
                 <td>{formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction)}</td>
                 <td>{formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome)}</td>
+                {settings.showNuvos ? (
+                  <td>{formatCurrencyDetailed(row.annualNuvosPension)}</td>
+                ) : null}
+                {settings.showNuvos ? (
+                  <td>{formatCurrencyDetailed(row.annualNuvosPensionIncludingReduction)}</td>
+                ) : null}
+                {settings.showNuvos ? (
+                  <td>{formatCurrencyDetailed(row.monthlyNuvosPensionTakeHome)}</td>
+                ) : null}
                 {settings.showStatePension ? (
                   <td>{formatCurrencyDetailed(row.monthlyStatePension)}</td>
                 ) : null}
@@ -1912,6 +1964,10 @@ function formatAge(years: number, months: number) {
 }
 
 function isSettingsGroupVisible(groupId: string, settings: PensionSettings) {
+  if (groupId === "nuvos") {
+    return settings.showNuvos;
+  }
+
   if (groupId === "state") {
     return settings.showStatePension;
   }
