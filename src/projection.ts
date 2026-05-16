@@ -39,6 +39,8 @@ export type ProjectionRow = {
   monthlySippPension: number;
   isaPot: number;
   monthlyIsaPension: number;
+  totalMonthlyPensionIncomeBeforeTax: number;
+  monthlyIncomeTax: number;
   totalMonthlyPensionTakeHomePay: number;
 };
 
@@ -87,7 +89,7 @@ export type PensionSummary = {
 export type RetirementIncomeDisplay = "monthly" | "annual";
 
 export type RetirementIncomeSource = {
-  key: "alpha" | "sipp" | "isa" | "statePension";
+  key: "alpha" | "sipp" | "isa" | "statePension" | "incomeTax";
   label: string;
   monthlyIncome: number;
   annualIncome: number;
@@ -296,12 +298,20 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       settings.statePensionDrawDate,
       calculateAnnualStatePensionAtDate(settings, rowDate),
     );
-    const totalMonthlyPensionTakeHomePay = calculateTotalGrossMonthlyPension(
+    const totalMonthlyPensionIncomeBeforeTax = calculateTotalGrossMonthlyPension(
       monthlyAlphaPensionTakeHome,
       monthlyStatePension,
       sippProjection.monthlySippPension,
       isaProjection.monthlyIsaPension,
     );
+    const monthlyIncomeTax = calculateMonthlyIncomeTax({
+      settings,
+      monthlyAlphaPension: monthlyAlphaPensionTakeHome,
+      monthlyStatePension,
+      monthlySippPension: sippProjection.monthlySippPension,
+    });
+    const totalMonthlyPensionTakeHomePay =
+      totalMonthlyPensionIncomeBeforeTax - monthlyIncomeTax;
 
     const projectionRow = {
       date: rowDate,
@@ -319,6 +329,8 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
       monthlySippPension: sippProjection.monthlySippPension,
       isaPot: isaProjection.isaPot,
       monthlyIsaPension: isaProjection.monthlyIsaPension,
+      totalMonthlyPensionIncomeBeforeTax,
+      monthlyIncomeTax,
       totalMonthlyPensionTakeHomePay,
     };
 
@@ -494,6 +506,19 @@ function createProjectionTableWithPensionIncreases(
       calculateAnnualStatePensionAtDate(settings, rowDate),
     );
 
+    const totalMonthlyPensionIncomeBeforeTax = calculateTotalGrossMonthlyPension(
+      monthlyAlphaPensionTakeHome,
+      monthlyStatePension,
+      sippProjection.monthlySippPension,
+      isaProjection.monthlyIsaPension,
+    );
+    const monthlyIncomeTax = calculateMonthlyIncomeTax({
+      settings,
+      monthlyAlphaPension: monthlyAlphaPensionTakeHome,
+      monthlyStatePension,
+      monthlySippPension: sippProjection.monthlySippPension,
+    });
+
     previousRowDate = rowDate;
 
     return {
@@ -512,12 +537,10 @@ function createProjectionTableWithPensionIncreases(
       monthlySippPension: sippProjection.monthlySippPension,
       isaPot: isaProjection.isaPot,
       monthlyIsaPension: isaProjection.monthlyIsaPension,
-      totalMonthlyPensionTakeHomePay: calculateTotalGrossMonthlyPension(
-        monthlyAlphaPensionTakeHome,
-        monthlyStatePension,
-        sippProjection.monthlySippPension,
-        isaProjection.monthlyIsaPension,
-      ),
+      totalMonthlyPensionIncomeBeforeTax,
+      monthlyIncomeTax,
+      totalMonthlyPensionTakeHomePay:
+        totalMonthlyPensionIncomeBeforeTax - monthlyIncomeTax,
     };
   });
 
@@ -633,6 +656,7 @@ export function generatePensionSummary(
         sippMonthlyIncome: 0,
         isaMonthlyIncome: 0,
         statePensionMonthlyIncome: 0,
+        monthlyIncomeTax: 0,
         settings,
       }),
     };
@@ -721,6 +745,12 @@ export function generatePensionSummary(
       sippMonthlyIncome: sippDrawRow?.monthlySippPension ?? 0,
       isaMonthlyIncome: isaDrawRow?.monthlyIsaPension ?? 0,
       statePensionMonthlyIncome: statePensionRow?.monthlyStatePension ?? 0,
+      monthlyIncomeTax: calculateMonthlyIncomeTax({
+        settings,
+        monthlyAlphaPension: alphaDrawRow?.monthlyAlphaPensionTakeHome ?? 0,
+        monthlyStatePension: statePensionRow?.monthlyStatePension ?? 0,
+        monthlySippPension: sippDrawRow?.monthlySippPension ?? 0,
+      }),
       settings,
     }),
   };
@@ -731,12 +761,14 @@ function buildRetirementIncomeSummary({
   sippMonthlyIncome,
   isaMonthlyIncome,
   statePensionMonthlyIncome,
+  monthlyIncomeTax,
   settings,
 }: {
   alphaMonthlyIncome: number;
   sippMonthlyIncome: number;
   isaMonthlyIncome: number;
   statePensionMonthlyIncome: number;
+  monthlyIncomeTax: number;
   settings: PensionSettings;
 }): RetirementIncomeSummary {
   const sources: RetirementIncomeSource[] = [
@@ -755,6 +787,9 @@ function buildRetirementIncomeSummary({
             statePensionMonthlyIncome,
           ),
         ]
+      : []),
+    ...(settings.taxationEnabled
+      ? [createRetirementIncomeSource("incomeTax", "Estimated Income Tax", -monthlyIncomeTax)]
       : []),
   ];
 
@@ -1259,6 +1294,84 @@ export function calculateTotalGrossMonthlyPension(
     monthlySippPension +
     monthlyIsaPension
   );
+}
+
+export function calculateMonthlyIncomeTax(input: {
+  settings: PensionSettings;
+  monthlyAlphaPension: number;
+  monthlyStatePension: number;
+  monthlySippPension: number;
+}) {
+  const {
+    settings,
+    monthlyAlphaPension,
+    monthlyStatePension,
+    monthlySippPension,
+  } = input;
+
+  if (!settings.taxationEnabled) {
+    return 0;
+  }
+
+  const taxableSippShare = 1 - settings.taxSippTaxFreeWithdrawalPercent / 100;
+  const annualTaxableIncome =
+    (monthlyAlphaPension +
+      monthlyStatePension +
+      monthlySippPension * taxableSippShare) *
+    12;
+
+  return calculateAnnualIncomeTax(settings, annualTaxableIncome) / 12;
+}
+
+export function calculateAnnualIncomeTax(
+  settings: PensionSettings,
+  annualTaxableIncome: number,
+) {
+  if (!settings.taxationEnabled || annualTaxableIncome <= 0) {
+    return 0;
+  }
+
+  const personalAllowance = calculateTaxPersonalAllowance(
+    settings,
+    annualTaxableIncome,
+  );
+  const taxableAfterAllowance = Math.max(0, annualTaxableIncome - personalAllowance);
+  const basicBand = Math.max(0, settings.taxBasicRateLimit);
+  const additionalThreshold = Math.max(
+    settings.taxAdditionalRateThreshold,
+    settings.taxPersonalAllowance,
+  );
+  const higherBand = Math.max(
+    0,
+    additionalThreshold - personalAllowance - basicBand,
+  );
+  const basicTaxable = Math.min(taxableAfterAllowance, basicBand);
+  const higherTaxable = Math.min(
+    Math.max(0, taxableAfterAllowance - basicBand),
+    higherBand,
+  );
+  const additionalTaxable = Math.max(
+    0,
+    taxableAfterAllowance - basicBand - higherBand,
+  );
+
+  return (
+    basicTaxable * (settings.taxBasicRatePercent / 100) +
+    higherTaxable * (settings.taxHigherRatePercent / 100) +
+    additionalTaxable * (settings.taxAdditionalRatePercent / 100)
+  );
+}
+
+function calculateTaxPersonalAllowance(
+  settings: PensionSettings,
+  annualTaxableIncome: number,
+) {
+  const taper = Math.max(
+    0,
+    annualTaxableIncome - settings.taxPersonalAllowanceTaperThreshold,
+  );
+
+  return Math.max(0, settings.taxPersonalAllowance - taper / 2);
 }
 
 export function calculateSippPotAtDate(input: {
@@ -1805,6 +1918,16 @@ function createHistoricalProjectionRows(input: {
       settings.statePensionDrawDate,
       calculateAnnualStatePensionAtDate(settings, rowDate),
     );
+    const totalMonthlyPensionIncomeBeforeTax = calculateTotalGrossMonthlyPension(
+      monthlyAlphaPensionTakeHome,
+      monthlyStatePension,
+    );
+    const monthlyIncomeTax = calculateMonthlyIncomeTax({
+      settings,
+      monthlyAlphaPension: monthlyAlphaPensionTakeHome,
+      monthlyStatePension,
+      monthlySippPension: 0,
+    });
 
     rows.push({
       date: rowDate,
@@ -1822,10 +1945,10 @@ function createHistoricalProjectionRows(input: {
       monthlySippPension: 0,
       isaPot: 0,
       monthlyIsaPension: 0,
-      totalMonthlyPensionTakeHomePay: calculateTotalGrossMonthlyPension(
-        monthlyAlphaPensionTakeHome,
-        monthlyStatePension,
-      ),
+      totalMonthlyPensionIncomeBeforeTax,
+      monthlyIncomeTax,
+      totalMonthlyPensionTakeHomePay:
+        totalMonthlyPensionIncomeBeforeTax - monthlyIncomeTax,
     });
 
     previousRowDate = rowDate;

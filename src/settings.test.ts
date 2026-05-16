@@ -23,6 +23,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     showStatePension: defaultSettings.showStatePension,
     showSipp: defaultSettings.showSipp,
     showIsa: defaultSettings.showIsa,
+    taxationEnabled: defaultSettings.taxationEnabled,
     currentStatePension: defaultSettings.currentStatePension,
     desiredRetirementIncome: defaultSettings.desiredRetirementIncome,
     statePensionDrawDate: defaultSettings.statePensionDrawDate,
@@ -59,6 +60,16 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     isaRealInterestPercent: defaultSettings.isaRealInterestPercent,
     isaWithdrawalStrategy: defaultSettings.isaWithdrawalStrategy,
     isaWithdrawalPercent: defaultSettings.isaWithdrawalPercent,
+    taxPersonalAllowance: defaultSettings.taxPersonalAllowance,
+    taxPersonalAllowanceTaperThreshold:
+      defaultSettings.taxPersonalAllowanceTaperThreshold,
+    taxBasicRateLimit: defaultSettings.taxBasicRateLimit,
+    taxAdditionalRateThreshold: defaultSettings.taxAdditionalRateThreshold,
+    taxBasicRatePercent: defaultSettings.taxBasicRatePercent,
+    taxHigherRatePercent: defaultSettings.taxHigherRatePercent,
+    taxAdditionalRatePercent: defaultSettings.taxAdditionalRatePercent,
+    taxSippTaxFreeWithdrawalPercent:
+      defaultSettings.taxSippTaxFreeWithdrawalPercent,
     ...overrides,
   };
 }
@@ -169,6 +180,7 @@ describe("settings unit tests", () => {
       showStatePension: defaultSettings.showStatePension,
       showSipp: defaultSettings.showSipp,
       showIsa: defaultSettings.showIsa,
+      taxationEnabled: defaultSettings.taxationEnabled,
       currentStatePension: 0,
       desiredRetirementIncome: 43900,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
@@ -213,6 +225,16 @@ describe("settings unit tests", () => {
       isaRealInterestPercent: defaultSettings.isaRealInterestPercent,
       isaWithdrawalStrategy: defaultSettings.isaWithdrawalStrategy,
       isaWithdrawalPercent: defaultSettings.isaWithdrawalPercent,
+      taxPersonalAllowance: defaultSettings.taxPersonalAllowance,
+      taxPersonalAllowanceTaperThreshold:
+        defaultSettings.taxPersonalAllowanceTaperThreshold,
+      taxBasicRateLimit: defaultSettings.taxBasicRateLimit,
+      taxAdditionalRateThreshold: defaultSettings.taxAdditionalRateThreshold,
+      taxBasicRatePercent: defaultSettings.taxBasicRatePercent,
+      taxHigherRatePercent: defaultSettings.taxHigherRatePercent,
+      taxAdditionalRatePercent: defaultSettings.taxAdditionalRatePercent,
+      taxSippTaxFreeWithdrawalPercent:
+        defaultSettings.taxSippTaxFreeWithdrawalPercent,
     });
   });
 

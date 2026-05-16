@@ -137,7 +137,7 @@ This is still a planning tool rather than a scheme-authoritative calculator.
 
 A few notable limitations:
 
-- tax is not modelled
+- Income Tax is estimated from configurable standard assumptions, but it does not cover Scottish bands, benefit interactions, tax code changes, or other personal reliefs
 - inflation is modelled only where explicit CPI/growth assumptions are enabled
 - State Pension modelling does not cover benefit interactions, overseas rules, lump-sum arrears choices, or pre-2016 deferral rules
 - revaluation for added pension purchases is currently simplified

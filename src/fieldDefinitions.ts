@@ -32,7 +32,11 @@ export type RangeField = {
     | "isaDrawAge"
     | "isaMonthlyContribution"
     | "isaRealInterestPercent"
-    | "isaWithdrawalPercent";
+    | "isaWithdrawalPercent"
+    | "taxBasicRatePercent"
+    | "taxHigherRatePercent"
+    | "taxAdditionalRatePercent"
+    | "taxSippTaxFreeWithdrawalPercent";
   label: string;
   type: "range";
   min: number;
@@ -50,7 +54,8 @@ export type CheckboxField = {
     | "statePensionApplyFutureGrowth"
     | "alphaEpaEnabled"
     | "isaApplyRealInterest"
-    | "sippApplyRealInterest";
+    | "sippApplyRealInterest"
+    | "taxationEnabled";
   label: string;
   type: "checkbox";
   description: string;
@@ -64,7 +69,11 @@ export type CurrencyInputField = {
     | "accruedPensionAtLastAbs"
     | "desiredRetirementIncome"
     | "sippCurrentPot"
-    | "isaCurrentPot";
+    | "isaCurrentPot"
+    | "taxPersonalAllowance"
+    | "taxPersonalAllowanceTaperThreshold"
+    | "taxBasicRateLimit"
+    | "taxAdditionalRateThreshold";
   label: string;
   type: "currency-input";
   min: number;
@@ -476,6 +485,94 @@ export const fieldGroups: FieldGroup[] = [
         min: 0,
         max: 15,
         step: 0.1,
+      },
+    ],
+  },
+  {
+    id: "tax",
+    eyebrow: "Tax",
+    title: "Tax assumptions",
+    description:
+      "Optional Income Tax estimate using current standard UK assumptions for pension income.",
+    fields: [
+      {
+        id: "taxationEnabled",
+        label: "Apply taxation",
+        type: "checkbox",
+        description:
+          "Estimate take-home income after Income Tax. ISA withdrawals remain tax-free.",
+        infoUrl: "https://www.gov.uk/income-tax-rates",
+        infoLinkText: "Check Income Tax rates",
+      },
+      {
+        id: "taxPersonalAllowance",
+        label: "Personal Allowance (£ per year)",
+        type: "currency-input",
+        min: 0,
+        max: 50000,
+        step: 1,
+        format: "currency",
+      },
+      {
+        id: "taxPersonalAllowanceTaperThreshold",
+        label: "Personal Allowance taper threshold (£ per year)",
+        type: "currency-input",
+        min: 0,
+        max: 200000,
+        step: 1,
+        format: "currency",
+      },
+      {
+        id: "taxBasicRateLimit",
+        label: "Basic-rate taxable band (£ per year)",
+        type: "currency-input",
+        min: 0,
+        max: 100000,
+        step: 1,
+        format: "currency",
+      },
+      {
+        id: "taxAdditionalRateThreshold",
+        label: "Additional-rate threshold (£ per year)",
+        type: "currency-input",
+        min: 0,
+        max: 300000,
+        step: 1,
+        format: "currency",
+      },
+      {
+        id: "taxBasicRatePercent",
+        label: "Basic tax rate (%)",
+        type: "range",
+        min: 0,
+        max: 100,
+        step: 0.1,
+      },
+      {
+        id: "taxHigherRatePercent",
+        label: "Higher tax rate (%)",
+        type: "range",
+        min: 0,
+        max: 100,
+        step: 0.1,
+      },
+      {
+        id: "taxAdditionalRatePercent",
+        label: "Additional tax rate (%)",
+        type: "range",
+        min: 0,
+        max: 100,
+        step: 0.1,
+      },
+      {
+        id: "taxSippTaxFreeWithdrawalPercent",
+        label: "SIPP tax-free withdrawal share (%)",
+        type: "range",
+        min: 0,
+        max: 25,
+        step: 0.1,
+        infoUrl: "https://www.gov.uk/tax-on-pension/tax-free",
+        infoLinkText: "Check pension tax-free rules",
       },
     ],
   },

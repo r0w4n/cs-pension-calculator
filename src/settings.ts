@@ -22,6 +22,7 @@ export type PensionSettings = {
   showStatePension: boolean;
   showSipp: boolean;
   showIsa: boolean;
+  taxationEnabled: boolean;
   currentStatePension: number;
   desiredRetirementIncome: number;
   statePensionDrawDate: string;
@@ -58,6 +59,14 @@ export type PensionSettings = {
   isaRealInterestPercent: number;
   isaWithdrawalStrategy: IsaWithdrawalStrategy;
   isaWithdrawalPercent: number;
+  taxPersonalAllowance: number;
+  taxPersonalAllowanceTaperThreshold: number;
+  taxBasicRateLimit: number;
+  taxAdditionalRateThreshold: number;
+  taxBasicRatePercent: number;
+  taxHigherRatePercent: number;
+  taxAdditionalRatePercent: number;
+  taxSippTaxFreeWithdrawalPercent: number;
 };
 
 export type PensionValidationIssue = {
@@ -94,6 +103,14 @@ const numericSettingRules = {
   isaDrawAge: { min: 55, max: 70, step: 1 },
   isaRealInterestPercent: { min: -10, max: 10, step: 0.1 },
   isaWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
+  taxPersonalAllowance: { min: 0, max: 50000, step: 1 },
+  taxPersonalAllowanceTaperThreshold: { min: 0, max: 200000, step: 1 },
+  taxBasicRateLimit: { min: 0, max: 100000, step: 1 },
+  taxAdditionalRateThreshold: { min: 0, max: 300000, step: 1 },
+  taxBasicRatePercent: { min: 0, max: 100, step: 0.1 },
+  taxHigherRatePercent: { min: 0, max: 100, step: 0.1 },
+  taxAdditionalRatePercent: { min: 0, max: 100, step: 0.1 },
+  taxSippTaxFreeWithdrawalPercent: { min: 0, max: 25, step: 0.1 },
 } as const;
 
 type NumericSettingKey = keyof typeof numericSettingRules;
@@ -106,6 +123,7 @@ export const defaultSettings: PensionSettings = {
   showStatePension: true,
   showSipp: true,
   showIsa: true,
+  taxationEnabled: false,
   currentStatePension: 12547.6,
   desiredRetirementIncome: 31700,
   statePensionDrawDate: "2055-06-15",
@@ -142,6 +160,14 @@ export const defaultSettings: PensionSettings = {
   isaRealInterestPercent: 3,
   isaWithdrawalStrategy: "zero_at_death",
   isaWithdrawalPercent: 4,
+  taxPersonalAllowance: 12570,
+  taxPersonalAllowanceTaperThreshold: 100000,
+  taxBasicRateLimit: 37700,
+  taxAdditionalRateThreshold: 125140,
+  taxBasicRatePercent: 20,
+  taxHigherRatePercent: 40,
+  taxAdditionalRatePercent: 45,
+  taxSippTaxFreeWithdrawalPercent: 25,
 };
 
 export function loadStoredSettings(): PensionSettings {
@@ -202,6 +228,7 @@ export function normalizeSetting<K extends keyof PensionSettings>(
     case "showStatePension":
     case "showSipp":
     case "showIsa":
+    case "taxationEnabled":
     case "statePensionApplyFutureGrowth":
     case "alphaEpaEnabled":
     case "isaApplyRealInterest":
@@ -245,6 +272,7 @@ function coerceSettings(
     showStatePension: coerceBoolean(input.showStatePension),
     showSipp: coerceBoolean(input.showSipp),
     showIsa: coerceBoolean(input.showIsa),
+    taxationEnabled: coerceBoolean(input.taxationEnabled),
     currentStatePension: coerceNumber(input.currentStatePension),
     desiredRetirementIncome: coerceNumber(input.desiredRetirementIncome),
     statePensionDrawDate: coerceString(input.statePensionDrawDate),
@@ -296,6 +324,18 @@ function coerceSettings(
       | IsaWithdrawalStrategy
       | undefined,
     isaWithdrawalPercent: coerceNumber(input.isaWithdrawalPercent),
+    taxPersonalAllowance: coerceNumber(input.taxPersonalAllowance),
+    taxPersonalAllowanceTaperThreshold: coerceNumber(
+      input.taxPersonalAllowanceTaperThreshold,
+    ),
+    taxBasicRateLimit: coerceNumber(input.taxBasicRateLimit),
+    taxAdditionalRateThreshold: coerceNumber(input.taxAdditionalRateThreshold),
+    taxBasicRatePercent: coerceNumber(input.taxBasicRatePercent),
+    taxHigherRatePercent: coerceNumber(input.taxHigherRatePercent),
+    taxAdditionalRatePercent: coerceNumber(input.taxAdditionalRatePercent),
+    taxSippTaxFreeWithdrawalPercent: coerceNumber(
+      input.taxSippTaxFreeWithdrawalPercent,
+    ),
   };
 }
 
@@ -575,6 +615,7 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     showStatePension: Boolean(settings.showStatePension),
     showSipp: Boolean(settings.showSipp),
     showIsa: Boolean(settings.showIsa),
+    taxationEnabled: Boolean(settings.taxationEnabled),
     currentStatePension: normalizeSetting(
       "currentStatePension",
       settings.currentStatePension,
@@ -679,6 +720,38 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     isaWithdrawalPercent: normalizeSetting(
       "isaWithdrawalPercent",
       settings.isaWithdrawalPercent,
+    ),
+    taxPersonalAllowance: normalizeSetting(
+      "taxPersonalAllowance",
+      settings.taxPersonalAllowance,
+    ),
+    taxPersonalAllowanceTaperThreshold: normalizeSetting(
+      "taxPersonalAllowanceTaperThreshold",
+      settings.taxPersonalAllowanceTaperThreshold,
+    ),
+    taxBasicRateLimit: normalizeSetting(
+      "taxBasicRateLimit",
+      settings.taxBasicRateLimit,
+    ),
+    taxAdditionalRateThreshold: normalizeSetting(
+      "taxAdditionalRateThreshold",
+      settings.taxAdditionalRateThreshold,
+    ),
+    taxBasicRatePercent: normalizeSetting(
+      "taxBasicRatePercent",
+      settings.taxBasicRatePercent,
+    ),
+    taxHigherRatePercent: normalizeSetting(
+      "taxHigherRatePercent",
+      settings.taxHigherRatePercent,
+    ),
+    taxAdditionalRatePercent: normalizeSetting(
+      "taxAdditionalRatePercent",
+      settings.taxAdditionalRatePercent,
+    ),
+    taxSippTaxFreeWithdrawalPercent: normalizeSetting(
+      "taxSippTaxFreeWithdrawalPercent",
+      settings.taxSippTaxFreeWithdrawalPercent,
     ),
   };
 }

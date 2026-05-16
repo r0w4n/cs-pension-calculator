@@ -23,6 +23,8 @@ const projectionFixtures = vi.hoisted(() => {
       monthlySippPension: 0,
       isaPot: 15000,
       monthlyIsaPension: 0,
+      totalMonthlyPensionIncomeBeforeTax: 900,
+      monthlyIncomeTax: 0,
       totalMonthlyPensionTakeHomePay: 900,
     },
     {
@@ -43,6 +45,8 @@ const projectionFixtures = vi.hoisted(() => {
       monthlySippPension: 200,
       isaPot: 12000,
       monthlyIsaPension: 100,
+      totalMonthlyPensionIncomeBeforeTax: 1600,
+      monthlyIncomeTax: 0,
       totalMonthlyPensionTakeHomePay: 1600,
     },
     {
@@ -63,6 +67,8 @@ const projectionFixtures = vi.hoisted(() => {
       monthlySippPension: 300,
       isaPot: 0,
       monthlyIsaPension: 150,
+      totalMonthlyPensionIncomeBeforeTax: 2950,
+      monthlyIncomeTax: 0,
       totalMonthlyPensionTakeHomePay: 2950,
     },
   ];
@@ -94,11 +100,18 @@ vi.mock("./projection", async () => {
         monthlyStatePension: settings.showStatePension ? row.monthlyStatePension : 0,
         monthlySippPension: settings.showSipp ? row.monthlySippPension : 0,
         monthlyIsaPension: settings.showIsa ? row.monthlyIsaPension : 0,
-        totalMonthlyPensionTakeHomePay:
+        totalMonthlyPensionIncomeBeforeTax:
           row.monthlyAlphaPensionTakeHome +
           (settings.showStatePension ? row.monthlyStatePension : 0) +
           (settings.showSipp ? row.monthlySippPension : 0) +
           (settings.showIsa ? row.monthlyIsaPension : 0),
+        monthlyIncomeTax: settings.taxationEnabled ? 100 : 0,
+        totalMonthlyPensionTakeHomePay:
+          row.monthlyAlphaPensionTakeHome +
+          (settings.showStatePension ? row.monthlyStatePension : 0) +
+          (settings.showSipp ? row.monthlySippPension : 0) +
+          (settings.showIsa ? row.monthlyIsaPension : 0) -
+          (settings.taxationEnabled ? 100 : 0),
       }));
     }),
     generatePensionSummary: vi.fn(
@@ -182,6 +195,16 @@ vi.mock("./projection", async () => {
                 },
               ]
             : []),
+          ...(settings.taxationEnabled
+            ? [
+                {
+                  key: "incomeTax" as const,
+                  label: "Estimated Income Tax",
+                  monthlyIncome: -(rows.at(-1)?.monthlyIncomeTax ?? 0),
+                  annualIncome: -(rows.at(-1)?.monthlyIncomeTax ?? 0) * 12,
+                },
+              ]
+            : []),
         ],
         totalMonthlyIncome: rows.at(-1)?.totalMonthlyPensionTakeHomePay ?? 0,
         totalAnnualIncome: (rows.at(-1)?.totalMonthlyPensionTakeHomePay ?? 0) * 12,
@@ -206,6 +229,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     showStatePension: defaultSettings.showStatePension,
     showSipp: defaultSettings.showSipp,
     showIsa: defaultSettings.showIsa,
+    taxationEnabled: defaultSettings.taxationEnabled,
     currentStatePension: defaultSettings.currentStatePension,
     desiredRetirementIncome: defaultSettings.desiredRetirementIncome,
     statePensionDrawDate: defaultSettings.statePensionDrawDate,
@@ -242,6 +266,16 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     isaRealInterestPercent: defaultSettings.isaRealInterestPercent,
     isaWithdrawalStrategy: defaultSettings.isaWithdrawalStrategy,
     isaWithdrawalPercent: defaultSettings.isaWithdrawalPercent,
+    taxPersonalAllowance: defaultSettings.taxPersonalAllowance,
+    taxPersonalAllowanceTaperThreshold:
+      defaultSettings.taxPersonalAllowanceTaperThreshold,
+    taxBasicRateLimit: defaultSettings.taxBasicRateLimit,
+    taxAdditionalRateThreshold: defaultSettings.taxAdditionalRateThreshold,
+    taxBasicRatePercent: defaultSettings.taxBasicRatePercent,
+    taxHigherRatePercent: defaultSettings.taxHigherRatePercent,
+    taxAdditionalRatePercent: defaultSettings.taxAdditionalRatePercent,
+    taxSippTaxFreeWithdrawalPercent:
+      defaultSettings.taxSippTaxFreeWithdrawalPercent,
     ...overrides,
   };
 }
@@ -292,6 +326,12 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Assumed CPI (%)")).toHaveValue("2");
     expect(screen.getByLabelText("Assumed CPI (%)")).toBeDisabled();
     expect(screen.getByLabelText("Assumed CPI (%) exact value")).toBeDisabled();
+    expect(screen.getByLabelText("Apply taxation")).not.toBeChecked();
+    expect(screen.getByLabelText("Personal Allowance (£ per year)")).toHaveValue(
+      defaultSettings.taxPersonalAllowance,
+    );
+    expect(screen.getByLabelText("Personal Allowance (£ per year)")).toBeDisabled();
+    expect(screen.getByLabelText("Basic tax rate (%)")).toBeDisabled();
     expect(screen.getByLabelText("Current SIPP pot (£)")).toHaveValue(
       defaultSettings.sippCurrentPot,
     );
@@ -325,7 +365,7 @@ describe("App settings form", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", {
-        name: "Total Monthly Pension Income",
+        name: "Total monthly income before tax",
       }),
     ).toBeInTheDocument();
     expect(
@@ -356,7 +396,7 @@ describe("App settings form", () => {
     expect(screen.getByText("Monthly SIPP")).toBeInTheDocument();
     expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
     expect(screen.getByText("Monthly State Pension")).toBeInTheDocument();
-    expect(screen.getByLabelText("Monthly retirement income")).toHaveTextContent("£2,950.00");
+    expect(screen.getByLabelText("Monthly retirement income before tax")).toHaveTextContent("£2,950.00");
     expect(screen.getByLabelText("Monthly target retirement income")).toHaveTextContent(
       "£2,641.67",
     );
@@ -427,7 +467,7 @@ describe("App settings form", () => {
     expect(screen.getByText("Annual SIPP")).toBeInTheDocument();
     expect(screen.getByText("Annual ISA")).toBeInTheDocument();
     expect(screen.getByText("Annual State Pension")).toBeInTheDocument();
-    expect(screen.getByLabelText("Annual retirement income")).toHaveTextContent("£35,400.00");
+    expect(screen.getByLabelText("Annual retirement income before tax")).toHaveTextContent("£35,400.00");
     expect(screen.getByLabelText("Annual target retirement income")).toHaveTextContent(
       "£31,700.00",
     );
@@ -975,7 +1015,7 @@ describe("App settings form", () => {
     expect(screen.queryByText("Monthly SIPP")).not.toBeInTheDocument();
     expect(screen.queryByText("Monthly ISA")).not.toBeInTheDocument();
     expect(screen.queryByText("Monthly State Pension")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Monthly retirement income")).toHaveTextContent("£1,600.00");
+    expect(screen.getByLabelText("Monthly retirement income before tax")).toHaveTextContent("£1,600.00");
     expect(
       screen.queryByRole("columnheader", { name: "Monthly State pension" }),
     ).not.toBeInTheDocument();

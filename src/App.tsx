@@ -88,8 +88,12 @@ function App() {
   );
   const retirementIncomeTitle =
     retirementIncomeDisplay === "monthly"
-      ? "Monthly retirement income"
-      : "Annual retirement income";
+      ? settings.taxationEnabled
+        ? "Monthly take-home retirement income"
+        : "Monthly retirement income before tax"
+      : settings.taxationEnabled
+        ? "Annual take-home retirement income"
+        : "Annual retirement income before tax";
   const retirementIncomeItems = pensionSummary.retirementIncome.sources.map((source) => ({
     label:
       retirementIncomeDisplay === "monthly"
@@ -689,6 +693,7 @@ function SettingsFields({
 
 function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
+    (isTaxAssumptionField(fieldId) && !settings.taxationEnabled) ||
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
     (["statePensionCpiPercent", "statePensionWageGrowthPercent"].includes(
       fieldId,
@@ -709,6 +714,7 @@ function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettin
 
 function isFieldHiddenOnMobile(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
+    (isTaxAssumptionField(fieldId) && !settings.taxationEnabled) ||
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
     (["statePensionCpiPercent", "statePensionWageGrowthPercent"].includes(
       fieldId,
@@ -725,6 +731,19 @@ function isFieldHiddenOnMobile(fieldId: FieldDefinition["id"], settings: Pension
     ) &&
       !settings.alphaEpaEnabled)
   );
+}
+
+function isTaxAssumptionField(fieldId: FieldDefinition["id"]) {
+  return [
+    "taxPersonalAllowance",
+    "taxPersonalAllowanceTaperThreshold",
+    "taxBasicRateLimit",
+    "taxAdditionalRateThreshold",
+    "taxBasicRatePercent",
+    "taxHigherRatePercent",
+    "taxAdditionalRatePercent",
+    "taxSippTaxFreeWithdrawalPercent",
+  ].includes(fieldId);
 }
 
 function getValidationIssueForField(
@@ -864,6 +883,8 @@ function Field({
         field={field as CurrencyInputField}
         value={value as number}
         onChange={onChange}
+        disabled={disabled}
+        hideOnMobile={hideOnMobile}
         validationIssue={validationIssue}
       />
     );
@@ -1020,11 +1041,15 @@ function CurrencySettingField({
   field,
   value,
   onChange,
+  disabled = false,
+  hideOnMobile = false,
   validationIssue,
 }: {
   field: CurrencyInputField;
   value: number;
   onChange: FieldProps["onChange"];
+  disabled?: boolean;
+  hideOnMobile?: boolean;
   validationIssue?: PensionValidationIssue;
 }) {
   const resetValue = defaultSettings[field.id] as PensionSettings[typeof field.id];
@@ -1036,6 +1061,8 @@ function CurrencySettingField({
       initialValue={value}
       resetValue={resetValue}
       onChange={onChange}
+      disabled={disabled}
+      hideOnMobile={hideOnMobile}
       validationIssue={validationIssue}
     />
   );
@@ -1046,12 +1073,16 @@ function CurrencySettingFieldEditor({
   initialValue,
   resetValue,
   onChange,
+  disabled = false,
+  hideOnMobile = false,
   validationIssue,
 }: {
   field: CurrencyInputField;
   initialValue: number;
   resetValue: PensionSettings[typeof field.id];
   onChange: FieldProps["onChange"];
+  disabled?: boolean;
+  hideOnMobile?: boolean;
   validationIssue?: PensionValidationIssue;
 }) {
   const [draftValue, setDraftValue] = useState(initialValue.toString());
@@ -1075,7 +1106,7 @@ function CurrencySettingFieldEditor({
   };
 
   return (
-    <div className={getFieldCardClassName(false, false, Boolean(validationIssue))}>
+    <div className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
       <span className="field-header">
         <FieldLabel field={field} />
       </span>
@@ -1087,6 +1118,7 @@ function CurrencySettingFieldEditor({
         max={field.max}
         step={field.step}
         value={draftValue}
+        disabled={disabled}
         aria-invalid={Boolean(validationIssue) || undefined}
         aria-describedby={validationId}
         onChange={(event) => {
@@ -1126,6 +1158,7 @@ function CurrencySettingFieldEditor({
           type="button"
           className="secondary-button field-reset-button"
           aria-label={`Reset ${field.label} to default`}
+          disabled={disabled}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
             setDraftValue(resetValue.toString());
@@ -1599,15 +1632,27 @@ type ProjectionTableColumn = {
   key: string;
   label: string;
   width: string;
-  setting?: "showStatePension" | "showSipp" | "showIsa";
+  setting?: "showStatePension" | "showSipp" | "showIsa" | "taxationEnabled";
 };
 
 const projectionTableColumns: ProjectionTableColumn[] = [
   { key: "date", label: "Date", width: "7rem" },
   {
     key: "totalMonthlyPensionTakeHomePay",
-    label: "Total Monthly Pension Income",
+    label: "Total monthly income",
     width: "8rem",
+  },
+  {
+    key: "monthlyIncomeTax",
+    label: "Estimated monthly Income Tax",
+    width: "8rem",
+    setting: "taxationEnabled",
+  },
+  {
+    key: "totalMonthlyPensionIncomeBeforeTax",
+    label: "Total monthly income before tax",
+    width: "8rem",
+    setting: "taxationEnabled",
   },
   { key: "age", label: "Age (years/months)", width: "7rem" },
   { key: "monthlyAddedPension", label: "Monthly Added Pension", width: "7rem" },
@@ -1620,7 +1665,7 @@ const projectionTableColumns: ProjectionTableColumn[] = [
     label: "Annual Alpha Pension Including Reduction",
     width: "9rem",
   },
-  { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha Pension take-home", width: "7rem" },
+  { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha pension before tax", width: "7rem" },
   {
     key: "monthlyStatePension",
     label: "Monthly State pension",
@@ -1695,7 +1740,7 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
               <tr>
                 {visibleColumns.map((column) => (
                   <th key={column.key} scope="col">
-                    {column.label}
+                    {getProjectionTableColumnLabel(column, settings)}
                   </th>
                 ))}
               </tr>
@@ -1715,7 +1760,7 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
             <tr>
               {visibleColumns.map((column) => (
                 <th key={column.key} scope="col">
-                  {column.label}
+                  {getProjectionTableColumnLabel(column, settings)}
                 </th>
               ))}
             </tr>
@@ -1742,6 +1787,12 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
                   </div>
                 </td>
                 <td>{formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay)}</td>
+                {settings.taxationEnabled ? (
+                  <td>{formatCurrencyDetailed(row.monthlyIncomeTax)}</td>
+                ) : null}
+                {settings.taxationEnabled ? (
+                  <td>{formatCurrencyDetailed(row.totalMonthlyPensionIncomeBeforeTax)}</td>
+                ) : null}
                 <td>{formatAge(row.age, row.ageMonths)}</td>
                 <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
                 <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
@@ -1766,6 +1817,19 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
       </div>
     </div>
   );
+}
+
+function getProjectionTableColumnLabel(
+  column: ProjectionTableColumn,
+  settings: PensionSettings,
+) {
+  if (column.key === "totalMonthlyPensionTakeHomePay") {
+    return settings.taxationEnabled
+      ? "Total monthly take-home income"
+      : "Total monthly income before tax";
+  }
+
+  return column.label;
 }
 
 function formatDate(value: string) {

@@ -8,6 +8,7 @@ import {
   calculateAnnualStatePensionAtDraw,
   calculateAnnualStatePensionAtDate,
   calculateAnnualAlphaPensionIncludingReduction,
+  calculateAnnualIncomeTax,
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
   calculateMonthlyAlphaAccrual,
@@ -16,6 +17,7 @@ import {
   calculateStartingAlphaPensionAtStartDate,
   calculateWholeMonthDifference,
   calculateMonthlyStatePension,
+  calculateMonthlyIncomeTax,
   calculateSippPotAtDate,
   calculateStatePensionDeferralIncreasePercent,
   calculateTotalGrossMonthlyPension,
@@ -443,6 +445,48 @@ describe("projection calculations", () => {
       1856.33,
       6,
     );
+  });
+
+  it("keeps income tax at zero when taxation is disabled", () => {
+    expect(
+      calculateMonthlyIncomeTax({
+        settings: {
+          ...defaultSettings,
+          taxationEnabled: false,
+        },
+        monthlyAlphaPension: 3000,
+        monthlyStatePension: 1000,
+        monthlySippPension: 500,
+      }),
+    ).toBe(0);
+  });
+
+  it("calculates annual Income Tax using the standard assumptions", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      taxationEnabled: true,
+    };
+
+    expect(calculateAnnualIncomeTax(settings, 50000)).toBeCloseTo(7486, 6);
+    expect(calculateAnnualIncomeTax(settings, 125140)).toBeCloseTo(42516, 6);
+    expect(calculateAnnualIncomeTax(settings, 130000)).toBeCloseTo(44703, 6);
+  });
+
+  it("taxes pension income while keeping the SIPP tax-free share outside taxable income", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      taxationEnabled: true,
+      taxSippTaxFreeWithdrawalPercent: 25,
+    };
+
+    expect(
+      calculateMonthlyIncomeTax({
+        settings,
+        monthlyAlphaPension: 2000,
+        monthlyStatePension: 1000,
+        monthlySippPension: 1000,
+      }),
+    ).toBeCloseTo(6486 / 12, 6);
   });
 
   it("projects SIPP pot with tax relief and optional real interest", () => {
