@@ -131,6 +131,7 @@ const LUMP_SUM_ADDED_PENSION_LABEL = "Lump Sum Added Pension";
 const SIPP_LUMP_SUM_LABEL = "SIPP Lump Sum";
 const ISA_LUMP_SUM_LABEL = "ISA Lump Sum";
 const DEFAULT_ALPHA_ACCRUAL_RATE = 0.0232;
+const ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE = 0.015;
 const DEFAULT_NUVOS_ACCRUAL_RATE = 0.023;
 const MONTHLY_NUVOS_ACCRUAL_RATE = DEFAULT_NUVOS_ACCRUAL_RATE / 12;
 
@@ -162,6 +163,68 @@ export type DerivedProjectionInputs = {
   reductionFactor: number;
   epaReductionFactor: number;
 };
+
+export type DerivedInflationAssumptions = {
+  projectionBasis: PensionSettings["projectionBasis"];
+  inflationRateAnnual: number;
+  inflationRateMonthly: number;
+  sippNominalReturnAnnual: number;
+  sippModelledReturnAnnual: number;
+  isaNominalReturnAnnual: number;
+  isaModelledReturnAnnual: number;
+  alphaNominalInServiceRevaluationAnnual: number;
+  alphaModelledInServiceRevaluationAnnual: number;
+  alphaNominalDeferredIncreaseAnnual: number;
+  alphaModelledDeferredIncreaseAnnual: number;
+  nuvosNominalDeferredIncreaseAnnual: number;
+  nuvosModelledDeferredIncreaseAnnual: number;
+  statePensionNominalIncreaseAnnual: number;
+  statePensionModelledIncreaseAnnual: number;
+};
+
+export function deriveInflationAssumptions(
+  settings: PensionSettings,
+): DerivedInflationAssumptions {
+  const inflationRateAnnual = settings.inflationRateAnnual / 100;
+  const inflationRateMonthly = (1 + inflationRateAnnual) ** (1 / 12) - 1;
+  const sippNominalReturnAnnual = settings.sippRealInterestPercent / 100;
+  const isaNominalReturnAnnual = settings.isaRealInterestPercent / 100;
+  const alphaNominalInServiceRevaluationAnnual =
+    inflationRateAnnual + ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE;
+  const statePensionNominalIncreaseAnnual = getStatePensionNominalIncreaseRate(settings);
+
+  return {
+    projectionBasis: settings.projectionBasis,
+    inflationRateAnnual,
+    inflationRateMonthly,
+    sippNominalReturnAnnual,
+    sippModelledReturnAnnual: getModelledAnnualGrowthRate(
+      settings,
+      sippNominalReturnAnnual,
+    ),
+    isaNominalReturnAnnual,
+    isaModelledReturnAnnual: getModelledAnnualGrowthRate(
+      settings,
+      isaNominalReturnAnnual,
+    ),
+    alphaNominalInServiceRevaluationAnnual,
+    alphaModelledInServiceRevaluationAnnual:
+      settings.projectionBasis === "real"
+        ? ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE
+        : alphaNominalInServiceRevaluationAnnual,
+    alphaNominalDeferredIncreaseAnnual: inflationRateAnnual,
+    alphaModelledDeferredIncreaseAnnual:
+      settings.projectionBasis === "real" ? 0 : inflationRateAnnual,
+    nuvosNominalDeferredIncreaseAnnual: inflationRateAnnual,
+    nuvosModelledDeferredIncreaseAnnual:
+      settings.projectionBasis === "real" ? 0 : inflationRateAnnual,
+    statePensionNominalIncreaseAnnual,
+    statePensionModelledIncreaseAnnual: getModelledAnnualGrowthRate(
+      settings,
+      statePensionNominalIncreaseAnnual,
+    ),
+  };
+}
 
 export function deriveProjectionInputs(
   settings: PensionSettings,
@@ -569,7 +632,7 @@ function createProjectionTableWithPensionIncreases(
       benefitComponents,
       rowDate,
       activeUntilDate: accrualStopDate,
-      cpiPercent: settings.assumedCpiPercent,
+      cpiPercent: getModelledPensionInflationPercent(settings),
     });
     const annualStandardAlphaPension = alphaPortions.standardAlphaPension;
     const annualEpaAlphaPension = alphaPortions.epaAlphaPension;
@@ -1137,7 +1200,7 @@ export function calculateAnnualNuvosPensionAtDate(input: {
       ? calculateNuvosPensionRevaluationFactor({
           fromDate: component.startDate,
           rowDate,
-          cpiPercent: settings.nuvosAssumedCpiPercent,
+          cpiPercent: getModelledPensionInflationPercent(settings),
         })
       : 1;
 
@@ -1172,7 +1235,7 @@ export function calculateAlphaPensionRevaluationFactor(input: {
 }) {
   const { fromDate, rowDate, activeUntilDate, cpiPercent } = input;
   const cpiRate = cpiPercent / 100;
-  const activeRate = cpiRate + 0.016;
+  const activeRate = cpiRate + ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE;
   const totalYears = calculateWholeYearDifference(fromDate, rowDate);
   const activeYears = Math.min(
     totalYears,
@@ -1481,12 +1544,7 @@ function calculateBaseAnnualStatePensionAtDate(
     return settings.currentStatePension;
   }
 
-  const annualGrowthRate =
-    Math.max(
-      settings.statePensionCpiPercent,
-      settings.statePensionWageGrowthPercent,
-      2.5,
-    ) / 100;
+  const annualGrowthRate = getStatePensionModelledIncreaseRate(settings);
   const growthYears = calculateWholeYearDifference(
     settings.startDate,
     rowDate,
@@ -1495,12 +1553,69 @@ function calculateBaseAnnualStatePensionAtDate(
   return settings.currentStatePension * (1 + annualGrowthRate) ** growthYears;
 }
 
+function getStatePensionNominalIncreaseRate(settings: PensionSettings) {
+  return (
+    Math.max(
+      settings.inflationRateAnnual,
+      settings.statePensionWageGrowthPercent,
+      2.5,
+    ) / 100
+  );
+}
+
+function getStatePensionModelledIncreaseRate(settings: PensionSettings) {
+  return getModelledAnnualGrowthRate(
+    settings,
+    getStatePensionNominalIncreaseRate(settings),
+  );
+}
+
 function getStatePensionDeferredExtraGrowthRate(settings: PensionSettings) {
   if (!settings.statePensionApplyFutureGrowth) {
     return 0;
   }
 
-  return settings.statePensionCpiPercent / 100;
+  return settings.projectionBasis === "real" ? 0 : settings.inflationRateAnnual / 100;
+}
+
+function getModelledPensionInflationPercent(settings: PensionSettings) {
+  return settings.projectionBasis === "real" ? 0 : settings.inflationRateAnnual;
+}
+
+export function calculateRealAnnualRate(
+  nominalRateAnnual: number,
+  inflationRateAnnual: number,
+) {
+  return (1 + nominalRateAnnual) / (1 + inflationRateAnnual) - 1;
+}
+
+function getModelledAnnualGrowthRate(
+  settings: PensionSettings,
+  nominalRateAnnual: number,
+) {
+  if (settings.projectionBasis === "nominal") {
+    return nominalRateAnnual;
+  }
+
+  return calculateRealAnnualRate(nominalRateAnnual, settings.inflationRateAnnual / 100);
+}
+
+export function calculateRetirementIncomeTargetAtDate(
+  settings: PensionSettings,
+  rowDate: string,
+) {
+  if (settings.projectionBasis === "real") {
+    return settings.desiredRetirementIncome;
+  }
+
+  const monthlyInflationRate =
+    (1 + settings.inflationRateAnnual / 100) ** (1 / 12) - 1;
+  const monthsUntilRow = Math.max(
+    0,
+    calculateWholeMonthDifference(settings.startDate, rowDate),
+  );
+
+  return settings.desiredRetirementIncome * (1 + monthlyInflationRate) ** monthsUntilRow;
 }
 
 export function calculateStatePensionDeferralIncreasePercent(
@@ -1639,7 +1754,9 @@ export function calculateSippPotAtDate(input: {
 
   const contributionMultiplier = getSippContributionMultiplier(settings.sippTaxReliefRate);
   const monthlyInterestRate = settings.sippApplyRealInterest
-    ? (1 + settings.sippRealInterestPercent / 100) ** (1 / 12) - 1
+    ? (1 + getModelledAnnualGrowthRate(settings, settings.sippRealInterestPercent / 100)) **
+        (1 / 12) -
+      1
     : 0;
   const contributionStopDate = minIsoDate(drawDate, rowDate);
   const contributionMonthCount = calculateWholeMonthDifference(
@@ -1726,7 +1843,9 @@ export function calculateIsaPotAtDate(input: {
   }
 
   const monthlyInterestRate = settings.isaApplyRealInterest
-    ? (1 + settings.isaRealInterestPercent / 100) ** (1 / 12) - 1
+    ? (1 + getModelledAnnualGrowthRate(settings, settings.isaRealInterestPercent / 100)) **
+        (1 / 12) -
+      1
     : 0;
   const contributionStopDate = minIsoDate(drawDate, rowDate);
   const contributionMonthCount =

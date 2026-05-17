@@ -17,12 +17,15 @@ export type AddedPensionLumpSum = {
 export type SippWithdrawalStrategy = "zero_at_death" | "percentage";
 export type IsaWithdrawalStrategy = "zero_at_death" | "percentage";
 export type SippTaxReliefRate = "none" | "20" | "40";
+export type ProjectionBasis = "real" | "nominal";
 
 export type PensionSettings = {
   startDate: string;
   dateOfBirth: string;
   lifeExpectancy: number;
   normalPensionAge: number;
+  projectionBasis: ProjectionBasis;
+  inflationRateAnnual: number;
   showNuvos: boolean;
   showStatePension: boolean;
   showSipp: boolean;
@@ -98,6 +101,7 @@ type StoredPensionSettings = Omit<
 
 const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
+  inflationRateAnnual: { min: 0, max: 10, step: 0.1 },
   currentStatePension: { min: 0, max: 15000, step: 0.01 },
   desiredRetirementIncome: { min: 0, max: 200000, step: 1 },
   statePensionCpiPercent: { min: 0, max: 10, step: 0.1 },
@@ -154,6 +158,8 @@ export const defaultSettings: PensionSettings = {
   dateOfBirth: "1987-06-15",
   lifeExpectancy: 88,
   normalPensionAge: 68,
+  projectionBasis: "real",
+  inflationRateAnnual: 2.5,
   showNuvos: false,
   showStatePension: true,
   showSipp: true,
@@ -299,6 +305,8 @@ export function normalizeSetting<K extends keyof PensionSettings>(
     case "isaApplyRealInterest":
     case "sippApplyRealInterest":
       return Boolean(value) as PensionSettings[K];
+    case "projectionBasis":
+      return normalizeProjectionBasis(value) as PensionSettings[K];
     case "sippTaxReliefRate":
       return normalizeSippTaxReliefRate(value) as PensionSettings[K];
     case "alphaAddedPensionFactorType":
@@ -341,6 +349,10 @@ function coerceSettings(
   return {
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
+    projectionBasis: coerceString(input.projectionBasis) as
+      | ProjectionBasis
+      | undefined,
+    inflationRateAnnual: coerceNumber(input.inflationRateAnnual),
     showNuvos: coerceBoolean(input.showNuvos),
     showStatePension: coerceBoolean(input.showStatePension),
     showSipp: coerceBoolean(input.showSipp),
@@ -779,6 +791,11 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     dateOfBirth,
     lifeExpectancy: normalizeSetting("lifeExpectancy", settings.lifeExpectancy),
     normalPensionAge: calculateNormalPensionAge(dateOfBirth),
+    projectionBasis: normalizeSetting("projectionBasis", settings.projectionBasis),
+    inflationRateAnnual: normalizeSetting(
+      "inflationRateAnnual",
+      settings.inflationRateAnnual,
+    ),
     showNuvos: Boolean(settings.showNuvos),
     showStatePension: Boolean(settings.showStatePension),
     showSipp: Boolean(settings.showSipp),
@@ -1032,6 +1049,12 @@ function normalizeSippWithdrawalStrategy(value: unknown): SippWithdrawalStrategy
   return value === "percentage" || value === "zero_at_death"
     ? value
     : defaultSettings.sippWithdrawalStrategy;
+}
+
+function normalizeProjectionBasis(value: unknown): ProjectionBasis {
+  return value === "nominal" || value === "real"
+    ? value
+    : defaultSettings.projectionBasis;
 }
 
 function normalizeSippTaxReliefRate(value: unknown): SippTaxReliefRate {

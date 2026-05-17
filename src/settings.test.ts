@@ -23,6 +23,8 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   return {
     dateOfBirth: defaultSettings.dateOfBirth,
     lifeExpectancy: defaultSettings.lifeExpectancy,
+    projectionBasis: defaultSettings.projectionBasis,
+    inflationRateAnnual: defaultSettings.inflationRateAnnual,
     showNuvos: defaultSettings.showNuvos,
     showStatePension: defaultSettings.showStatePension,
     showSipp: defaultSettings.showSipp,
@@ -119,6 +121,10 @@ describe("settings unit tests", () => {
 
   it("normalizes numeric settings to allowed ranges and whole-number steps", () => {
     expect(normalizeSetting("lifeExpectancy", 120)).toBe(100);
+    expect(normalizeSetting("projectionBasis", "nominal")).toBe("nominal");
+    expect(normalizeSetting("projectionBasis", "bad-value" as never)).toBe("real");
+    expect(normalizeSetting("inflationRateAnnual", 2.34)).toBe(2.34);
+    expect(normalizeSetting("inflationRateAnnual", 11)).toBe(10);
     expect(normalizeSetting("currentStatePension", -10)).toBe(0);
     expect(normalizeSetting("currentStatePension", 12547.6)).toBe(12547.6);
     expect(normalizeSetting("desiredRetirementIncome", 250000)).toBe(200000);
@@ -215,6 +221,8 @@ describe("settings unit tests", () => {
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: 100,
       normalPensionAge: calculateNormalPensionAge(defaultSettings.dateOfBirth),
+      projectionBasis: defaultSettings.projectionBasis,
+      inflationRateAnnual: defaultSettings.inflationRateAnnual,
       showNuvos: defaultSettings.showNuvos,
       showStatePension: defaultSettings.showStatePension,
       showSipp: defaultSettings.showSipp,

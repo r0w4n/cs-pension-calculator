@@ -19,6 +19,7 @@ export type DateField = {
 export type RangeField = {
   id:
     | "lifeExpectancy"
+    | "inflationRateAnnual"
     | "statePensionCpiPercent"
     | "statePensionWageGrowthPercent"
     | "partialRetirementStartAge"
@@ -52,6 +53,7 @@ export type RangeField = {
   step: number;
   inputStep?: number;
   format?: "currency";
+  description?: string;
   infoUrl?: string;
   infoLinkText?: string;
   valuePrefix?: string;
@@ -95,12 +97,14 @@ export type CurrencyInputField = {
     label: string;
     description?: string;
   }[];
+  description?: string;
   infoUrl?: string;
   infoLinkText?: string;
 };
 
 export type SelectField = {
   id:
+    | "projectionBasis"
     | "alphaAddedPensionFactorType"
     | "sippTaxReliefRate"
     | "sippWithdrawalStrategy"
@@ -110,11 +114,13 @@ export type SelectField = {
   options: {
     value:
       | PensionSettings["sippTaxReliefRate"]
+      | PensionSettings["projectionBasis"]
       | PensionSettings["alphaAddedPensionFactorType"]
       | PensionSettings["sippWithdrawalStrategy"]
       | PensionSettings["isaWithdrawalStrategy"];
     label: string;
   }[];
+  description?: string;
   infoUrl?: string;
   infoLinkText?: string;
 };
@@ -207,6 +213,42 @@ export const fieldGroups: FieldGroup[] = [
     ],
   },
   {
+    id: "inflation",
+    eyebrow: "Inflation",
+    title: "Inflation and projection basis",
+    description:
+      "Choose whether the modeller shows today’s purchasing power or future inflated pound amounts.",
+    fields: [
+      {
+        id: "projectionBasis",
+        label: "How should the modeller treat inflation?",
+        type: "select",
+        options: [
+          {
+            value: "real",
+            label: "Real terms - show everything in today's money",
+          },
+          {
+            value: "nominal",
+            label: "Nominal terms - show future values including inflation",
+          },
+        ],
+        description:
+          "Real terms means all figures are shown in today's purchasing power. This makes future income easier to compare with today's retirement living standards. Nominal terms shows the actual future pound amounts after inflation has been applied.",
+      },
+      {
+        id: "inflationRateAnnual",
+        label: "Long-term inflation assumption",
+        type: "range",
+        min: 0,
+        max: 10,
+        step: 0.1,
+        description:
+          "The default of 2.5% aligns with the minimum annual increase used in the State Pension triple lock while staying close to long-term UK inflation planning assumptions. You can change it.",
+      },
+    ],
+  },
+  {
     id: "partial-retirement",
     eyebrow: "Partial Retirement",
     title: "Partial retirement details",
@@ -261,19 +303,9 @@ export const fieldGroups: FieldGroup[] = [
         label: "Project State Pension future growth",
         type: "checkbox",
         description:
-          "Uprate the current forecast each year until State Pension age using the highest of CPI, wage growth, and 2.5%.",
+          "Uprate the current forecast each year until State Pension age using the highest of the inflation assumption, wage growth, and 2.5%.",
         infoUrl: knowledgeLinks.statePensionTripleLock,
         infoLinkText: "What is the triple lock?",
-      },
-      {
-        id: "statePensionCpiPercent",
-        label: "State Pension CPI (%)",
-        type: "range",
-        min: 0,
-        max: 10,
-        step: 0.1,
-        infoUrl: knowledgeLinks.statePensionTripleLock,
-        infoLinkText: "State Pension uprating",
       },
       {
         id: "statePensionWageGrowthPercent",
@@ -395,19 +427,9 @@ export const fieldGroups: FieldGroup[] = [
         label: "Apply Alpha pension increases",
         type: "checkbox",
         description:
-          "Benefits increase annually by CPI + 1.6% while active, then by CPI after leaving Alpha service.",
+          "Benefits increase annually by CPI + 1.5% while active, then by CPI after leaving Alpha service. The modeller uses the inflation basis section to show this in real or nominal terms.",
         infoUrl: knowledgeLinks.alphaAccrual,
         infoLinkText: "Alpha pension increases",
-      },
-      {
-        id: "assumedCpiPercent",
-        label: "Assumed CPI (%)",
-        type: "range",
-        min: 0,
-        max: 10,
-        step: 0.1,
-        infoUrl: knowledgeLinks.civilServicePensionIncreases,
-        infoLinkText: "Pensions Increase CPI",
       },
     ],
   },
@@ -470,19 +492,9 @@ export const fieldGroups: FieldGroup[] = [
         label: "Apply nuvos pension increases",
         type: "checkbox",
         description:
-          "Increase accrued nuvos pension by assumed CPI each year, reflecting cost-of-living revaluation.",
+          "Increase accrued nuvos pension by the selected inflation assumption each year, reflecting cost-of-living revaluation.",
         infoUrl: knowledgeLinks.nuvosBenefits,
         infoLinkText: "nuvos pension increases",
-      },
-      {
-        id: "nuvosAssumedCpiPercent",
-        label: "nuvos assumed CPI (%)",
-        type: "range",
-        min: 0,
-        max: 10,
-        step: 0.1,
-        infoUrl: knowledgeLinks.civilServicePensionIncreases,
-        infoLinkText: "Pensions Increase CPI",
       },
     ],
   },
@@ -534,13 +546,14 @@ export const fieldGroups: FieldGroup[] = [
       },
       {
         id: "sippApplyRealInterest",
-        label: "Apply real interest to SIPP pot",
+        label: "Apply investment growth to SIPP pot",
         type: "checkbox",
-        description: "Grow the projected SIPP pot using a real annual interest rate.",
+        description:
+          "Grow the projected SIPP pot using the expected annual return below. Real-terms mode converts that return into an inflation-adjusted rate.",
       },
       {
         id: "sippRealInterestPercent",
-        label: "SIPP real interest rate (%)",
+        label: "SIPP expected nominal return (%)",
         type: "range",
         min: -10,
         max: 10,
@@ -601,13 +614,14 @@ export const fieldGroups: FieldGroup[] = [
       },
       {
         id: "isaApplyRealInterest",
-        label: "Apply real interest to ISA pot",
+        label: "Apply investment growth to ISA pot",
         type: "checkbox",
-        description: "Grow the projected ISA pot using a real annual interest rate.",
+        description:
+          "Grow the projected ISA pot using the expected annual return below. Real-terms mode converts that return into an inflation-adjusted rate.",
       },
       {
         id: "isaRealInterestPercent",
-        label: "ISA real interest rate (%)",
+        label: "ISA expected nominal return (%)",
         type: "range",
         min: -10,
         max: 10,

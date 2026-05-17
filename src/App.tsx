@@ -16,7 +16,9 @@ import {
   type SelectField,
 } from "./fieldDefinitions";
 import {
+  calculateRetirementIncomeTargetAtDate,
   createProjectionTable,
+  deriveInflationAssumptions,
   generatePensionSummary,
   type RetirementIncomeDisplay,
   type PensionSummary,
@@ -143,8 +145,17 @@ const GUIDED_JOURNEYS = [
         fieldIds: ["dateOfBirth", "lifeExpectancy", "desiredRetirementIncome"],
       },
       {
-        id: "alpha",
+        id: "inflation",
         eyebrow: "Step 3",
+        title: "Inflation and projection basis",
+        description:
+          "Choose whether to view today’s purchasing power or future inflated pound amounts.",
+        kind: "fields",
+        fieldIds: ["projectionBasis", "inflationRateAnnual"],
+      },
+      {
+        id: "alpha",
+        eyebrow: "Step 4",
         title: "Your Alpha pension plan",
         description:
           "Tell us when you expect to leave Alpha, when you want to draw it, and what your latest statement says.",
@@ -158,7 +169,6 @@ const GUIDED_JOURNEYS = [
           "alphaAddedPensionMonthly",
           "alphaAddedPensionFactorType",
           "applyPensionIncreases",
-          "assumedCpiPercent",
         ],
       },
       {
@@ -172,7 +182,6 @@ const GUIDED_JOURNEYS = [
           "currentStatePension",
           "statePensionDrawDate",
           "statePensionApplyFutureGrowth",
-          "statePensionCpiPercent",
           "statePensionWageGrowthPercent",
         ],
         visible: (settings) => settings.showStatePension,
@@ -190,7 +199,6 @@ const GUIDED_JOURNEYS = [
           "nuvosAccruedPensionAtLastAbs",
           "nuvosPensionableEarnings",
           "nuvosApplyPensionIncreases",
-          "nuvosAssumedCpiPercent",
         ],
         visible: (settings) => settings.showNuvos,
       },
@@ -300,6 +308,10 @@ function App() {
     () => generatePensionSummary(projectionRows, deferredSettings),
     [projectionRows, deferredSettings],
   );
+  const derivedInflationAssumptions = useMemo(
+    () => deriveInflationAssumptions(deferredSettings),
+    [deferredSettings],
+  );
   const retirementIncomeTitle =
     retirementIncomeDisplay === "monthly"
       ? settings.taxationEnabled
@@ -328,8 +340,14 @@ function App() {
       : "Annual target retirement income";
   const retirementIncomeTarget = formatCurrencyDetailed(
     retirementIncomeDisplay === "monthly"
-      ? settings.desiredRetirementIncome / 12
-      : settings.desiredRetirementIncome,
+      ? calculateRetirementIncomeTargetAtDate(
+          settings,
+          pensionSummary.keyDates.startsAlphaPension,
+        ) / 12
+      : calculateRetirementIncomeTargetAtDate(
+          settings,
+          pensionSummary.keyDates.startsAlphaPension,
+        ),
   );
 
   useEffect(() => {
@@ -441,6 +459,7 @@ function App() {
             settings={settings}
             validationIssues={validationIssues}
             pensionSummary={pensionSummary}
+            derivedInflationAssumptions={derivedInflationAssumptions}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
             retirementIncomeTitle={retirementIncomeTitle}
@@ -621,6 +640,11 @@ function App() {
               </section>
             </section>
 
+            <InflationBasisPanel
+              settings={deferredSettings}
+              assumptions={derivedInflationAssumptions}
+            />
+
             <section className="panel">
               <div className="panel-heading">
                 <h2>Monthly pension projection table</h2>
@@ -713,6 +737,7 @@ type GuidedJourneyProps = {
   settings: PensionSettings;
   validationIssues: PensionValidationIssue[];
   pensionSummary: PensionSummary;
+  derivedInflationAssumptions: ReturnType<typeof deriveInflationAssumptions>;
   retirementIncomeDisplay: RetirementIncomeDisplay;
   retirementIncomeItems: SummaryItem[];
   retirementIncomeTitle: string;
@@ -731,6 +756,7 @@ function GuidedJourney({
   settings,
   validationIssues,
   pensionSummary,
+  derivedInflationAssumptions,
   retirementIncomeDisplay,
   retirementIncomeItems,
   retirementIncomeTitle,
@@ -812,6 +838,7 @@ function GuidedJourney({
             settings={settings}
             validationIssues={validationIssues}
             pensionSummary={pensionSummary}
+            derivedInflationAssumptions={derivedInflationAssumptions}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
             retirementIncomeTitle={retirementIncomeTitle}
@@ -858,6 +885,7 @@ function JourneyStepContent({
   settings,
   validationIssues,
   pensionSummary,
+  derivedInflationAssumptions,
   retirementIncomeDisplay,
   retirementIncomeItems,
   retirementIncomeTitle,
@@ -880,6 +908,11 @@ function JourneyStepContent({
         {validationIssues.length > 0 ? (
           <ValidationIssuesSection validationIssues={validationIssues} />
         ) : null}
+
+        <InflationBasisPanel
+          settings={settings}
+          assumptions={derivedInflationAssumptions}
+        />
 
         <SummarySection
           title="Pension Summary"
@@ -1053,6 +1086,139 @@ function ModellerLimitations({
   );
 }
 
+function InflationBasisPanel({
+  settings,
+  assumptions,
+}: {
+  settings: PensionSettings;
+  assumptions: ReturnType<typeof deriveInflationAssumptions>;
+}) {
+  const isRealTerms = settings.projectionBasis === "real";
+  const basisLabel = isRealTerms
+    ? "Projection basis: Real terms, today's money"
+    : "Projection basis: Nominal terms, future inflated values";
+  const explanation = isRealTerms
+    ? "You are viewing results in real terms. This means all figures are shown in today's money. Inflation-linked increases have been removed from Alpha, nuvos, and State Pension where they only preserve purchasing power. SIPP and ISA growth uses inflation-adjusted real returns."
+    : "You are viewing results in nominal terms. This means future figures include assumed inflation. Retirement income targets, pension increases, and investment balances are projected as future pound amounts.";
+
+  const rows = [
+    {
+      assumption: "Inflation",
+      userValue: formatPercent(assumptions.inflationRateAnnual),
+      modelledValue: formatPercent(assumptions.inflationRateAnnual),
+    },
+    ...(settings.showSipp
+      ? [
+          {
+            assumption: "SIPP nominal return",
+            userValue: settings.sippApplyRealInterest
+              ? formatPercent(assumptions.sippNominalReturnAnnual)
+              : "Not applied",
+            modelledValue: settings.sippApplyRealInterest
+              ? formatModelledReturn(
+                  assumptions.sippModelledReturnAnnual,
+                  settings.projectionBasis,
+                )
+              : "0%",
+          },
+        ]
+      : []),
+    ...(settings.showIsa
+      ? [
+          {
+            assumption: "ISA nominal return",
+            userValue: settings.isaApplyRealInterest
+              ? formatPercent(assumptions.isaNominalReturnAnnual)
+              : "Not applied",
+            modelledValue: settings.isaApplyRealInterest
+              ? formatModelledReturn(
+                  assumptions.isaModelledReturnAnnual,
+                  settings.projectionBasis,
+                )
+              : "0%",
+          },
+        ]
+      : []),
+    {
+      assumption: "Alpha in-service revaluation",
+      userValue: "CPI + 1.5%",
+      modelledValue: settings.applyPensionIncreases
+        ? isRealTerms
+          ? "1.5% real"
+          : formatPercent(assumptions.alphaModelledInServiceRevaluationAnnual)
+        : "Not applied",
+    },
+    {
+      assumption: "Deferred Alpha increase",
+      userValue: "CPI",
+      modelledValue: settings.applyPensionIncreases
+        ? isRealTerms
+          ? "0% real"
+          : formatPercent(assumptions.alphaModelledDeferredIncreaseAnnual)
+        : "Not applied",
+    },
+    ...(settings.showNuvos
+      ? [
+          {
+            assumption: "Deferred nuvos increase",
+            userValue: "CPI",
+            modelledValue: settings.nuvosApplyPensionIncreases
+              ? isRealTerms
+                ? "0% real"
+                : formatPercent(assumptions.nuvosModelledDeferredIncreaseAnnual)
+              : "Not applied",
+          },
+        ]
+      : []),
+    ...(settings.showStatePension
+      ? [
+          {
+            assumption: "State Pension increase",
+            userValue: settings.statePensionApplyFutureGrowth
+              ? formatPercent(assumptions.statePensionNominalIncreaseAnnual)
+              : "Not applied",
+            modelledValue: settings.statePensionApplyFutureGrowth
+              ? formatModelledReturn(
+                  assumptions.statePensionModelledIncreaseAnnual,
+                  settings.projectionBasis,
+                )
+              : "0%",
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <section className="panel inflation-panel" aria-labelledby="inflation-summary-title">
+      <div className="panel-heading">
+        <h2 id="inflation-summary-title">{basisLabel}</h2>
+        <p className="section-copy">{explanation}</p>
+      </div>
+
+      <div className="assumption-table-shell">
+        <table className="assumption-table">
+          <thead>
+            <tr>
+              <th scope="col">Assumption</th>
+              <th scope="col">User value</th>
+              <th scope="col">Modelled value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.assumption}>
+                <th scope="row">{row.assumption}</th>
+                <td>{row.userValue}</td>
+                <td>{row.modelledValue}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function RetirementIncomeDisplayToggle({
   value,
   onChange,
@@ -1201,6 +1367,12 @@ function FieldLabel({ field }: { field: FieldDefinition }) {
   );
 }
 
+function FieldHelp({ field }: { field: FieldDefinition }) {
+  const description = "description" in field ? field.description : undefined;
+
+  return description ? <p className="field-help">{description}</p> : null;
+}
+
 function InfoLink({ href, text }: { href: string; text: string }) {
   return (
     <a className="field-info-link" href={href} target="_blank" rel="noreferrer">
@@ -1254,8 +1426,8 @@ function SettingsFields({
           <div className="settings-subsection-heading">
             <h4>Pension increases</h4>
             <p className="section-copy">
-              Revalue Alpha benefits annually by CPI + 1.6% while active, and CPI
-              after leaving Alpha service.
+              Revalue Alpha benefits annually by CPI + 1.5% while active, and CPI
+              after leaving Alpha service, using the selected projection basis.
             </p>
           </div>
           <div className="field-grid">
@@ -1632,7 +1804,12 @@ function SelectSettingFieldEditor({
         aria-invalid={Boolean(validationIssue) || undefined}
         aria-describedby={validationId}
         onChange={(event) => {
-          setDraftValue(event.target.value);
+          const nextValue = event.target.value;
+          setDraftValue(nextValue);
+          onChange(
+            field.id,
+            nextValue as PensionSettings[typeof field.id],
+          );
         }}
         onBlur={(event) =>
           onChange(
@@ -1647,6 +1824,7 @@ function SelectSettingFieldEditor({
           </option>
         ))}
       </select>
+      <FieldHelp field={field} />
       <FieldValidationMessage id={validationId} issue={validationIssue} />
     </label>
   );
@@ -1768,6 +1946,7 @@ function CurrencySettingFieldEditor({
           ))}
         </div>
       ) : null}
+      <FieldHelp field={field} />
       {showsResetButton ? (
         <button
           type="button"
@@ -1939,6 +2118,7 @@ function RangeSettingField({
           Reset to default
         </button>
       ) : null}
+      <FieldHelp field={field} />
       <FieldValidationMessage id={validationId} issue={validationIssue} />
     </div>
   );
@@ -2390,6 +2570,11 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
           Showing {visibleRows.length} of {rows.length} rows
           {showMilestonesOnly ? ` (${milestoneRowCount} milestones)` : ""}.
         </p>
+        <p className="table-status table-status--basis">
+          {settings.projectionBasis === "real"
+            ? "Projection basis: Real terms, today's money"
+            : "Projection basis: Nominal terms, future inflated values"}
+        </p>
       </div>
 
       <div className="table-header-shell">
@@ -2530,6 +2715,19 @@ function formatCurrencyDetailed(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatPercent(rate: number) {
+  return `${(rate * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
+}
+
+function formatModelledReturn(
+  rate: number,
+  projectionBasis: PensionSettings["projectionBasis"],
+) {
+  return projectionBasis === "real"
+    ? `${formatPercent(rate)} real return`
+    : formatPercent(rate);
 }
 
 function formatAge(years: number, months: number) {
