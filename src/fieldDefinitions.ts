@@ -1,4 +1,4 @@
-import type { PensionSettings } from "./settings";
+import { CURRENT_MINIMUM_SIPP_ACCESS_AGE, type PensionSettings } from "./settings";
 import { knowledgeLinks } from "./knowledgeLinks";
 
 export type DateField = {
@@ -19,6 +19,7 @@ export type DateField = {
 export type RangeField = {
   id:
     | "lifeExpectancy"
+    | "targetRetirementAge"
     | "statePensionCpiPercent"
     | "statePensionWageGrowthPercent"
     | "partialRetirementStartAge"
@@ -165,6 +166,15 @@ export const fieldGroups: FieldGroup[] = [
         inputStep: 0.1,
         infoUrl: knowledgeLinks.lifeExpectancy,
         infoLinkText: "Estimate life expectancy",
+      },
+      {
+        id: "targetRetirementAge",
+        label: "Target retirement age",
+        type: "range",
+        min: 40,
+        max: 70,
+        step: 1,
+        inputStep: 0.1,
       },
       {
         id: "desiredRetirementIncome",
@@ -515,7 +525,7 @@ export const fieldGroups: FieldGroup[] = [
         id: "sippDrawAge",
         label: "SIPP draw start age",
         type: "range",
-        min: 55,
+        min: CURRENT_MINIMUM_SIPP_ACCESS_AGE,
         max: 70,
         step: 1,
         inputStep: 0.1,

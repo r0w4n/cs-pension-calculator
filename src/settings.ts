@@ -1,6 +1,9 @@
 export const SETTINGS_STORAGE_KEY = "cs-pension-modeller.settings";
 export const FIRST_UNSUPPORTED_ADDED_PENSION_PURCHASE_AGE = 68;
 export const MAX_ADDED_PENSION_PURCHASE_INPUT_AGE = 67.9;
+export const CURRENT_MINIMUM_SIPP_ACCESS_AGE = 55;
+export const FUTURE_MINIMUM_SIPP_ACCESS_AGE = 57;
+export const SIPP_ACCESS_AGE_CHANGE_DATE = "2028-04-06";
 
 export type AddedPensionLumpSumCadence = "once" | "yearly";
 export type AddedPensionFactorType = "self" | "self_plus_beneficiaries";
@@ -22,7 +25,9 @@ export type PensionSettings = {
   startDate: string;
   dateOfBirth: string;
   lifeExpectancy: number;
+  targetRetirementAge: number;
   normalPensionAge: number;
+  showAlpha: boolean;
   showNuvos: boolean;
   showStatePension: boolean;
   showSipp: boolean;
@@ -98,6 +103,7 @@ type StoredPensionSettings = Omit<
 
 const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
+  targetRetirementAge: { min: 40, max: 70, step: 1 },
   currentStatePension: { min: 0, max: 15000, step: 0.01 },
   desiredRetirementIncome: { min: 0, max: 200000, step: 1 },
   statePensionCpiPercent: { min: 0, max: 10, step: 0.1 },
@@ -118,7 +124,7 @@ const numericSettingRules = {
   nuvosAssumedCpiPercent: { min: 0, max: 10, step: 0.1 },
   sippCurrentPot: { min: 0, max: 2_000_000, step: 1 },
   sippMonthlyContribution: { min: 0, max: 5000, step: 25 },
-  sippDrawAge: { min: 55, max: 70, step: 1 },
+  sippDrawAge: { min: CURRENT_MINIMUM_SIPP_ACCESS_AGE, max: 70, step: 1 },
   sippRealInterestPercent: { min: -10, max: 10, step: 0.1 },
   sippWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
   isaCurrentPot: { min: 0, max: 2_000_000, step: 1 },
@@ -140,6 +146,7 @@ type NumericSettingKey = keyof typeof numericSettingRules;
 
 const decimalAgeSettingKeys: readonly NumericSettingKey[] = [
   "lifeExpectancy",
+  "targetRetirementAge",
   "partialRetirementStartAge",
   "alphaPensionLeaveAge",
   "alphaPensionDrawAge",
@@ -153,7 +160,9 @@ export const defaultSettings: PensionSettings = {
   startDate: getTodayIsoDate(),
   dateOfBirth: "1987-06-15",
   lifeExpectancy: 88,
+  targetRetirementAge: 60,
   normalPensionAge: 68,
+  showAlpha: true,
   showNuvos: false,
   showStatePension: true,
   showSipp: true,
@@ -191,7 +200,7 @@ export const defaultSettings: PensionSettings = {
   nuvosAssumedCpiPercent: 2,
   sippCurrentPot: 0,
   sippMonthlyContribution: 0,
-  sippDrawAge: 60,
+  sippDrawAge: 58,
   sippLumpSums: [],
   sippApplyRealInterest: false,
   sippRealInterestPercent: 3,
@@ -287,6 +296,7 @@ export function normalizeSetting<K extends keyof PensionSettings>(
         defaultSettings.statePensionDrawDate,
       ) as PensionSettings[K];
     case "applyPensionIncreases":
+    case "showAlpha":
     case "showNuvos":
     case "showStatePension":
     case "showSipp":
@@ -341,6 +351,8 @@ function coerceSettings(
   return {
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
+    targetRetirementAge: coerceNumber(input.targetRetirementAge),
+    showAlpha: coerceBoolean(input.showAlpha),
     showNuvos: coerceBoolean(input.showNuvos),
     showStatePension: coerceBoolean(input.showStatePension),
     showSipp: coerceBoolean(input.showSipp),
@@ -463,6 +475,10 @@ export function createDefaultSettings(): PensionSettings {
     ...defaultSettings,
     normalPensionAge,
     startDate: getTodayIsoDate(),
+    sippDrawAge: normalizeSippDrawAge(
+      defaultSettings.sippDrawAge,
+      defaultSettings.dateOfBirth,
+    ),
     statePensionDrawDate: calculateStatePensionDrawDate(defaultSettings.dateOfBirth),
   };
 }
@@ -556,7 +572,7 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (alphaDrawDate > lifeExpectancyDate) {
+  if (settings.showAlpha && alphaDrawDate > lifeExpectancyDate) {
     issues.push({
       field: "alphaPensionDrawAge",
       message: "Alpha pension draw age must be within life expectancy.",
@@ -621,7 +637,7 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (alphaLeaveDate > lifeExpectancyDate) {
+  if (settings.showAlpha && alphaLeaveDate > lifeExpectancyDate) {
     issues.push({
       field: "alphaPensionLeaveAge",
       message: "Alpha pensionable service leave age must be within life expectancy.",
@@ -635,7 +651,7 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (alphaAbsDate > settings.startDate) {
+  if (settings.showAlpha && alphaAbsDate > settings.startDate) {
     issues.push({
       field: "alphaPensionAbsDate",
       message: "Last Annual Benefits Statement must be on or before the calculation start date.",
@@ -643,6 +659,7 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
   }
 
   if (
+    settings.showAlpha &&
     settings.alphaAddedPensionMonthly > 0 &&
     alphaAccrualStopDate > latestAlphaAddedPensionPurchaseDate
   ) {
@@ -660,14 +677,22 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (settings.alphaEpaEnabled && settings.alphaEpaStartDate > settings.alphaEpaEndDate) {
+  if (
+    settings.showAlpha &&
+    settings.alphaEpaEnabled &&
+    settings.alphaEpaStartDate > settings.alphaEpaEndDate
+  ) {
     issues.push({
       field: "alphaEpaStartDate",
       message: "EPA start date must be on or before EPA end date.",
     });
   }
 
-  if (settings.alphaEpaEnabled && alphaEpaAgeDate < addYearsToIsoDate(settings.dateOfBirth, 65)) {
+  if (
+    settings.showAlpha &&
+    settings.alphaEpaEnabled &&
+    alphaEpaAgeDate < addYearsToIsoDate(settings.dateOfBirth, 65)
+  ) {
     issues.push({
       field: "alphaEpaYearsBeforeNpa",
       message: "EPA age cannot be earlier than age 65.",
@@ -675,6 +700,7 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
   }
 
   if (
+    settings.showAlpha &&
     settings.alphaEpaEnabled &&
     (settings.alphaEpaEndDate < alphaAbsDate ||
       settings.alphaEpaStartDate > alphaAccrualStopDate)
@@ -700,17 +726,19 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
   }
 
   issues.push(
-    ...validateLumpSums(settings.alphaAddedPensionLumpSums, {
-      field: "alphaAddedPensionLumpSums",
-      label: "Alpha lump sum",
-      earliestDate: alphaAbsDate,
-      latestDate:
-        alphaAccrualStopDate < latestAlphaAddedPensionPurchaseDate
-          ? alphaAccrualStopDate
-          : latestAlphaAddedPensionPurchaseDate,
-      rangeMessage:
-        "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
-    }),
+    ...(settings.showAlpha
+      ? validateLumpSums(settings.alphaAddedPensionLumpSums, {
+          field: "alphaAddedPensionLumpSums",
+          label: "Alpha lump sum",
+          earliestDate: alphaAbsDate,
+          latestDate:
+            alphaAccrualStopDate < latestAlphaAddedPensionPurchaseDate
+              ? alphaAccrualStopDate
+              : latestAlphaAddedPensionPurchaseDate,
+          rangeMessage:
+            "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
+        })
+      : []),
     ...(settings.showSipp
       ? validateLumpSums(settings.sippLumpSums, {
           field: "sippLumpSums",
@@ -778,7 +806,12 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     startDate: normalizeSetting("startDate", settings.startDate),
     dateOfBirth,
     lifeExpectancy: normalizeSetting("lifeExpectancy", settings.lifeExpectancy),
+    targetRetirementAge: normalizeSetting(
+      "targetRetirementAge",
+      settings.targetRetirementAge,
+    ),
     normalPensionAge: calculateNormalPensionAge(dateOfBirth),
+    showAlpha: settings.showAlpha !== false,
     showNuvos: Boolean(settings.showNuvos),
     showStatePension: Boolean(settings.showStatePension),
     showSipp: Boolean(settings.showSipp),
@@ -891,7 +924,7 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "sippMonthlyContribution",
       settings.sippMonthlyContribution,
     ),
-    sippDrawAge: normalizeSetting("sippDrawAge", settings.sippDrawAge),
+    sippDrawAge: normalizeSippDrawAge(settings.sippDrawAge, dateOfBirth),
     sippLumpSums: normalizeSetting("sippLumpSums", settings.sippLumpSums),
     sippApplyRealInterest: Boolean(settings.sippApplyRealInterest),
     sippRealInterestPercent: normalizeSetting(
@@ -970,6 +1003,30 @@ export function normalizeStatePensionDrawDate(
   const normalizedDrawDate = normalizeDate(value, defaultDrawDate);
 
   return normalizedDrawDate < defaultDrawDate ? defaultDrawDate : normalizedDrawDate;
+}
+
+export function normalizeSippDrawAge(value: number, dateOfBirth: string) {
+  const normalizedAge = normalizeSetting("sippDrawAge", value);
+  const minimumAccessAge = calculateMinimumSippAccessAge(dateOfBirth);
+
+  return Math.max(minimumAccessAge, normalizedAge);
+}
+
+export function calculateMinimumSippAccessAge(dateOfBirth: string) {
+  const normalizedDateOfBirth = normalizeDate(dateOfBirth, defaultSettings.dateOfBirth);
+  const reachesAge55Date = addYearsToIsoDate(
+    normalizedDateOfBirth,
+    CURRENT_MINIMUM_SIPP_ACCESS_AGE,
+  );
+
+  if (reachesAge55Date < SIPP_ACCESS_AGE_CHANGE_DATE) {
+    return CURRENT_MINIMUM_SIPP_ACCESS_AGE;
+  }
+
+  return Math.max(
+    FUTURE_MINIMUM_SIPP_ACCESS_AGE,
+    calculateNormalPensionAge(normalizedDateOfBirth) - 10,
+  );
 }
 
 export function getAlphaEpaDate(settings: PensionSettings) {

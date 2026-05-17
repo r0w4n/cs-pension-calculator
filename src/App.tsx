@@ -17,7 +17,10 @@ import {
 } from "./fieldDefinitions";
 import {
   createProjectionTable,
+  generateRetirementBridgeAnalysis,
   generatePensionSummary,
+  prepareBridgeProjectionSettings,
+  type RetirementBridgeAnalysis,
   type RetirementIncomeDisplay,
   type PensionSummary,
   type ProjectionRow,
@@ -25,6 +28,7 @@ import {
 import {
   createDefaultAddedPensionLumpSum,
   calculateNormalPensionAge,
+  calculateMinimumSippAccessAge,
   createDefaultSettings,
   defaultSettings,
   formatCurrency,
@@ -33,6 +37,7 @@ import {
   loadStoredSettings,
   MAX_ADDED_PENSION_PURCHASE_INPUT_AGE,
   normalizeSetting,
+  normalizeSippDrawAge,
   normalizeStatePensionDrawDate,
   readStorageItem,
   saveSettings,
@@ -55,6 +60,11 @@ const MODELLER_LIMITATIONS = [
   "Scheme-specific edge cases are not exhaustively represented.",
 ] as const;
 const OPTIONAL_SECTION_TOGGLES = [
+  {
+    key: "showAlpha",
+    label: "Alpha",
+    description: "Show Alpha inputs and include Alpha pension values in the modeller.",
+  },
   {
     key: "partialRetirementEnabled",
     label: "Partial retirement",
@@ -90,7 +100,10 @@ const OPTIONAL_SECTION_TOGGLES = [
   },
 ] as const;
 
-type AppMode = "journey" | "expert";
+type OptionalSectionToggleKey = (typeof OPTIONAL_SECTION_TOGGLES)[number]["key"];
+type JourneyFieldLabels = Partial<Record<FieldDefinition["id"], string>>;
+
+type AppMode = "journey" | "bridge" | "expert";
 
 type JourneyStepDefinition =
   | {
@@ -98,7 +111,8 @@ type JourneyStepDefinition =
       eyebrow: string;
       title: string;
       description: string;
-      kind: "optional-sections" | "answer";
+      kind: "optional-sections" | "answer" | "bridge-answer";
+      toggleKeys?: readonly OptionalSectionToggleKey[];
       visible?: (settings: PensionSettings) => boolean;
     }
   | {
@@ -108,6 +122,7 @@ type JourneyStepDefinition =
       description: string;
       kind: "fields";
       fieldIds: readonly FieldDefinition["id"][];
+      fieldLabels?: JourneyFieldLabels;
       visible?: (settings: PensionSettings) => boolean;
     };
 
@@ -160,6 +175,7 @@ const GUIDED_JOURNEYS = [
           "applyPensionIncreases",
           "assumedCpiPercent",
         ],
+        visible: (settings) => settings.showAlpha,
       },
       {
         id: "state",
@@ -270,7 +286,148 @@ const GUIDED_JOURNEYS = [
       },
     ],
   },
+  {
+    id: "early-retirement-bridge",
+    title: "Work out what I need to retire early",
+    description:
+      "Test whether your chosen retirement age works, then see the ISA and SIPP bridge needed before secure pension income is fully in place.",
+    steps: [
+      {
+        id: "target",
+        eyebrow: "Step 1",
+        title: "Your retirement target",
+        description:
+          "Set the age you want to stop work and the income you want that retirement to support.",
+        kind: "fields",
+        fieldIds: ["targetRetirementAge", "desiredRetirementIncome"],
+        fieldLabels: {
+          desiredRetirementIncome: "Income you want in retirement (£ per year)",
+        },
+      },
+      {
+        id: "personal",
+        eyebrow: "Step 2",
+        title: "Your personal details",
+        description:
+          "These dates anchor the scenario and define how long the bridge is modelled for.",
+        kind: "fields",
+        fieldIds: ["startDate", "dateOfBirth", "lifeExpectancy"],
+        fieldLabels: {
+          startDate: "Start modelling from",
+        },
+      },
+      {
+        id: "include",
+        eyebrow: "Step 3",
+        title: "Your Civil Service pensions",
+        description:
+          "We include State Pension, ISA and SIPP by default. Tell us which Civil Service pensions you have.",
+        kind: "optional-sections",
+        toggleKeys: ["showAlpha", "showNuvos"],
+      },
+      {
+        id: "alpha",
+        eyebrow: "Step 4",
+        title: "Your Alpha pension",
+        description:
+          "Add the Alpha pension you have built up and the age you would prefer to draw it.",
+        kind: "fields",
+        fieldIds: [
+          "alphaPensionDrawAge",
+          "alphaPensionAbsDate",
+          "accruedPensionAtLastAbs",
+          "pensionableEarnings",
+          "alphaAddedPensionMonthly",
+          "applyPensionIncreases",
+          "assumedCpiPercent",
+        ],
+        visible: (settings) => settings.showAlpha,
+      },
+      {
+        id: "nuvos",
+        eyebrow: "Optional",
+        title: "Your nuvos pension",
+        description:
+          "Add nuvos benefits if they should be part of the bridge calculation.",
+        kind: "fields",
+        fieldIds: [
+          "nuvosPensionDrawAge",
+          "nuvosPensionAbsDate",
+          "nuvosAccruedPensionAtLastAbs",
+          "nuvosPensionableEarnings",
+          "nuvosApplyPensionIncreases",
+          "nuvosAssumedCpiPercent",
+        ],
+        visible: (settings) => settings.showNuvos,
+      },
+      {
+        id: "state",
+        eyebrow: "Optional",
+        title: "State Pension",
+        description:
+          "Check your State Pension forecast and the date it becomes available.",
+        kind: "fields",
+        fieldIds: [
+          "currentStatePension",
+          "statePensionDrawDate",
+          "statePensionApplyFutureGrowth",
+          "statePensionCpiPercent",
+          "statePensionWageGrowthPercent",
+        ],
+        visible: (settings) => settings.showStatePension,
+        fieldLabels: {
+          currentStatePension: "State Pension forecast (£ per year)",
+        },
+      },
+      {
+        id: "pots",
+        eyebrow: "Step 5",
+        title: "Your bridging pots",
+        description:
+          "Keep ISA and SIPP separate so the model respects SIPP access age.",
+        kind: "fields",
+        fieldIds: [
+          "isaCurrentPot",
+          "isaMonthlyContribution",
+          "isaApplyRealInterest",
+          "isaRealInterestPercent",
+          "sippCurrentPot",
+          "sippMonthlyContribution",
+          "sippDrawAge",
+          "sippTaxReliefRate",
+          "sippApplyRealInterest",
+          "sippRealInterestPercent",
+        ],
+        fieldLabels: {
+          isaCurrentPot: "Current ISA balance (£)",
+          isaMonthlyContribution: "Planned monthly ISA contribution before retirement",
+          sippCurrentPot: "Current SIPP balance (£)",
+          sippMonthlyContribution: "Planned monthly SIPP contribution before retirement",
+          sippDrawAge: "SIPP access age",
+        },
+      },
+      {
+        id: "answer",
+        eyebrow: "Result",
+        title: "Your retirement bridge",
+        description:
+          "This shows the gap between stopping work and secure pension income starting.",
+        kind: "bridge-answer",
+      },
+    ],
+  },
 ] as const satisfies readonly JourneyDefinition[];
+
+function applyBridgeJourneyDefaults(settings: PensionSettings): PensionSettings {
+  return {
+    ...settings,
+    showStatePension: true,
+    showSipp: true,
+    showIsa: true,
+    taxationEnabled: false,
+    partialRetirementEnabled: false,
+  };
+}
 
 function App() {
   const [settings, setSettings] = useState<PensionSettings>(loadStoredSettings);
@@ -293,12 +450,23 @@ function App() {
     [deferredSettings],
   );
   const projectionRows = useMemo(
-    () => createProjectionTable(deferredSettings),
-    [deferredSettings],
+    () => (appMode === "bridge" ? [] : createProjectionTable(deferredSettings)),
+    [appMode, deferredSettings],
   );
   const pensionSummary = useMemo(
-    () => generatePensionSummary(projectionRows, deferredSettings),
-    [projectionRows, deferredSettings],
+    () =>
+      appMode === "bridge"
+        ? null
+        : generatePensionSummary(projectionRows, deferredSettings),
+    [appMode, projectionRows, deferredSettings],
+  );
+  const bridgeJourneySettings = useMemo(
+    () => applyBridgeJourneyDefaults(settings),
+    [settings],
+  );
+  const bridgeValidationIssues = useMemo(
+    () => validateSettings(bridgeJourneySettings),
+    [bridgeJourneySettings],
   );
   const retirementIncomeTitle =
     retirementIncomeDisplay === "monthly"
@@ -308,19 +476,22 @@ function App() {
       : settings.taxationEnabled
         ? "Annual take-home retirement income"
         : "Annual retirement income before tax";
-  const retirementIncomeItems = pensionSummary.retirementIncome.sources.map((source) => ({
-    label:
-      retirementIncomeDisplay === "monthly"
-        ? `Monthly ${source.label}`
-        : `Annual ${source.label}`,
-    value: formatCurrencyDetailed(
-      retirementIncomeDisplay === "monthly" ? source.monthlyIncome : source.annualIncome,
-    ),
-  }));
+  const retirementIncomeItems =
+    pensionSummary?.retirementIncome.sources.map((source) => ({
+      label:
+        retirementIncomeDisplay === "monthly"
+          ? `Monthly ${source.label}`
+          : `Annual ${source.label}`,
+      value: formatCurrencyDetailed(
+        retirementIncomeDisplay === "monthly"
+          ? source.monthlyIncome
+          : source.annualIncome,
+      ),
+    })) ?? [];
   const retirementIncomeTotal = formatCurrencyDetailed(
     retirementIncomeDisplay === "monthly"
-      ? pensionSummary.retirementIncome.totalMonthlyIncome
-      : pensionSummary.retirementIncome.totalAnnualIncome,
+      ? (pensionSummary?.retirementIncome.totalMonthlyIncome ?? 0)
+      : (pensionSummary?.retirementIncome.totalAnnualIncome ?? 0),
   );
   const retirementIncomeTargetTitle =
     retirementIncomeDisplay === "monthly"
@@ -350,6 +521,8 @@ function App() {
       const normalizedValue =
         key === "statePensionDrawDate"
           ? normalizeStatePensionDrawDate(value as string, current.dateOfBirth)
+          : key === "sippDrawAge"
+            ? normalizeSippDrawAge(value as number, current.dateOfBirth)
           : normalizeSetting(key, value);
 
       return {
@@ -357,8 +530,14 @@ function App() {
         [key]: normalizedValue,
         ...(key === "dateOfBirth"
           ? {
-              normalPensionAge: calculateNormalPensionAge(value as string),
-              statePensionDrawDate: calculateStatePensionDrawDate(value as string),
+              normalPensionAge: calculateNormalPensionAge(normalizedValue as string),
+              statePensionDrawDate: calculateStatePensionDrawDate(
+                normalizedValue as string,
+              ),
+              sippDrawAge: normalizeSippDrawAge(
+                current.sippDrawAge,
+                normalizedValue as string,
+              ),
             }
           : {}),
       };
@@ -437,9 +616,31 @@ function App() {
 
         {appMode === "journey" ? (
           <GuidedJourney
+            key="retirement-date"
             journey={GUIDED_JOURNEYS[0]}
             settings={settings}
             validationIssues={validationIssues}
+            pensionSummary={pensionSummary}
+            retirementIncomeDisplay={retirementIncomeDisplay}
+            retirementIncomeItems={retirementIncomeItems}
+            retirementIncomeTitle={retirementIncomeTitle}
+            retirementIncomeTotal={retirementIncomeTotal}
+            retirementIncomeTargetTitle={retirementIncomeTargetTitle}
+            retirementIncomeTarget={retirementIncomeTarget}
+            useDropdownDates={useDropdownDates}
+            onChange={updateSetting}
+            onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
+            showLimitations={showLimitations}
+            onToggleLimitations={() => setShowLimitations((current) => !current)}
+          />
+        ) : null}
+
+        {appMode === "bridge" ? (
+          <GuidedJourney
+            key="early-retirement-bridge"
+            journey={GUIDED_JOURNEYS[1]}
+            settings={bridgeJourneySettings}
+            validationIssues={bridgeValidationIssues}
             pensionSummary={pensionSummary}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
@@ -598,25 +799,27 @@ function App() {
               </section>
             ))}
 
-            <SummarySection
-              title="Calculated details"
-              items={[
-                {
-                  label: "Normal Pension Age",
-                  value: `${pensionSummary.calculated.normalPensionAge}`,
-                },
-                ...(settings.showStatePension
-                  ? [
-                      {
-                        label: "State Pension draw date",
-                        value: formatDate(pensionSummary.keyDates.startsStatePension),
-                        infoUrl: knowledgeLinks.statePensionAge,
-                        infoLinkText: "Check State Pension age",
-                      },
-                    ]
-                  : []),
-              ]}
-            />
+            {pensionSummary ? (
+              <SummarySection
+                title="Calculated details"
+                items={[
+                  {
+                    label: "Normal Pension Age",
+                    value: `${pensionSummary.calculated.normalPensionAge}`,
+                  },
+                  ...(settings.showStatePension
+                    ? [
+                        {
+                          label: "State Pension draw date",
+                          value: formatDate(pensionSummary.keyDates.startsStatePension),
+                          infoUrl: knowledgeLinks.statePensionAge,
+                          infoLinkText: "Check State Pension age",
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            ) : null}
                 </div>
               </section>
             </section>
@@ -686,6 +889,20 @@ function ModeSelectionPanel({
 
         <button
           type="button"
+          className={getModeCardClassName(selectedMode === "bridge")}
+          aria-pressed={selectedMode === "bridge"}
+          onClick={() => onSelectMode("bridge")}
+        >
+          <span className="card-label">Early retirement</span>
+          <strong>Work out what I need to retire early</strong>
+          <span>
+            Start with the age and income you want, then test the ISA and SIPP
+            bridge before pension income fully arrives.
+          </span>
+        </button>
+
+        <button
+          type="button"
           className={getModeCardClassName(selectedMode === "expert")}
           aria-pressed={selectedMode === "expert"}
           onClick={() => onSelectMode("expert")}
@@ -712,7 +929,7 @@ type GuidedJourneyProps = {
   journey: JourneyDefinition;
   settings: PensionSettings;
   validationIssues: PensionValidationIssue[];
-  pensionSummary: PensionSummary;
+  pensionSummary: PensionSummary | null;
   retirementIncomeDisplay: RetirementIncomeDisplay;
   retirementIncomeItems: SummaryItem[];
   retirementIncomeTitle: string;
@@ -754,6 +971,13 @@ function GuidedJourney({
   );
   const isFirstStep = activeStepIndex === 0;
   const isLastStep = activeStepIndex === visibleSteps.length - 1;
+  const stepRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (typeof stepRef.current?.scrollIntoView === "function") {
+      stepRef.current.scrollIntoView({ block: "start" });
+    }
+  }, [activeStep.id]);
 
   if (!activeStep) {
     return null;
@@ -800,7 +1024,11 @@ function GuidedJourney({
           ))}
         </nav>
 
-        <section className="journey-step" aria-labelledby={`journey-step-${activeStep.id}`}>
+        <section
+          className="journey-step"
+          ref={stepRef}
+          aria-labelledby={`journey-step-${activeStep.id}`}
+        >
           <div className="section-heading">
             <p className="eyebrow">{activeStep.eyebrow}</p>
             <h3 id={`journey-step-${activeStep.id}`}>{activeStep.title}</h3>
@@ -871,10 +1099,20 @@ function JourneyStepContent({
   onToggleLimitations,
 }: JourneyStepContentProps) {
   if (step.kind === "optional-sections") {
-    return <OptionalSectionToggleGrid settings={settings} onChange={onChange} />;
+    return (
+      <OptionalSectionToggleGrid
+        settings={settings}
+        onChange={onChange}
+        toggleKeys={step.toggleKeys}
+      />
+    );
   }
 
   if (step.kind === "answer") {
+    if (!pensionSummary) {
+      return null;
+    }
+
     return (
       <div className="journey-answer">
         {validationIssues.length > 0 ? (
@@ -911,10 +1149,14 @@ function JourneyStepContent({
         <SummarySection
           title="Key dates"
           items={[
-            {
-              label: "Alpha pension starts",
-              value: formatDate(pensionSummary.keyDates.startsAlphaPension),
-            },
+            ...(settings.showAlpha
+              ? [
+                  {
+                    label: "Alpha pension starts",
+                    value: formatDate(pensionSummary.keyDates.startsAlphaPension),
+                  },
+                ]
+              : []),
             ...(settings.showStatePension
               ? [
                   {
@@ -933,10 +1175,20 @@ function JourneyStepContent({
     );
   }
 
+  if (step.kind === "bridge-answer") {
+    return (
+      <BridgeAnswer
+        settings={settings}
+        showLimitations={showLimitations}
+        onToggleLimitations={onToggleLimitations}
+      />
+    );
+  }
+
   if (step.kind === "fields") {
     return (
       <SettingsFields
-        fields={getFieldsByIds(step.fieldIds)}
+        fields={getFieldsByIds(step.fieldIds, step.fieldLabels)}
         settings={settings}
         validationIssues={validationIssues}
         onChange={onChange}
@@ -951,13 +1203,19 @@ function JourneyStepContent({
 function OptionalSectionToggleGrid({
   settings,
   onChange,
+  toggleKeys,
 }: {
   settings: PensionSettings;
   onChange: FieldProps["onChange"];
+  toggleKeys?: readonly OptionalSectionToggleKey[];
 }) {
+  const visibleToggles = toggleKeys
+    ? OPTIONAL_SECTION_TOGGLES.filter((toggle) => toggleKeys.includes(toggle.key))
+    : OPTIONAL_SECTION_TOGGLES;
+
   return (
     <div className="field-grid">
-      {OPTIONAL_SECTION_TOGGLES.map((toggle) => (
+      {visibleToggles.map((toggle) => (
         <label key={toggle.key} className="field-card checkbox-field-card">
           <span className="field-header">
             <span className="field-label-group">
@@ -981,6 +1239,257 @@ function OptionalSectionToggleGrid({
         </label>
       ))}
     </div>
+  );
+}
+
+function BridgeAnswer({
+  settings,
+  showLimitations,
+  onToggleLimitations,
+}: {
+  settings: PensionSettings;
+  showLimitations: boolean;
+  onToggleLimitations: () => void;
+}) {
+  const bridgeSettings = useMemo(
+    () => prepareBridgeProjectionSettings(settings),
+    [settings],
+  );
+  const bridgePensionRows = useMemo(
+    () =>
+      createProjectionTable({
+        ...bridgeSettings,
+        showSipp: false,
+        showIsa: false,
+      }),
+    [bridgeSettings],
+  );
+  const bridgeAnalysis = useMemo(
+    () =>
+      generateRetirementBridgeAnalysis(bridgePensionRows, bridgeSettings, {
+        calculateSafeDrawAge: true,
+      }),
+    [bridgePensionRows, bridgeSettings],
+  );
+
+  return (
+    <div className="journey-answer">
+      <BridgeResult analysis={bridgeAnalysis} settings={bridgeSettings} />
+      <ModellerLimitations
+        showLimitations={showLimitations}
+        onToggleLimitations={onToggleLimitations}
+      />
+    </div>
+  );
+}
+
+function BridgeResult({
+  analysis,
+  settings,
+}: {
+  analysis: RetirementBridgeAnalysis;
+  settings: PensionSettings;
+}) {
+  const finalPotRow = analysis.potProjection.at(-1);
+  const longTermPosition =
+    analysis.stableAnnualGuaranteedSurplus >= 0
+      ? `${formatCurrencyDetailed(analysis.stableAnnualGuaranteedSurplus)} surplus per year`
+      : `${formatCurrencyDetailed(Math.abs(analysis.stableAnnualGuaranteedSurplus))} shortfall per year`;
+  const actionItems = [
+    {
+      label: "ISA bridge need before SIPP access",
+      value: formatCurrencyDetailed(analysis.requiredIsaAtRetirement),
+    },
+    {
+      label: "SIPP/ISA bridge need from SIPP access",
+      value: formatCurrencyDetailed(analysis.requiredSippAtAccess),
+    },
+    {
+      label: "Bridge still unfunded",
+      value: formatCurrencyDetailed(analysis.totalUnfundedShortfall),
+    },
+    {
+      label: "Estimated extra monthly saving",
+      value: formatCurrencyDetailed(analysis.additionalMonthlyContributionRequired),
+    },
+  ];
+
+  return (
+    <div className="bridge-result">
+      <SummarySection
+        title="Action required"
+        description={
+          analysis.planWorks
+            ? "Your entered pots cover the modelled bridge on these assumptions."
+            : "This is the approximate bridge gap to close before the target retirement date."
+        }
+        items={[
+          ...actionItems,
+          {
+            label: "SIPP access age",
+            value: formatDecimalAge(settings.sippDrawAge),
+          },
+          {
+            label: "Once secure pensions are active",
+            value: longTermPosition,
+          },
+        ]}
+      />
+
+      <SummarySection
+        title="Secure income position"
+        variant="feature"
+        description="This shows whether your Civil Service and State Pension income eventually sits above or below your target, before any ISA/SIPP top-up."
+        items={[
+          {
+            label: "Plan status",
+            value: analysis.planWorks ? "Works on these assumptions" : "Shortfall remains",
+          },
+          {
+            label: "Secure pension income once active",
+            value: `${formatCurrencyDetailed(analysis.stableAnnualGuaranteedIncome)} per year`,
+          },
+          {
+            label: "Against your target",
+            value: longTermPosition,
+          },
+          {
+            label: "First pot to fail",
+            value: analysis.firstPotToFail
+              ? `${analysis.firstPotToFail} (${formatDate(analysis.firstFailureDate ?? "")})`
+              : "None",
+          },
+        ]}
+      />
+
+      <BridgeTable
+        title="Bridging breakdown"
+        description="Each phase starts when a new income source or access point becomes available."
+        columns={[
+          "Phase",
+          "Ages",
+          "Income sources active",
+          "Shortfall/surplus per year",
+          "Pot used",
+          "Bridge needed",
+        ]}
+        rows={analysis.phases.map((phase) => [
+          phase.label,
+          `${formatAge(phase.startAge, phase.startAgeMonths)} to ${formatAge(
+            phase.endAge,
+            phase.endAgeMonths,
+          )}`,
+          phase.incomeSourcesActive.join(", "),
+          formatShortfallOrSurplus(phase.annualShortfall, phase.annualSurplus),
+          phase.potUsed,
+          formatCurrencyDetailed(phase.totalBridgeRequired + phase.unfundedShortfall),
+        ])}
+      />
+
+      <BridgeTable
+        title="Pot projection"
+        description="Annual checkpoints, plus the first point where the bridge becomes unfunded."
+        columns={[
+          "Date",
+          "Age",
+          "ISA balance",
+          "SIPP balance",
+          "ISA drawdown",
+          "SIPP drawdown",
+          "Unfunded",
+        ]}
+        rows={analysis.potProjection.slice(0, 40).map((row) => [
+          formatDate(row.date),
+          formatAge(row.age, row.ageMonths),
+          formatCurrencyDetailed(row.isaBalance),
+          formatCurrencyDetailed(row.sippBalance),
+          formatCurrencyDetailed(row.isaDrawdown),
+          formatCurrencyDetailed(row.sippDrawdown),
+          formatCurrencyDetailed(row.unfundedShortfall),
+        ])}
+      />
+
+      <SummarySection
+        title="Scenario recap"
+        description="The main assumptions used in this bridge calculation."
+        items={[
+          {
+            label: "Target retirement",
+            value: `${formatDate(analysis.target.retirementDate)} (${formatDecimalAge(analysis.target.retirementAge)})`,
+          },
+          {
+            label: "Target income",
+            value: `${formatCurrencyDetailed(analysis.target.annualIncome)} per year`,
+          },
+          {
+            label: "Covered by existing bridge pots",
+            value: formatCurrencyDetailed(analysis.totalBridgeRequired),
+          },
+          {
+            label: "Bridge still unfunded",
+            value: formatCurrencyDetailed(analysis.totalUnfundedShortfall),
+          },
+          {
+            label: "Earliest sustainable pension draw age",
+            value:
+              analysis.earliestSustainablePensionDrawAge === null
+                ? "Not found"
+                : formatDecimalAge(analysis.earliestSustainablePensionDrawAge),
+          },
+          {
+            label: "Projected ISA at end",
+            value: formatCurrencyDetailed(finalPotRow?.isaBalance ?? 0),
+          },
+          {
+            label: "Projected SIPP at end",
+            value: formatCurrencyDetailed(finalPotRow?.sippBalance ?? 0),
+          },
+        ]}
+      />
+    </div>
+  );
+}
+
+function BridgeTable({
+  title,
+  description,
+  columns,
+  rows,
+}: {
+  title: string;
+  description: string;
+  columns: string[];
+  rows: string[][];
+}) {
+  return (
+    <section className="bridge-table-section">
+      <div className="summary-section-header">
+        <h3>{title}</h3>
+      </div>
+      <p className="section-copy">{description}</p>
+      <div className="table-body-shell bridge-table-shell">
+        <table className="projection-table bridge-table">
+          <thead>
+            <tr>
+              {columns.map((column) => (
+                <th key={column} scope="col">
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr key={`${title}-${rowIndex}`}>
+                {row.map((cell, cellIndex) => (
+                  <td key={`${title}-${rowIndex}-${columns[cellIndex]}`}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -1119,11 +1628,22 @@ function RetirementIncomeSummaryFooter({
   );
 }
 
-function getFieldsByIds(fieldIds: readonly FieldDefinition["id"][]) {
+function getFieldsByIds(
+  fieldIds: readonly FieldDefinition["id"][],
+  fieldLabels: JourneyFieldLabels = {},
+) {
   return fieldIds
-    .map((fieldId) =>
-      fieldGroups.flatMap((group) => group.fields).find((field) => field.id === fieldId),
-    )
+    .map((fieldId) => {
+      const field = fieldGroups
+        .flatMap((group) => group.fields)
+        .find((candidate) => candidate.id === fieldId);
+
+      if (!field) {
+        return undefined;
+      }
+
+      return fieldLabels[fieldId] ? { ...field, label: fieldLabels[fieldId] } : field;
+    })
     .filter((field): field is FieldDefinition => Boolean(field));
 }
 
@@ -1945,6 +2465,13 @@ function RangeSettingField({
 }
 
 function getEffectiveRangeField(field: RangeField, settings: PensionSettings): RangeField {
+  if (field.id === "sippDrawAge") {
+    return {
+      ...field,
+      min: calculateMinimumSippAccessAge(settings.dateOfBirth),
+    };
+  }
+
   if (
     settings.alphaAddedPensionMonthly <= 0 ||
     (field.id !== "alphaPensionDrawAge" && field.id !== "alphaPensionLeaveAge")
@@ -2278,7 +2805,13 @@ type ProjectionTableColumn = {
   key: string;
   label: string;
   width: string;
-  setting?: "showNuvos" | "showStatePension" | "showSipp" | "showIsa" | "taxationEnabled";
+  setting?:
+    | "showAlpha"
+    | "showNuvos"
+    | "showStatePension"
+    | "showSipp"
+    | "showIsa"
+    | "taxationEnabled";
 };
 
 const projectionTableColumns: ProjectionTableColumn[] = [
@@ -2301,17 +2834,48 @@ const projectionTableColumns: ProjectionTableColumn[] = [
     setting: "taxationEnabled",
   },
   { key: "age", label: "Age (years/months)", width: "7rem" },
-  { key: "monthlyAddedPension", label: "Monthly Added Pension", width: "7rem" },
-  { key: "lumpSumAddedPension", label: "Lump sum added pension", width: "7rem" },
-  { key: "annualStandardAlphaPension", label: "Standard Alpha Pension", width: "8rem" },
-  { key: "annualEpaAlphaPension", label: "EPA Alpha Pension", width: "8rem" },
-  { key: "annualAccruedAlphaPension", label: "Annual Accrued Alpha Pension", width: "8rem" },
+  {
+    key: "monthlyAddedPension",
+    label: "Monthly Added Pension",
+    width: "7rem",
+    setting: "showAlpha",
+  },
+  {
+    key: "lumpSumAddedPension",
+    label: "Lump sum added pension",
+    width: "7rem",
+    setting: "showAlpha",
+  },
+  {
+    key: "annualStandardAlphaPension",
+    label: "Standard Alpha Pension",
+    width: "8rem",
+    setting: "showAlpha",
+  },
+  {
+    key: "annualEpaAlphaPension",
+    label: "EPA Alpha Pension",
+    width: "8rem",
+    setting: "showAlpha",
+  },
+  {
+    key: "annualAccruedAlphaPension",
+    label: "Annual Accrued Alpha Pension",
+    width: "8rem",
+    setting: "showAlpha",
+  },
   {
     key: "annualAlphaPensionIncludingReduction",
     label: "Annual Alpha Pension Including Reduction",
     width: "9rem",
+    setting: "showAlpha",
   },
-  { key: "monthlyAlphaPensionTakeHome", label: "Monthly Alpha pension before tax", width: "7rem" },
+  {
+    key: "monthlyAlphaPensionTakeHome",
+    label: "Monthly Alpha pension before tax",
+    width: "7rem",
+    setting: "showAlpha",
+  },
   {
     key: "annualNuvosPension",
     label: "Annual nuvos Pension",
@@ -2458,13 +3022,27 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
                   <td>{formatCurrencyDetailed(row.totalMonthlyPensionIncomeBeforeTax)}</td>
                 ) : null}
                 <td>{formatAge(row.age, row.ageMonths)}</td>
-                <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
-                <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
-                <td>{formatCurrencyDetailed(row.annualStandardAlphaPension)}</td>
-                <td>{formatCurrencyDetailed(row.annualEpaAlphaPension)}</td>
-                <td>{formatCurrencyDetailed(row.annualAccruedAlphaPension)}</td>
-                <td>{formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction)}</td>
-                <td>{formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome)}</td>
+                {settings.showAlpha ? (
+                  <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
+                ) : null}
+                {settings.showAlpha ? (
+                  <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
+                ) : null}
+                {settings.showAlpha ? (
+                  <td>{formatCurrencyDetailed(row.annualStandardAlphaPension)}</td>
+                ) : null}
+                {settings.showAlpha ? (
+                  <td>{formatCurrencyDetailed(row.annualEpaAlphaPension)}</td>
+                ) : null}
+                {settings.showAlpha ? (
+                  <td>{formatCurrencyDetailed(row.annualAccruedAlphaPension)}</td>
+                ) : null}
+                {settings.showAlpha ? (
+                  <td>{formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction)}</td>
+                ) : null}
+                {settings.showAlpha ? (
+                  <td>{formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome)}</td>
+                ) : null}
                 {settings.showNuvos ? (
                   <td>{formatCurrencyDetailed(row.annualNuvosPension)}</td>
                 ) : null}
@@ -2532,11 +3110,31 @@ function formatCurrencyDetailed(value: number) {
   }).format(value);
 }
 
+function formatShortfallOrSurplus(shortfall: number, surplus: number) {
+  if (shortfall > 0) {
+    return `${formatCurrencyDetailed(shortfall)} shortfall`;
+  }
+
+  if (surplus > 0) {
+    return `${formatCurrencyDetailed(surplus)} surplus`;
+  }
+
+  return formatCurrencyDetailed(0);
+}
+
 function formatAge(years: number, months: number) {
   return `${years}y ${months}m`;
 }
 
+function formatDecimalAge(age: number) {
+  return Number.isInteger(age) ? age.toString() : age.toFixed(1);
+}
+
 function isSettingsGroupVisible(groupId: string, settings: PensionSettings) {
+  if (groupId === "alpha") {
+    return settings.showAlpha;
+  }
+
   if (groupId === "nuvos") {
     return settings.showNuvos;
   }
@@ -2899,7 +3497,9 @@ function loadAcknowledgementState() {
 function loadStoredAppMode(): AppMode | null {
   const storedMode = readStorageItem(APP_MODE_STORAGE_KEY);
 
-  return storedMode === "journey" || storedMode === "expert" ? storedMode : null;
+  return storedMode === "journey" || storedMode === "bridge" || storedMode === "expert"
+    ? storedMode
+    : null;
 }
 
 function saveStoredAppMode(mode: AppMode) {

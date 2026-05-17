@@ -26,12 +26,14 @@ import {
   calculateTotalGrossMonthlyPension,
   createProjectionTable,
   deriveProjectionInputs,
+  generateRetirementBridgeAnalysis,
   generatePensionSummary,
   generateMonthlyDateRange,
   generateMilestoneDefinitions,
   getAddedPensionFactorForAge,
   getEarlyRetirementReductionFactor,
   getLifeExpectancyDate,
+  prepareBridgeProjectionSettings,
 } from "./projection";
 import {
   defaultSettings,
@@ -1818,5 +1820,207 @@ describe("projection calculations", () => {
     expect(summary.alphaPension.maximumAnnualAccrued).toBe(0);
     expect(summary.incomeOverTime.monthlyAtStateStart).toBe(0);
     expect(summary.retirementIncome.totalMonthlyIncome).toBe(0);
+  });
+
+  it("uses ISA only before SIPP access in the early-retirement bridge", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1980-04-01",
+      targetRetirementAge: 50,
+      lifeExpectancy: 58,
+      desiredRetirementIncome: 12000,
+      showAlpha: false,
+      showNuvos: false,
+      showStatePension: false,
+      showSipp: true,
+      showIsa: true,
+      sippDrawAge: 57,
+      isaCurrentPot: 10000,
+      sippCurrentPot: 100000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
+
+    expect(analysis.planWorks).toBe(false);
+    expect(analysis.firstPotToFail).toBe("ISA before SIPP access");
+    expect(
+      analysis.potProjection
+        .filter((row) => row.age < 57)
+        .every((row) => row.sippDrawdown === 0),
+    ).toBe(true);
+  });
+
+  it("allows a bridge journey where the user retires after SIPP access age", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1968-04-01",
+      targetRetirementAge: 59,
+      lifeExpectancy: 62,
+      desiredRetirementIncome: 12000,
+      showAlpha: false,
+      showNuvos: false,
+      showStatePension: false,
+      showSipp: true,
+      showIsa: false,
+      sippDrawAge: 57,
+      sippCurrentPot: 100000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
+
+    expect(analysis.planWorks).toBe(true);
+    expect(analysis.firstPotToFail).toBeNull();
+    expect(analysis.totalBridgeRequired).toBeGreaterThan(0);
+    expect(analysis.phases[0]?.potUsed).toBe("SIPP");
+  });
+
+  it("supports bridge analysis with no Civil Service pension", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1980-04-01",
+      targetRetirementAge: 60,
+      lifeExpectancy: 61,
+      desiredRetirementIncome: 6000,
+      showAlpha: false,
+      showNuvos: false,
+      showStatePension: false,
+      showSipp: false,
+      showIsa: true,
+      isaCurrentPot: 10000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+    const summary = generatePensionSummary(pensionRows, settings);
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
+
+    expect(summary.retirementIncome.sources.some((source) => source.key === "alpha")).toBe(
+      false,
+    );
+    expect(analysis.planWorks).toBe(true);
+    expect(analysis.phases[0]?.incomeSourcesActive).toEqual(["None"]);
+  });
+
+  it("shows State Pension changing the bridge phase income sources", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1960-04-01",
+      targetRetirementAge: 66,
+      lifeExpectancy: 68,
+      desiredRetirementIncome: 12000,
+      showAlpha: false,
+      showNuvos: false,
+      showStatePension: true,
+      currentStatePension: 12000,
+      statePensionDrawDate: "2026-05-06",
+      showSipp: true,
+      showIsa: true,
+      sippDrawAge: 57,
+      sippCurrentPot: 30000,
+      isaCurrentPot: 30000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
+
+    expect(analysis.planWorks).toBe(true);
+    expect(
+      analysis.phases.some((phase) =>
+        phase.incomeSourcesActive.includes("State Pension"),
+      ),
+    ).toBe(true);
+    expect(analysis.stableAnnualGuaranteedIncome).toBeCloseTo(12000, 6);
+  });
+
+  it("shows long-term secure pension surplus after guaranteed income starts", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1960-04-01",
+      targetRetirementAge: 66,
+      lifeExpectancy: 68,
+      desiredRetirementIncome: 12000,
+      showAlpha: false,
+      showNuvos: false,
+      showStatePension: true,
+      currentStatePension: 15000,
+      statePensionDrawDate: "2026-05-06",
+      showSipp: true,
+      showIsa: true,
+      sippDrawAge: 57,
+      sippCurrentPot: 30000,
+      isaCurrentPot: 30000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
+    const statePensionPhase = analysis.phases.find((phase) =>
+      phase.incomeSourcesActive.includes("State Pension"),
+    );
+
+    expect(analysis.stableAnnualGuaranteedIncome).toBeCloseTo(15000, 6);
+    expect(analysis.stableAnnualGuaranteedSurplus).toBeCloseTo(3000, 6);
+    expect(statePensionPhase?.annualSurplus).toBeCloseTo(3000, 6);
+  });
+
+  it("does not mark an early Alpha draw sustainable when later income falls below target", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1980-04-01",
+      targetRetirementAge: 55,
+      alphaPensionDrawAge: 68,
+      lifeExpectancy: 69,
+      desiredRetirementIncome: 40000,
+      showAlpha: true,
+      accruedPensionAtLastAbs: 20000,
+      pensionableEarnings: 0,
+      alphaAddedPensionMonthly: 0,
+      showNuvos: false,
+      showStatePension: false,
+      showSipp: true,
+      showIsa: true,
+      sippDrawAge: 57,
+      sippCurrentPot: 1000000,
+      isaCurrentPot: 1000000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings, {
+      calculateSafeDrawAge: true,
+    });
+
+    expect(analysis.earliestSustainablePensionDrawAge).toBeNull();
+    expect(analysis.stableAnnualGuaranteedIncome).toBeLessThan(
+      settings.desiredRetirementIncome,
+    );
   });
 });

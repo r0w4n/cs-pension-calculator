@@ -114,6 +114,57 @@ export type RetirementIncomeSummary = {
   totalAnnualIncome: number;
 };
 
+export type BridgePhase = {
+  startDate: string;
+  endDate: string;
+  startAge: number;
+  startAgeMonths: number;
+  endAge: number;
+  endAgeMonths: number;
+  label: string;
+  incomeSourcesActive: string[];
+  potUsed: string;
+  annualShortfall: number;
+  annualSurplus: number;
+  totalBridgeRequired: number;
+  unfundedShortfall: number;
+};
+
+export type BridgePotProjectionRow = {
+  date: string;
+  age: number;
+  ageMonths: number;
+  isaBalance: number;
+  sippBalance: number;
+  isaDrawdown: number;
+  sippDrawdown: number;
+  unfundedShortfall: number;
+  growth: number;
+};
+
+export type RetirementBridgeAnalysis = {
+  target: {
+    retirementDate: string;
+    retirementAge: number;
+    annualIncome: number;
+    monthlyIncome: number;
+    endDate: string;
+  };
+  planWorks: boolean;
+  firstFailureDate: string | null;
+  firstPotToFail: string | null;
+  totalBridgeRequired: number;
+  totalUnfundedShortfall: number;
+  requiredIsaAtRetirement: number;
+  requiredSippAtAccess: number;
+  additionalMonthlyContributionRequired: number;
+  earliestSustainablePensionDrawAge: number | null;
+  stableAnnualGuaranteedIncome: number;
+  stableAnnualGuaranteedSurplus: number;
+  phases: BridgePhase[];
+  potProjection: BridgePotProjectionRow[];
+};
+
 const MONTHLY_ALPHA_ACCRUAL_RATE = 0.0232 / 12;
 const NUVOS_NORMAL_PENSION_AGE = 65;
 const CALCULATION_START_LABEL = "Calculation start";
@@ -301,23 +352,27 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
     cumulativeStandardAccrual += monthlyStandardAlphaAccrual;
     cumulativeEpaAccrual += monthlyEpaAlphaAccrual;
 
-    const monthlyAddedPension = calculateMonthlyAddedPension({
-      rowDate,
-      stopDate: addedPensionStopDate,
-      dateOfBirth: settings.dateOfBirth,
-      addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
-      factorType: settings.alphaAddedPensionFactorType,
-      contributionMultiplier: getPartialRetirementContributionMultiplier(
-        settings,
-        rowDate,
-      ),
-    });
-    const lumpSumAddedPensionPurchasedThisRow = calculateLumpSumAddedPension({
-      rowDate,
-      previousRowDate,
-      dateOfBirth: settings.dateOfBirth,
-      lumpSums: settings.alphaAddedPensionLumpSums,
-    });
+    const monthlyAddedPension = settings.showAlpha
+      ? calculateMonthlyAddedPension({
+          rowDate,
+          stopDate: addedPensionStopDate,
+          dateOfBirth: settings.dateOfBirth,
+          addedPensionMonthlyContribution: settings.alphaAddedPensionMonthly,
+          factorType: settings.alphaAddedPensionFactorType,
+          contributionMultiplier: getPartialRetirementContributionMultiplier(
+            settings,
+            rowDate,
+          ),
+        })
+      : 0;
+    const lumpSumAddedPensionPurchasedThisRow = settings.showAlpha
+      ? calculateLumpSumAddedPension({
+          rowDate,
+          previousRowDate,
+          dateOfBirth: settings.dateOfBirth,
+          lumpSums: settings.alphaAddedPensionLumpSums,
+        })
+      : 0;
     cumulativeStandardAddedPension +=
       monthlyAddedPension + lumpSumAddedPensionPurchasedThisRow;
     const annualStandardAlphaPension = calculateAccruedAlphaPension(
@@ -415,8 +470,8 @@ export function createProjectionTable(settings: PensionSettings): ProjectionRow[
   const allRows = [...historicalRows, ...projectionRows];
   const milestoneDefinitions = generateMilestoneDefinitions(
     settings.startDate,
-    accrualStopDate,
-    drawDate,
+    settings.showAlpha ? accrualStopDate : "",
+    settings.showAlpha ? drawDate : "",
     settings.showSipp ? sippDrawDate : "",
     settings.showIsa ? isaDrawDate : "",
     settings.statePensionDrawDate,
@@ -529,7 +584,7 @@ function createProjectionTableWithPensionIncreases(
       });
     }
 
-    const monthlyAddedPension = shouldShowAbsStatementOnly
+    const monthlyAddedPension = shouldShowAbsStatementOnly || !settings.showAlpha
       ? 0
       : calculateMonthlyAddedPension({
           rowDate,
@@ -542,12 +597,14 @@ function createProjectionTableWithPensionIncreases(
             rowDate,
           ),
         });
-    const lumpSumAddedPension = calculateLumpSumAddedPension({
-      rowDate,
-      previousRowDate,
-      dateOfBirth: settings.dateOfBirth,
-      lumpSums: settings.alphaAddedPensionLumpSums,
-    });
+    const lumpSumAddedPension = settings.showAlpha
+      ? calculateLumpSumAddedPension({
+          rowDate,
+          previousRowDate,
+          dateOfBirth: settings.dateOfBirth,
+          lumpSums: settings.alphaAddedPensionLumpSums,
+        })
+      : 0;
 
     if (monthlyAddedPension > 0) {
       benefitComponents.push({
@@ -659,8 +716,8 @@ function createProjectionTableWithPensionIncreases(
 
   const milestoneDefinitions = generateMilestoneDefinitions(
     settings.startDate,
-    accrualStopDate,
-    drawDate,
+    settings.showAlpha ? accrualStopDate : "",
+    settings.showAlpha ? drawDate : "",
     settings.showSipp ? sippDrawDate : "",
     settings.showIsa ? isaDrawDate : "",
     settings.statePensionDrawDate,
@@ -905,6 +962,377 @@ export function generatePensionSummary(
   };
 }
 
+export function prepareBridgeProjectionSettings(settings: PensionSettings): PensionSettings {
+  return {
+    ...settings,
+    alphaPensionLeaveAge: settings.targetRetirementAge,
+    nuvosPensionLeaveAge: settings.targetRetirementAge,
+    isaDrawAge: settings.targetRetirementAge,
+  };
+}
+
+export function generateRetirementBridgeAnalysis(
+  pensionRows: ProjectionRow[],
+  settings: PensionSettings,
+  options: { calculateSafeDrawAge?: boolean } = {},
+): RetirementBridgeAnalysis {
+  const retirementDate = addYears(settings.dateOfBirth, settings.targetRetirementAge);
+  const endDate = getLifeExpectancyDate(settings.dateOfBirth, settings.lifeExpectancy);
+  const sippAccessDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
+  const monthlyTargetIncome = settings.desiredRetirementIncome / 12;
+  const bridgeRows = generateMonthlyDateRange(retirementDate, endDate);
+  const isaMonthlyGrowthRate = settings.isaApplyRealInterest
+    ? (1 + settings.isaRealInterestPercent / 100) ** (1 / 12) - 1
+    : 0;
+  const sippMonthlyGrowthRate = settings.sippApplyRealInterest
+    ? (1 + settings.sippRealInterestPercent / 100) ** (1 / 12) - 1
+    : 0;
+  let isaBalance = settings.showIsa
+    ? calculateIsaPotAtDate({
+        settings: { ...settings, showIsa: true },
+        rowDate: retirementDate,
+        drawDate: retirementDate,
+      })
+    : 0;
+  let sippBalance = settings.showSipp
+    ? calculateSippPotAtDate({
+        settings: { ...settings, showSipp: true },
+        rowDate: retirementDate,
+        drawDate: retirementDate,
+      })
+    : 0;
+  let totalBridgeRequired = 0;
+  let totalUnfundedShortfall = 0;
+  let requiredIsaAtRetirement = 0;
+  let requiredSippAtAccess = 0;
+  let firstFailureDate: string | null = null;
+  let firstPotToFail: string | null = null;
+
+  const monthlyRows = bridgeRows.map((rowDate, index) => {
+    const isaGrowth = index === 0 ? 0 : isaBalance * isaMonthlyGrowthRate;
+    const sippGrowth = index === 0 ? 0 : sippBalance * sippMonthlyGrowthRate;
+    isaBalance += isaGrowth;
+    sippBalance += sippGrowth;
+
+    const pensionRow = findFirstRowAtOrAfterDate(pensionRows, rowDate) ?? pensionRows.at(-1);
+    const monthlyAlphaPension =
+      settings.showAlpha && pensionRow ? pensionRow.monthlyAlphaPensionTakeHome : 0;
+    const monthlyNuvosPension =
+      settings.showNuvos && pensionRow ? pensionRow.monthlyNuvosPensionTakeHome : 0;
+    const monthlyStatePension =
+      settings.showStatePension && pensionRow ? pensionRow.monthlyStatePension : 0;
+    const monthlyIncomeTax = calculateMonthlyIncomeTax({
+      settings,
+      monthlyAlphaPension,
+      monthlyNuvosPension,
+      monthlyStatePension,
+      monthlySippPension: 0,
+    });
+    const guaranteedIncome = Math.max(
+      0,
+      monthlyAlphaPension + monthlyNuvosPension + monthlyStatePension - monthlyIncomeTax,
+    );
+    const shortfall = Math.max(0, monthlyTargetIncome - guaranteedIncome);
+    const surplus = Math.max(0, guaranteedIncome - monthlyTargetIncome);
+    let remainingShortfall = shortfall;
+    let isaDrawdown = 0;
+    let sippDrawdown = 0;
+
+    if (rowDate >= sippAccessDate && settings.showSipp) {
+      sippDrawdown = Math.min(sippBalance, remainingShortfall);
+      sippBalance -= sippDrawdown;
+      remainingShortfall -= sippDrawdown;
+    }
+
+    if (settings.showIsa) {
+      isaDrawdown = Math.min(isaBalance, remainingShortfall);
+      isaBalance -= isaDrawdown;
+      remainingShortfall -= isaDrawdown;
+    }
+
+    if (shortfall > 0 && rowDate < sippAccessDate) {
+      requiredIsaAtRetirement += shortfall;
+    }
+
+    if (shortfall > 0 && rowDate >= sippAccessDate) {
+      requiredSippAtAccess += shortfall;
+    }
+
+    totalBridgeRequired += isaDrawdown + sippDrawdown;
+    totalUnfundedShortfall += remainingShortfall;
+
+    if (remainingShortfall > 0 && !firstFailureDate) {
+      firstFailureDate = rowDate;
+      firstPotToFail =
+        rowDate < sippAccessDate
+          ? "ISA before SIPP access"
+          : "SIPP/ISA bridge after SIPP access";
+    }
+
+    return {
+      date: rowDate,
+      age: calculateAge(settings.dateOfBirth, rowDate),
+      ageMonths: calculateAgeMonths(settings.dateOfBirth, rowDate),
+      guaranteedIncome,
+      shortfall,
+      surplus,
+      isaDrawdown,
+      sippDrawdown,
+      unfundedShortfall: remainingShortfall,
+      isaBalance,
+      sippBalance,
+      growth: isaGrowth + sippGrowth,
+      activeSources: getActiveBridgeIncomeSources({
+        settings,
+        monthlyAlphaPension,
+        monthlyNuvosPension,
+        monthlyStatePension,
+      }),
+    };
+  });
+  const stableRow = monthlyRows.at(-1);
+  const stableAnnualGuaranteedIncome = (stableRow?.guaranteedIncome ?? 0) * 12;
+  const monthsUntilRetirement = Math.max(
+    1,
+    calculateWholeMonthDifference(settings.startDate, retirementDate),
+  );
+  const analysisWithoutSafeDrawAge: RetirementBridgeAnalysis = {
+    target: {
+      retirementDate,
+      retirementAge: settings.targetRetirementAge,
+      annualIncome: settings.desiredRetirementIncome,
+      monthlyIncome: monthlyTargetIncome,
+      endDate,
+    },
+    planWorks: totalUnfundedShortfall <= 0.005,
+    firstFailureDate,
+    firstPotToFail,
+    totalBridgeRequired,
+    totalUnfundedShortfall,
+    requiredIsaAtRetirement,
+    requiredSippAtAccess,
+    additionalMonthlyContributionRequired:
+      totalUnfundedShortfall > 0 ? totalUnfundedShortfall / monthsUntilRetirement : 0,
+    earliestSustainablePensionDrawAge: null,
+    stableAnnualGuaranteedIncome,
+    stableAnnualGuaranteedSurplus:
+      stableAnnualGuaranteedIncome - settings.desiredRetirementIncome,
+    phases: buildBridgePhases(monthlyRows, settings, retirementDate, endDate),
+    potProjection: buildBridgePotProjection(monthlyRows),
+  };
+
+  if (!options.calculateSafeDrawAge) {
+    return analysisWithoutSafeDrawAge;
+  }
+
+  return {
+    ...analysisWithoutSafeDrawAge,
+    earliestSustainablePensionDrawAge: calculateEarliestSustainablePensionDrawAge(
+      settings,
+    ),
+  };
+}
+
+function getActiveBridgeIncomeSources(input: {
+  settings: PensionSettings;
+  monthlyAlphaPension: number;
+  monthlyNuvosPension: number;
+  monthlyStatePension: number;
+}) {
+  const sources = [
+    ...(input.settings.showAlpha && input.monthlyAlphaPension > 0
+      ? ["Alpha"]
+      : []),
+    ...(input.settings.showNuvos && input.monthlyNuvosPension > 0
+      ? ["nuvos"]
+      : []),
+    ...(input.settings.showStatePension && input.monthlyStatePension > 0
+      ? ["State Pension"]
+      : []),
+  ];
+
+  return sources.length > 0 ? sources : ["None"];
+}
+
+function buildBridgePhases(
+  monthlyRows: Array<{
+    date: string;
+    age: number;
+    ageMonths: number;
+    shortfall: number;
+    surplus: number;
+    isaDrawdown: number;
+    sippDrawdown: number;
+    unfundedShortfall: number;
+    activeSources: string[];
+  }>,
+  settings: PensionSettings,
+  retirementDate: string,
+  endDate: string,
+): BridgePhase[] {
+  if (monthlyRows.length === 0) {
+    return [];
+  }
+
+  const eventDates = [
+    retirementDate,
+    ...(settings.showSipp ? [addYears(settings.dateOfBirth, settings.sippDrawAge)] : []),
+    ...(settings.showAlpha ? [addYears(settings.dateOfBirth, settings.alphaPensionDrawAge)] : []),
+    ...(settings.showNuvos ? [addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge)] : []),
+    ...(settings.showStatePension ? [settings.statePensionDrawDate] : []),
+    endDate,
+  ]
+    .filter((date) => date >= retirementDate && date <= endDate)
+    .sort();
+  const uniqueEventDates = [...new Set(eventDates)];
+
+  return uniqueEventDates.slice(0, -1).flatMap((phaseStart, index) => {
+    const nextPhaseStart = uniqueEventDates[index + 1];
+    const rows = monthlyRows.filter((row) =>
+      index === uniqueEventDates.length - 2
+        ? row.date >= phaseStart && row.date <= nextPhaseStart
+        : row.date >= phaseStart && row.date < nextPhaseStart,
+    );
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const firstRow = rows[0];
+    const lastRow = rows.at(-1) ?? firstRow;
+    const totalDrawdown = rows.reduce(
+      (total, row) => total + row.isaDrawdown + row.sippDrawdown,
+      0,
+    );
+    const totalUnfunded = rows.reduce(
+      (total, row) => total + row.unfundedShortfall,
+      0,
+    );
+    const averageAnnualShortfall =
+      (rows.reduce((total, row) => total + row.shortfall, 0) / rows.length) * 12;
+    const averageAnnualSurplus =
+      (rows.reduce((total, row) => total + row.surplus, 0) / rows.length) * 12;
+    const potLabels = [
+      rows.some((row) => row.isaDrawdown > 0) ? "ISA" : "",
+      rows.some((row) => row.sippDrawdown > 0) ? "SIPP" : "",
+      rows.some((row) => row.unfundedShortfall > 0) ? "Unfunded" : "",
+    ].filter(Boolean);
+
+    return [
+      {
+        startDate: firstRow.date,
+        endDate: lastRow.date,
+        startAge: firstRow.age,
+        startAgeMonths: firstRow.ageMonths,
+        endAge: lastRow.age,
+        endAgeMonths: lastRow.ageMonths,
+        label: formatBridgePhaseLabel(firstRow.date, nextPhaseStart, settings),
+        incomeSourcesActive: firstRow.activeSources,
+        potUsed: potLabels.length > 0 ? potLabels.join(" + ") : "None",
+        annualShortfall: averageAnnualShortfall,
+        annualSurplus: averageAnnualSurplus,
+        totalBridgeRequired: totalDrawdown,
+        unfundedShortfall: totalUnfunded,
+      },
+    ];
+  });
+}
+
+function formatBridgePhaseLabel(
+  phaseStart: string,
+  nextPhaseStart: string,
+  settings: PensionSettings,
+) {
+  const sippAccessDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
+  const alphaDrawDate = addYears(settings.dateOfBirth, settings.alphaPensionDrawAge);
+  const nuvosDrawDate = addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge);
+
+  if (phaseStart === addYears(settings.dateOfBirth, settings.targetRetirementAge)) {
+    if (settings.showSipp && nextPhaseStart === sippAccessDate) {
+      return "Retirement to SIPP access";
+    }
+
+    return "From retirement";
+  }
+
+  if (settings.showSipp && phaseStart === sippAccessDate) {
+    return "From SIPP access";
+  }
+
+  if (settings.showAlpha && phaseStart === alphaDrawDate) {
+    return "From Alpha";
+  }
+
+  if (settings.showNuvos && phaseStart === nuvosDrawDate) {
+    return "From nuvos";
+  }
+
+  if (settings.showStatePension && phaseStart === settings.statePensionDrawDate) {
+    return "State Pension onward";
+  }
+
+  return "Bridge phase";
+}
+
+function buildBridgePotProjection(
+  monthlyRows: BridgePotProjectionRow[],
+): BridgePotProjectionRow[] {
+  let hasIncludedFirstUnfundedRow = false;
+
+  return monthlyRows.filter((row, index) => {
+    const isFirstUnfundedRow =
+      row.unfundedShortfall > 0 && !hasIncludedFirstUnfundedRow;
+
+    if (isFirstUnfundedRow) {
+      hasIncludedFirstUnfundedRow = true;
+    }
+
+    return (
+      index === 0 ||
+      index === monthlyRows.length - 1 ||
+      row.ageMonths === 0 ||
+      isFirstUnfundedRow
+    );
+  });
+}
+
+function calculateEarliestSustainablePensionDrawAge(settings: PensionSettings) {
+  if (!settings.showAlpha && !settings.showNuvos) {
+    return null;
+  }
+
+  const earliestAge = Math.max(55, Math.ceil(settings.targetRetirementAge));
+  const latestAge = Math.min(
+    settings.showAlpha ? settings.normalPensionAge : 70,
+    settings.showNuvos ? NUVOS_NORMAL_PENSION_AGE : 70,
+  );
+
+  for (let age = earliestAge; age <= latestAge; age += 1) {
+    const candidateSettings = prepareBridgeProjectionSettings({
+      ...settings,
+      alphaPensionDrawAge: settings.showAlpha ? age : settings.alphaPensionDrawAge,
+      nuvosPensionDrawAge: settings.showNuvos ? age : settings.nuvosPensionDrawAge,
+      showSipp: false,
+      showIsa: false,
+    });
+    const rows = createProjectionTable(candidateSettings);
+    const analysis = generateRetirementBridgeAnalysis(rows, {
+      ...candidateSettings,
+      showSipp: settings.showSipp,
+      showIsa: settings.showIsa,
+    });
+
+    if (
+      analysis.planWorks &&
+      analysis.stableAnnualGuaranteedIncome >= settings.desiredRetirementIncome
+    ) {
+      return age;
+    }
+  }
+
+  return null;
+}
+
 function buildRetirementIncomeSummary({
   alphaMonthlyIncome,
   nuvosMonthlyIncome,
@@ -923,7 +1351,9 @@ function buildRetirementIncomeSummary({
   settings: PensionSettings;
 }): RetirementIncomeSummary {
   const sources: RetirementIncomeSource[] = [
-    createRetirementIncomeSource("alpha", "Alpha pension", alphaMonthlyIncome),
+    ...(settings.showAlpha
+      ? [createRetirementIncomeSource("alpha", "Alpha pension", alphaMonthlyIncome)]
+      : []),
     ...(settings.showNuvos
       ? [createRetirementIncomeSource("nuvos", "nuvos pension", nuvosMonthlyIncome)]
       : []),
@@ -1029,6 +1459,10 @@ export function calculateMonthlyStandardAlphaAccrual(
   settings: PensionSettings,
   rowDate: string,
 ) {
+  if (!settings.showAlpha) {
+    return 0;
+  }
+
   return isEpaAccrualDate(settings, rowDate)
     ? 0
     : calculateMonthlyAlphaAccrual(settings.pensionableEarnings) *
@@ -1039,6 +1473,10 @@ export function calculateMonthlyEpaAlphaAccrual(
   settings: PensionSettings,
   rowDate: string,
 ) {
+  if (!settings.showAlpha) {
+    return 0;
+  }
+
   return isEpaAccrualDate(settings, rowDate)
     ? calculateMonthlyAlphaAccrual(settings.pensionableEarnings) *
         getPartialRetirementContributionMultiplier(settings, rowDate)
@@ -1059,6 +1497,13 @@ function calculateStartingAlphaPortionsAtStartDate(input: {
   accrualStopDate: string;
 }) {
   const { settings, alphaAbsDate, accrualStopDate } = input;
+
+  if (!settings.showAlpha) {
+    return {
+      standardAlphaPension: 0,
+      epaAlphaPension: 0,
+    };
+  }
 
   if (alphaAbsDate >= settings.startDate) {
     return {
@@ -1981,8 +2426,12 @@ export function generateMilestoneDefinitions(
     ...(alphaAbsDate ? [{ date: alphaAbsDate, label: LAST_ABS_STATEMENT_LABEL }] : []),
     ...(nuvosAbsDate ? [{ date: nuvosAbsDate, label: "Last nuvos ABS" }] : []),
     { date: startDate, label: CALCULATION_START_LABEL },
-    { date: alphaPensionStopDate, label: STOPS_ALPHA_ACCRUAL_LABEL },
-    { date: alphaPensionDrawDate, label: STARTS_ALPHA_PENSION_LABEL },
+    ...(alphaPensionStopDate
+      ? [{ date: alphaPensionStopDate, label: STOPS_ALPHA_ACCRUAL_LABEL }]
+      : []),
+    ...(alphaPensionDrawDate
+      ? [{ date: alphaPensionDrawDate, label: STARTS_ALPHA_PENSION_LABEL }]
+      : []),
     ...(nuvosPensionStopDate
       ? [{ date: nuvosPensionStopDate, label: STOPS_NUVOS_ACCRUAL_LABEL }]
       : []),
@@ -2146,7 +2595,7 @@ function createHistoricalProjectionRows(input: {
     const age = calculateAge(settings.dateOfBirth, rowDate);
     const ageMonths = calculateAgeMonths(settings.dateOfBirth, rowDate);
     const monthlyAddedPension =
-      rowDate === alphaAbsDate
+      rowDate === alphaAbsDate || !settings.showAlpha
         ? 0
         : calculateMonthlyAddedPension({
             rowDate,
@@ -2159,12 +2608,14 @@ function createHistoricalProjectionRows(input: {
               rowDate,
             ),
           });
-    const lumpSumAddedPension = calculateLumpSumAddedPension({
-      rowDate,
-      previousRowDate,
-      dateOfBirth: settings.dateOfBirth,
-      lumpSums: settings.alphaAddedPensionLumpSums,
-    });
+    const lumpSumAddedPension = settings.showAlpha
+      ? calculateLumpSumAddedPension({
+          rowDate,
+          previousRowDate,
+          dateOfBirth: settings.dateOfBirth,
+          lumpSums: settings.alphaAddedPensionLumpSums,
+        })
+      : 0;
     cumulativeLumpSumAddedPension += monthlyAddedPension + lumpSumAddedPension;
     if (rowDate > alphaAbsDate && rowDate <= accrualStopDate) {
       cumulativeStandardAlphaPension += calculateMonthlyStandardAlphaAccrual(

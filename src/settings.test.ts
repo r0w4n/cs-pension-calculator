@@ -1,5 +1,6 @@
 import {
   SETTINGS_STORAGE_KEY,
+  calculateMinimumSippAccessAge,
   calculateNormalPensionAge,
   calculateStatePensionDrawDate,
   createAlphaAbsDateFromYear,
@@ -12,6 +13,7 @@ import {
   isValidIsoDate,
   loadStoredSettings,
   normalizeSetting,
+  normalizeSippDrawAge,
   normalizeStatePensionDrawDate,
   resolveAlphaAbsDate,
   saveSettings,
@@ -23,6 +25,8 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   return {
     dateOfBirth: defaultSettings.dateOfBirth,
     lifeExpectancy: defaultSettings.lifeExpectancy,
+    targetRetirementAge: defaultSettings.targetRetirementAge,
+    showAlpha: defaultSettings.showAlpha,
     showNuvos: defaultSettings.showNuvos,
     showStatePension: defaultSettings.showStatePension,
     showSipp: defaultSettings.showSipp,
@@ -140,6 +144,8 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("alphaPensionLeaveAge", 20)).toBe(40);
     expect(normalizeSetting("alphaPensionDrawAge", 60.5)).toBe(60.5);
     expect(normalizeSetting("alphaPensionDrawAge", 200)).toBe(70);
+    expect(normalizeSippDrawAge(55, "1987-06-15")).toBe(58);
+    expect(normalizeSippDrawAge(55, "1970-04-05")).toBe(55);
   });
 
   it("normalizes invalid dates back to defaults", () => {
@@ -214,7 +220,9 @@ describe("settings unit tests", () => {
       startDate: "2026-04-25",
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: 100,
+      targetRetirementAge: defaultSettings.targetRetirementAge,
       normalPensionAge: calculateNormalPensionAge(defaultSettings.dateOfBirth),
+      showAlpha: defaultSettings.showAlpha,
       showNuvos: defaultSettings.showNuvos,
       showStatePension: defaultSettings.showStatePension,
       showSipp: defaultSettings.showSipp,
@@ -605,6 +613,12 @@ describe("settings unit tests", () => {
     expect(calculateStatePensionDrawDate("1978-03-06")).toBe("2046-03-06");
     expect(calculateStatePensionDrawDate("1978-04-06")).toBe("2046-04-06");
     expect(calculateStatePensionDrawDate("1987-06-15")).toBe("2055-06-15");
+  });
+
+  it("derives SIPP access age from date of birth and Normal Pension Age", () => {
+    expect(calculateMinimumSippAccessAge("1970-04-05")).toBe(55);
+    expect(calculateMinimumSippAccessAge("1973-04-06")).toBe(57);
+    expect(calculateMinimumSippAccessAge("1987-06-15")).toBe(58);
   });
 
   it("allows State Pension deferral dates but clamps them to State Pension age", () => {

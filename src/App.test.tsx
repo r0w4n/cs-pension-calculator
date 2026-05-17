@@ -257,6 +257,8 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   return {
     dateOfBirth: defaultSettings.dateOfBirth,
     lifeExpectancy: defaultSettings.lifeExpectancy,
+    targetRetirementAge: defaultSettings.targetRetirementAge,
+    showAlpha: defaultSettings.showAlpha,
     showNuvos: defaultSettings.showNuvos,
     showStatePension: defaultSettings.showStatePension,
     showSipp: defaultSettings.showSipp,
@@ -323,7 +325,9 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderAcknowledgedApp(options: { mode?: "expert" | "journey" | null } = {}) {
+function renderAcknowledgedApp(
+  options: { mode?: "expert" | "journey" | "bridge" | null } = {},
+) {
   const { mode = "expert" } = options;
 
   render(<App />);
@@ -336,6 +340,14 @@ function renderAcknowledgedApp(options: { mode?: "expert" | "journey" | null } =
   if (mode === "journey") {
     fireEvent.click(
       screen.getByRole("button", { name: /Take me through a journey/i }),
+    );
+  }
+
+  if (mode === "bridge") {
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Work out what I need to retire early/i,
+      }),
     );
   }
 }
@@ -444,6 +456,29 @@ describe("App settings form", () => {
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         alphaPensionDrawAge: 62,
+      }),
+    );
+  });
+
+  it("keeps the bridge target retirement age stable after slider release", () => {
+    renderAcknowledgedApp({ mode: "bridge" });
+
+    const targetAgeSlider = screen.getByLabelText("Target retirement age");
+
+    fireEvent.change(targetAgeSlider, {
+      target: { value: "55" },
+    });
+    expect(targetAgeSlider).toHaveValue("55");
+
+    fireEvent.mouseUp(targetAgeSlider);
+
+    expect(targetAgeSlider).toHaveValue("55");
+    expect(
+      screen.getByLabelText("Target retirement age exact value"),
+    ).toHaveValue(55);
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        targetRetirementAge: 55,
       }),
     );
   });
@@ -662,6 +697,7 @@ describe("App settings form", () => {
         (label) => label.textContent,
       ),
     ).toEqual([
+      "Alpha",
       "Partial retirement",
       "State Pension",
       "nuvos",
