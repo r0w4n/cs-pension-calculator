@@ -25,6 +25,13 @@ import {
   type ProjectionRow,
 } from "./projection";
 import {
+  RetirementIncomeBridgeChart,
+  type RetirementIncomeBridgeLimits,
+  type RetirementIncomeBridgeParameters,
+  type RetirementIncomePoint,
+} from "./RetirementIncomeBridgeChart";
+import {
+  calculateMinimumSippAccessAge,
   createDefaultAddedPensionLumpSum,
   calculateNormalPensionAge,
   createDefaultSettings,
@@ -35,6 +42,7 @@ import {
   loadStoredSettings,
   MAX_ADDED_PENSION_PURCHASE_INPUT_AGE,
   normalizeSetting,
+  normalizeSippDrawAge,
   normalizeStatePensionDrawDate,
   readStorageItem,
   saveSettings,
@@ -142,7 +150,12 @@ const GUIDED_JOURNEYS = [
         description:
           "These dates and income targets anchor every projection in the modeller.",
         kind: "fields",
-        fieldIds: ["dateOfBirth", "lifeExpectancy", "desiredRetirementIncome"],
+        fieldIds: [
+          "dateOfBirth",
+          "lifeExpectancy",
+          "requirementAge",
+          "desiredRetirementIncome",
+        ],
       },
       {
         id: "inflation",
@@ -231,7 +244,6 @@ const GUIDED_JOURNEYS = [
         fieldIds: [
           "isaCurrentPot",
           "isaMonthlyContribution",
-          "isaDrawAge",
           "isaApplyRealInterest",
           "isaRealInterestPercent",
           "isaWithdrawalStrategy",
@@ -308,6 +320,18 @@ function App() {
     () => generatePensionSummary(projectionRows, deferredSettings),
     [projectionRows, deferredSettings],
   );
+  const retirementIncomeSeries = useMemo(
+    () => createRetirementIncomeSeries(projectionRows, deferredSettings),
+    [projectionRows, deferredSettings],
+  );
+  const bridgeChartParameters = useMemo(
+    () => createBridgeChartParameters(settings),
+    [settings],
+  );
+  const bridgeChartLimits = useMemo(
+    () => createBridgeChartLimits(settings),
+    [settings],
+  );
   const derivedInflationAssumptions = useMemo(
     () => deriveInflationAssumptions(deferredSettings),
     [deferredSettings],
@@ -342,11 +366,11 @@ function App() {
     retirementIncomeDisplay === "monthly"
       ? calculateRetirementIncomeTargetAtDate(
           settings,
-          pensionSummary.keyDates.startsAlphaPension,
+          addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge),
         ) / 12
       : calculateRetirementIncomeTargetAtDate(
           settings,
-          pensionSummary.keyDates.startsAlphaPension,
+          addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge),
         ),
   );
 
@@ -362,12 +386,169 @@ function App() {
     };
   }, []);
 
+  function applyBridgeChartParameterPatch(
+    current: PensionSettings,
+    patch: Partial<RetirementIncomeBridgeParameters>,
+  ) {
+    const next = { ...current };
+    const minimumSippAccessAge = calculateMinimumSippAccessAge(next.dateOfBirth);
+    const currentPlanningAge = calculateCurrentPlanningAge(next);
+    const defaultStatePensionAge = calculateDateAge(
+      next.dateOfBirth,
+      calculateStatePensionDrawDate(next.dateOfBirth),
+    );
+
+    if (patch.targetIncomeAnnual !== undefined) {
+      next.desiredRetirementIncome = normalizeSetting(
+        "desiredRetirementIncome",
+        patch.targetIncomeAnnual,
+      );
+    }
+
+    if (patch.alphaMonthlyAddedPension !== undefined) {
+      next.alphaAddedPensionMonthly = normalizeSetting(
+        "alphaAddedPensionMonthly",
+        patch.alphaMonthlyAddedPension,
+      );
+    }
+
+    if (patch.isaMonthlyContribution !== undefined) {
+      next.isaMonthlyContribution = normalizeSetting(
+        "isaMonthlyContribution",
+        patch.isaMonthlyContribution,
+      );
+    }
+
+    if (patch.sippMonthlyContribution !== undefined) {
+      next.sippMonthlyContribution = normalizeSetting(
+        "sippMonthlyContribution",
+        patch.sippMonthlyContribution,
+      );
+    }
+
+    if (patch.showIsa !== undefined) {
+      next.showIsa = patch.showIsa;
+    }
+
+    if (patch.showSipp !== undefined) {
+      next.showSipp = patch.showSipp;
+    }
+
+    if (patch.showStatePension !== undefined) {
+      next.showStatePension = patch.showStatePension;
+    }
+
+    const requestedStateAge =
+      patch.statePensionAge ??
+      calculateDateAge(next.dateOfBirth, next.statePensionDrawDate);
+    const statePensionAge = clampNumber(
+      requestedStateAge,
+      defaultStatePensionAge,
+      Math.max(defaultStatePensionAge, next.lifeExpectancy),
+    );
+
+    if (patch.statePensionAge !== undefined) {
+      next.statePensionDrawDate = normalizeStatePensionDrawDate(
+        addYearsToIsoDate(next.dateOfBirth, statePensionAge),
+        next.dateOfBirth,
+      );
+    }
+
+    if (patch.retirementAge !== undefined) {
+      const retirementAge = clampNumber(
+        patch.retirementAge,
+        currentPlanningAge,
+        Math.min(70, statePensionAge),
+      );
+      next.requirementAge = normalizeSetting("requirementAge", retirementAge);
+      next.isaDrawAge = normalizeSetting("isaDrawAge", retirementAge);
+
+      if (next.showSipp && next.sippDrawAge < Math.max(retirementAge, minimumSippAccessAge)) {
+        next.sippDrawAge = normalizeSippDrawAge(
+          Math.max(retirementAge, minimumSippAccessAge),
+          next.dateOfBirth,
+        );
+      }
+    }
+
+    if (patch.alphaLeaveAge !== undefined) {
+      const alphaLeaveAge = clampNumber(
+        patch.alphaLeaveAge,
+        currentPlanningAge,
+        Math.min(70, statePensionAge),
+      );
+      next.alphaPensionLeaveAge = normalizeSetting(
+        "alphaPensionLeaveAge",
+        alphaLeaveAge,
+      );
+    }
+
+    if (patch.sippAccessAge !== undefined) {
+      const sippAccessAge = clampNumber(
+        patch.sippAccessAge,
+        Math.max(next.requirementAge, minimumSippAccessAge),
+        Math.min(70, statePensionAge),
+      );
+      next.sippDrawAge = normalizeSippDrawAge(sippAccessAge, next.dateOfBirth);
+    }
+
+    if (patch.alphaStartAge !== undefined) {
+      const alphaStartAge = clampNumber(
+        patch.alphaStartAge,
+        next.alphaPensionLeaveAge,
+        Math.min(70, statePensionAge),
+      );
+      next.alphaPensionDrawAge = normalizeSetting(
+        "alphaPensionDrawAge",
+        alphaStartAge,
+      );
+    }
+
+    if (
+      next.showSipp &&
+      next.sippDrawAge < Math.max(next.requirementAge, minimumSippAccessAge)
+    ) {
+      next.sippDrawAge = normalizeSippDrawAge(
+        Math.max(next.requirementAge, minimumSippAccessAge),
+        next.dateOfBirth,
+      );
+    }
+
+    if (next.alphaPensionLeaveAge > next.alphaPensionDrawAge) {
+      next.alphaPensionDrawAge = normalizeSetting(
+        "alphaPensionDrawAge",
+        next.alphaPensionLeaveAge,
+      );
+    }
+
+    if (next.alphaPensionDrawAge > statePensionAge) {
+      next.alphaPensionDrawAge = normalizeSetting(
+        "alphaPensionDrawAge",
+        Math.min(70, statePensionAge),
+      );
+    }
+
+    return next;
+  }
+
   function updateSetting<K extends SettingsKey>(key: K, value: PensionSettings[K]) {
     showSavedLabel();
+
+    if (key === "requirementAge") {
+      setSettings((current) =>
+        applyBridgeChartParameterPatch(current, {
+          retirementAge: value as number,
+        }),
+      );
+      return;
+    }
+
     setSettings((current) => {
       const normalizedValue =
         key === "statePensionDrawDate"
           ? normalizeStatePensionDrawDate(value as string, current.dateOfBirth)
+          : key === "sippDrawAge"
+            ? normalizeSippDrawAge(value as number, current.dateOfBirth)
           : normalizeSetting(key, value);
 
       return {
@@ -376,11 +557,19 @@ function App() {
         ...(key === "dateOfBirth"
           ? {
               normalPensionAge: calculateNormalPensionAge(value as string),
+              sippDrawAge: normalizeSippDrawAge(current.sippDrawAge, value as string),
               statePensionDrawDate: calculateStatePensionDrawDate(value as string),
             }
           : {}),
       };
     });
+  }
+
+  function updateBridgeChartParameters(
+    patch: Partial<RetirementIncomeBridgeParameters>,
+  ) {
+    showSavedLabel();
+    setSettings((current) => applyBridgeChartParameterPatch(current, patch));
   }
 
   function resetSettings() {
@@ -643,6 +832,15 @@ function App() {
             <InflationBasisPanel
               settings={deferredSettings}
               assumptions={derivedInflationAssumptions}
+            />
+
+            <RetirementIncomeBridgeChart
+              data={retirementIncomeSeries}
+              alphaLabel={settings.showNuvos ? "Alpha / nuvos pension" : "Alpha pension"}
+              limits={bridgeChartLimits}
+              statePensionEditable
+              onChangeParameters={updateBridgeChartParameters}
+              {...bridgeChartParameters}
             />
 
             <section className="panel">
@@ -2125,11 +2323,31 @@ function RangeSettingField({
 }
 
 function getEffectiveRangeField(field: RangeField, settings: PensionSettings): RangeField {
+  let effectiveField = field;
+
+  if (field.id === "sippDrawAge") {
+    effectiveField = {
+      ...effectiveField,
+      min: calculateMinimumSippAccessAge(settings.dateOfBirth),
+    };
+  }
+
+  if (
+    field.id === "alphaPensionLeaveAge" ||
+    field.id === "isaDrawAge" ||
+    field.id === "requirementAge"
+  ) {
+    effectiveField = {
+      ...effectiveField,
+      min: Math.min(effectiveField.max, calculateCurrentPlanningAge(settings)),
+    };
+  }
+
   if (
     settings.alphaAddedPensionMonthly <= 0 ||
     (field.id !== "alphaPensionDrawAge" && field.id !== "alphaPensionLeaveAge")
   ) {
-    return field;
+    return effectiveField;
   }
 
   const pairedStopAge =
@@ -2138,12 +2356,15 @@ function getEffectiveRangeField(field: RangeField, settings: PensionSettings): R
       : settings.alphaPensionDrawAge;
 
   if (pairedStopAge <= MAX_ADDED_PENSION_PURCHASE_INPUT_AGE) {
-    return field;
+    return effectiveField;
   }
 
+  const cappedMax = Math.min(effectiveField.max, MAX_ADDED_PENSION_PURCHASE_INPUT_AGE);
+
   return {
-    ...field,
-    max: Math.min(field.max, MAX_ADDED_PENSION_PURCHASE_INPUT_AGE),
+    ...effectiveField,
+    min: Math.min(effectiveField.min, cappedMax),
+    max: cappedMax,
   };
 }
 
@@ -2728,6 +2949,192 @@ function formatModelledReturn(
   return projectionBasis === "real"
     ? `${formatPercent(rate)} real return`
     : formatPercent(rate);
+}
+
+function createRetirementIncomeSeries(
+  rows: ProjectionRow[],
+  settings: PensionSettings,
+): RetirementIncomePoint[] {
+  const statePensionAge = calculateDateAge(
+    settings.dateOfBirth,
+    settings.statePensionDrawDate,
+  );
+  const requirementDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.requirementAge,
+  );
+
+  return rows
+    .filter((row) => row.date >= settings.startDate)
+    .map((row) => {
+      const age = row.age + row.ageMonths / 12;
+      const isaIncomeAnnual = settings.showIsa ? row.monthlyIsaPension * 12 : 0;
+      const sippIncomeAnnual = settings.showSipp ? row.monthlySippPension * 12 : 0;
+      const alphaIncomeAnnual =
+        (row.monthlyAlphaPensionTakeHome +
+          (settings.showNuvos ? row.monthlyNuvosPensionTakeHome : 0)) *
+        12;
+      const statePensionIncomeAnnual = settings.showStatePension
+        ? row.monthlyStatePension * 12
+        : 0;
+      const targetIncomeAnnual =
+        row.date >= requirementDate
+          ? calculateRetirementIncomeTargetAtDate(settings, row.date)
+          : 0;
+      const totalIncomeAnnual =
+        isaIncomeAnnual +
+        sippIncomeAnnual +
+        alphaIncomeAnnual +
+        statePensionIncomeAnnual;
+
+      return {
+        date: row.date,
+        age,
+        targetIncomeAnnual,
+        isaIncomeAnnual,
+        sippIncomeAnnual,
+        alphaIncomeAnnual,
+        statePensionIncomeAnnual,
+        totalIncomeAnnual,
+        shortfallAnnual: Math.max(0, targetIncomeAnnual - totalIncomeAnnual),
+        isaBalance: row.isaPot,
+        sippBalance: row.sippPot,
+        phase: getRetirementIncomePhase(age, settings, statePensionAge),
+      };
+    });
+}
+
+function createBridgeChartParameters(
+  settings: PensionSettings,
+): RetirementIncomeBridgeParameters {
+  return {
+    targetIncomeAnnual: settings.desiredRetirementIncome,
+    alphaMonthlyAddedPension: settings.alphaAddedPensionMonthly,
+    isaMonthlyContribution: settings.isaMonthlyContribution,
+    sippMonthlyContribution: settings.sippMonthlyContribution,
+    retirementAge: settings.requirementAge,
+    alphaLeaveAge: settings.alphaPensionLeaveAge,
+    sippAccessAge: settings.sippDrawAge,
+    alphaStartAge: settings.alphaPensionDrawAge,
+    statePensionAge: calculateDateAge(
+      settings.dateOfBirth,
+      settings.statePensionDrawDate,
+    ),
+    showIsa: settings.showIsa,
+    showSipp: settings.showSipp,
+    showStatePension: settings.showStatePension,
+  };
+}
+
+function createBridgeChartLimits(settings: PensionSettings): RetirementIncomeBridgeLimits {
+  const statePensionAge = Math.round(
+    calculateDateAge(settings.dateOfBirth, settings.statePensionDrawDate),
+  );
+  const minimumSippAccessAge = calculateMinimumSippAccessAge(settings.dateOfBirth);
+  const currentPlanningAge = calculateCurrentPlanningAge(settings);
+  const defaultStatePensionAge = Math.round(
+    calculateDateAge(
+      settings.dateOfBirth,
+      calculateStatePensionDrawDate(settings.dateOfBirth),
+    ),
+  );
+  const ageUpperLimit = Math.max(currentPlanningAge, Math.min(70, statePensionAge));
+
+  return {
+    targetIncomeAnnual: { min: 0, max: 200000, step: 600 },
+    alphaMonthlyAddedPension: { min: 0, max: 1000, step: 25 },
+    isaMonthlyContribution: { min: 0, max: 5000, step: 25 },
+    sippMonthlyContribution: { min: 0, max: 5000, step: 25 },
+    retirementAge: { min: currentPlanningAge, max: ageUpperLimit, step: 0.25 },
+    alphaLeaveAge: { min: currentPlanningAge, max: ageUpperLimit, step: 0.25 },
+    sippAccessAge: {
+      min: Math.max(settings.requirementAge, minimumSippAccessAge),
+      max: ageUpperLimit,
+      step: 0.25,
+    },
+    alphaStartAge: {
+      min: settings.alphaPensionLeaveAge,
+      max: ageUpperLimit,
+      step: 0.25,
+    },
+    statePensionAge: {
+      min: defaultStatePensionAge,
+      max: Math.max(defaultStatePensionAge, settings.lifeExpectancy),
+      step: 0.25,
+    },
+  };
+}
+
+function getRetirementIncomePhase(
+  age: number,
+  settings: PensionSettings,
+  statePensionAge: number,
+): RetirementIncomePoint["phase"] {
+  if (age < settings.isaDrawAge) {
+    return "build-up";
+  }
+
+  if (settings.showIsa && (!settings.showSipp || age < settings.sippDrawAge)) {
+    return "isa-bridge";
+  }
+
+  if (settings.showSipp && age < settings.alphaPensionDrawAge) {
+    return "sipp-bridge";
+  }
+
+  if (!settings.showStatePension || age < statePensionAge) {
+    if (!settings.showSipp) {
+      return "alpha-only";
+    }
+
+    return "alpha-sipp";
+  }
+
+  return "alpha-state";
+}
+
+function calculateDateAge(dateOfBirth: string, date: string) {
+  const [birthYear, birthMonth, birthDay] = dateOfBirth.split("-").map(Number);
+  const [year, month, day] = date.split("-").map(Number);
+
+  if (
+    !Number.isFinite(birthYear) ||
+    !Number.isFinite(birthMonth) ||
+    !Number.isFinite(birthDay) ||
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  ) {
+    return 0;
+  }
+
+  const yearAge = year - birthYear;
+  const monthOffset = month - birthMonth;
+  const dayOffset = day - birthDay;
+  const adjustedMonthOffset = monthOffset + dayOffset / 31;
+
+  return yearAge + adjustedMonthOffset / 12;
+}
+
+function calculateCurrentPlanningAge(settings: PensionSettings) {
+  return Math.max(0, Math.ceil(calculateDateAge(settings.dateOfBirth, settings.startDate)));
+}
+
+function addYearsToIsoDate(value: string, years: number) {
+  const [year, month, day] = value.split("-").map(Number);
+  const wholeYears = Math.floor(years);
+  const remainingMonths = Math.round((years - wholeYears) * 12);
+  const nextDate = new Date(Date.UTC(year + wholeYears, month - 1 + remainingMonths, day));
+
+  return [
+    nextDate.getUTCFullYear(),
+    String(nextDate.getUTCMonth() + 1).padStart(2, "0"),
+    String(nextDate.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function formatAge(years: number, months: number) {

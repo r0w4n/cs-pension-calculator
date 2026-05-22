@@ -1,4 +1,5 @@
 import {
+  calculateMinimumSippAccessAge,
   SETTINGS_STORAGE_KEY,
   calculateNormalPensionAge,
   calculateStatePensionDrawDate,
@@ -12,6 +13,7 @@ import {
   isValidIsoDate,
   loadStoredSettings,
   normalizeSetting,
+  normalizeSippDrawAge,
   normalizeStatePensionDrawDate,
   resolveAlphaAbsDate,
   saveSettings,
@@ -23,6 +25,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   return {
     dateOfBirth: defaultSettings.dateOfBirth,
     lifeExpectancy: defaultSettings.lifeExpectancy,
+    requirementAge: defaultSettings.requirementAge,
     projectionBasis: defaultSettings.projectionBasis,
     inflationRateAnnual: defaultSettings.inflationRateAnnual,
     showNuvos: defaultSettings.showNuvos,
@@ -129,6 +132,7 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("currentStatePension", 12547.6)).toBe(12547.6);
     expect(normalizeSetting("desiredRetirementIncome", 250000)).toBe(200000);
     expect(normalizeSetting("desiredRetirementIncome", 43899.6)).toBe(43900);
+    expect(normalizeSetting("requirementAge", 60.25)).toBe(60.25);
     expect(normalizeSetting("alphaAddedPensionFactorType", "self_plus_beneficiaries")).toBe(
       "self_plus_beneficiaries",
     );
@@ -143,7 +147,7 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("alphaAddedPensionMonthly", 233)).toBe(233);
     expect(normalizeSetting("pensionableEarnings", 56321)).toBe(56321);
     expect(normalizeSetting("accruedPensionAtLastAbs", 12444.4)).toBe(12444);
-    expect(normalizeSetting("alphaPensionLeaveAge", 20)).toBe(40);
+    expect(normalizeSetting("alphaPensionLeaveAge", 20)).toBe(20);
     expect(normalizeSetting("alphaPensionDrawAge", 60.5)).toBe(60.5);
     expect(normalizeSetting("alphaPensionDrawAge", 200)).toBe(70);
   });
@@ -220,6 +224,7 @@ describe("settings unit tests", () => {
       startDate: "2026-04-25",
       dateOfBirth: defaultSettings.dateOfBirth,
       lifeExpectancy: 100,
+      requirementAge: defaultSettings.requirementAge,
       normalPensionAge: calculateNormalPensionAge(defaultSettings.dateOfBirth),
       projectionBasis: defaultSettings.projectionBasis,
       inflationRateAnnual: defaultSettings.inflationRateAnnual,
@@ -242,7 +247,7 @@ describe("settings unit tests", () => {
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
       alphaAddedPensionMonthly: 233,
       alphaAddedPensionFactorType: defaultSettings.alphaAddedPensionFactorType,
-      alphaPensionLeaveAge: 40,
+      alphaPensionLeaveAge: 10,
       accruedPensionAtLastAbs: 12444,
       pensionableEarnings: 56321,
       alphaPensionDrawAge: 70,
@@ -537,6 +542,25 @@ describe("settings unit tests", () => {
     );
   });
 
+  it("reports SIPP draw ages that would only be reachable before the 2028 rule change", () => {
+    const issues = validateSettings({
+      ...createDefaultSettings(),
+      dateOfBirth: "1977-04-10",
+      sippDrawAge: 56,
+      showSipp: true,
+    });
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "sippDrawAge",
+          message:
+            "SIPP draw start age must be at least 57 for access dates on or after 6 April 2028.",
+        }),
+      ]),
+    );
+  });
+
   it("reports lump sum schedules outside their valid contribution windows", () => {
     const issues = validateSettings({
       ...createDefaultSettings(),
@@ -613,6 +637,19 @@ describe("settings unit tests", () => {
     expect(calculateStatePensionDrawDate("1978-03-06")).toBe("2046-03-06");
     expect(calculateStatePensionDrawDate("1978-04-06")).toBe("2046-04-06");
     expect(calculateStatePensionDrawDate("1987-06-15")).toBe("2055-06-15");
+  });
+
+  it("derives the earliest SIPP access age from the 2028 minimum pension age change", () => {
+    expect(calculateMinimumSippAccessAge("1971-04-05")).toBe(55);
+    expect(calculateMinimumSippAccessAge("1973-04-05")).toBe(55);
+    expect(calculateMinimumSippAccessAge("1973-04-06")).toBe(57);
+    expect(calculateMinimumSippAccessAge("1977-04-10")).toBe(57);
+  });
+
+  it("normalizes SIPP draw ages that would fall after the 2028 rule change but before age 57", () => {
+    expect(normalizeSippDrawAge(55, "1977-04-10")).toBe(57);
+    expect(normalizeSippDrawAge(56, "1972-08-01")).toBe(57);
+    expect(normalizeSippDrawAge(55, "1972-08-01")).toBe(55);
   });
 
   it("allows State Pension deferral dates but clamps them to State Pension age", () => {

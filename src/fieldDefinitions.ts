@@ -19,6 +19,7 @@ export type DateField = {
 export type RangeField = {
   id:
     | "lifeExpectancy"
+    | "requirementAge"
     | "inflationRateAnnual"
     | "statePensionCpiPercent"
     | "statePensionWageGrowthPercent"
@@ -158,8 +159,6 @@ export const fieldGroups: FieldGroup[] = [
         id: "dateOfBirth",
         label: "Your Date of Birth",
         type: "date",
-        infoUrl: knowledgeLinks.statePensionAge,
-        infoLinkText: "Check State Pension age",
       },
       {
         id: "lifeExpectancy",
@@ -171,6 +170,17 @@ export const fieldGroups: FieldGroup[] = [
         inputStep: 0.1,
         infoUrl: knowledgeLinks.lifeExpectancy,
         infoLinkText: "Estimate life expectancy",
+      },
+      {
+        id: "requirementAge",
+        label: "Requirement age",
+        type: "range",
+        min: 0,
+        max: 70,
+        step: 1,
+        inputStep: 0.1,
+        description:
+          "The age from which you want the modeller to assess whether your retirement income target is being met.",
       },
       {
         id: "desiredRetirementIncome",
@@ -343,7 +353,7 @@ export const fieldGroups: FieldGroup[] = [
         id: "alphaPensionLeaveAge",
         label: "Age You Leave Alpha Scheme",
         type: "range",
-        min: 40,
+        min: 0,
         max: 70,
         step: 1,
         inputStep: 0.1,
@@ -602,15 +612,6 @@ export const fieldGroups: FieldGroup[] = [
         step: 25,
         format: "currency",
         valuePrefix: "/mo",
-      },
-      {
-        id: "isaDrawAge",
-        label: "ISA draw start age",
-        type: "range",
-        min: 55,
-        max: 70,
-        step: 1,
-        inputStep: 0.1,
       },
       {
         id: "isaApplyRealInterest",

@@ -1,6 +1,7 @@
 export const SETTINGS_STORAGE_KEY = "cs-pension-modeller.settings";
 export const FIRST_UNSUPPORTED_ADDED_PENSION_PURCHASE_AGE = 68;
 export const MAX_ADDED_PENSION_PURCHASE_INPUT_AGE = 67.9;
+export const NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE = "2028-04-06";
 
 export type AddedPensionLumpSumCadence = "once" | "yearly";
 export type AddedPensionFactorType = "self" | "self_plus_beneficiaries";
@@ -23,6 +24,7 @@ export type PensionSettings = {
   startDate: string;
   dateOfBirth: string;
   lifeExpectancy: number;
+  requirementAge: number;
   normalPensionAge: number;
   projectionBasis: ProjectionBasis;
   inflationRateAnnual: number;
@@ -101,6 +103,7 @@ type StoredPensionSettings = Omit<
 
 const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
+  requirementAge: { min: 0, max: 70, step: 1 },
   inflationRateAnnual: { min: 0, max: 10, step: 0.1 },
   currentStatePension: { min: 0, max: 15000, step: 0.01 },
   desiredRetirementIncome: { min: 0, max: 200000, step: 1 },
@@ -110,7 +113,7 @@ const numericSettingRules = {
   partialRetirementWorkPercent: { min: 0, max: 100, step: 1 },
   assumedCpiPercent: { min: 0, max: 10, step: 0.1 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
-  alphaPensionLeaveAge: { min: 40, max: 70, step: 1 },
+  alphaPensionLeaveAge: { min: 0, max: 70, step: 1 },
   accruedPensionAtLastAbs: { min: 0, max: 50000, step: 1 },
   pensionableEarnings: { min: 10000, max: 150000, step: 500 },
   alphaPensionDrawAge: { min: 55, max: 70, step: 1 },
@@ -127,7 +130,7 @@ const numericSettingRules = {
   sippWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
   isaCurrentPot: { min: 0, max: 2_000_000, step: 1 },
   isaMonthlyContribution: { min: 0, max: 5000, step: 25 },
-  isaDrawAge: { min: 55, max: 70, step: 1 },
+  isaDrawAge: { min: 0, max: 70, step: 1 },
   isaRealInterestPercent: { min: -10, max: 10, step: 0.1 },
   isaWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
   taxPersonalAllowance: { min: 0, max: 50000, step: 1 },
@@ -144,6 +147,7 @@ type NumericSettingKey = keyof typeof numericSettingRules;
 
 const decimalAgeSettingKeys: readonly NumericSettingKey[] = [
   "lifeExpectancy",
+  "requirementAge",
   "partialRetirementStartAge",
   "alphaPensionLeaveAge",
   "alphaPensionDrawAge",
@@ -157,6 +161,7 @@ export const defaultSettings: PensionSettings = {
   startDate: getTodayIsoDate(),
   dateOfBirth: "1987-06-15",
   lifeExpectancy: 88,
+  requirementAge: 60,
   normalPensionAge: 68,
   projectionBasis: "real",
   inflationRateAnnual: 2.5,
@@ -349,6 +354,8 @@ function coerceSettings(
   return {
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
+    requirementAge:
+      coerceNumber(input.requirementAge) ?? coerceNumber(input.isaDrawAge),
     projectionBasis: coerceString(input.projectionBasis) as
       | ProjectionBasis
       | undefined,
@@ -523,6 +530,10 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     settings.dateOfBirth,
     settings.lifeExpectancy,
   );
+  const requirementDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.requirementAge,
+  );
   const alphaDrawDate = addYearsToIsoDate(
     settings.dateOfBirth,
     settings.alphaPensionDrawAge,
@@ -603,6 +614,18 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     issues.push({
       field: "sippDrawAge",
       message: "SIPP draw start age must be within life expectancy.",
+    });
+  }
+
+  if (
+    settings.showSipp &&
+    sippDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE &&
+    sippDrawDate < addYearsToIsoDate(settings.dateOfBirth, 57)
+  ) {
+    issues.push({
+      field: "sippDrawAge",
+      message:
+        "SIPP draw start age must be at least 57 for access dates on or after 6 April 2028.",
     });
   }
 
@@ -785,11 +808,16 @@ function validateLumpSums(
 
 function normalizeSettings(settings: PensionSettings): PensionSettings {
   const dateOfBirth = normalizeSetting("dateOfBirth", settings.dateOfBirth);
+  const requirementAge = normalizeSetting(
+    "requirementAge",
+    settings.requirementAge,
+  );
 
   return {
     startDate: normalizeSetting("startDate", settings.startDate),
     dateOfBirth,
     lifeExpectancy: normalizeSetting("lifeExpectancy", settings.lifeExpectancy),
+    requirementAge,
     normalPensionAge: calculateNormalPensionAge(dateOfBirth),
     projectionBasis: normalizeSetting("projectionBasis", settings.projectionBasis),
     inflationRateAnnual: normalizeSetting(
@@ -908,7 +936,7 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "sippMonthlyContribution",
       settings.sippMonthlyContribution,
     ),
-    sippDrawAge: normalizeSetting("sippDrawAge", settings.sippDrawAge),
+    sippDrawAge: normalizeSippDrawAge(settings.sippDrawAge, dateOfBirth),
     sippLumpSums: normalizeSetting("sippLumpSums", settings.sippLumpSums),
     sippApplyRealInterest: Boolean(settings.sippApplyRealInterest),
     sippRealInterestPercent: normalizeSetting(
@@ -929,7 +957,7 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "isaMonthlyContribution",
       settings.isaMonthlyContribution,
     ),
-    isaDrawAge: normalizeSetting("isaDrawAge", settings.isaDrawAge),
+    isaDrawAge: normalizeSetting("isaDrawAge", requirementAge),
     isaLumpSums: normalizeSetting("isaLumpSums", settings.isaLumpSums),
     isaApplyRealInterest: Boolean(settings.isaApplyRealInterest),
     isaRealInterestPercent: normalizeSetting(
@@ -987,6 +1015,27 @@ export function normalizeStatePensionDrawDate(
   const normalizedDrawDate = normalizeDate(value, defaultDrawDate);
 
   return normalizedDrawDate < defaultDrawDate ? defaultDrawDate : normalizedDrawDate;
+}
+
+export function calculateMinimumSippAccessAge(dateOfBirth: string) {
+  const normalizedDateOfBirth = normalizeDate(dateOfBirth, defaultSettings.dateOfBirth);
+
+  return normalizeSippDrawAge(55, normalizedDateOfBirth) > 55 ? 57 : 55;
+}
+
+export function normalizeSippDrawAge(value: number, dateOfBirth: string) {
+  const normalizedDateOfBirth = normalizeDate(dateOfBirth, defaultSettings.dateOfBirth);
+  const normalizedAge = normalizeNumericSetting("sippDrawAge", value);
+  const sippDrawDate = addYearsToIsoDate(normalizedDateOfBirth, normalizedAge);
+
+  if (
+    sippDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE &&
+    normalizedAge < 57
+  ) {
+    return 57;
+  }
+
+  return normalizedAge;
 }
 
 export function getAlphaEpaDate(settings: PensionSettings) {

@@ -257,6 +257,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   return {
     dateOfBirth: defaultSettings.dateOfBirth,
     lifeExpectancy: defaultSettings.lifeExpectancy,
+    requirementAge: defaultSettings.requirementAge,
     projectionBasis: defaultSettings.projectionBasis,
     inflationRateAnnual: defaultSettings.inflationRateAnnual,
     showNuvos: defaultSettings.showNuvos,
@@ -475,6 +476,9 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Life Expectancy (Age)")).toHaveValue(
       defaultSettings.lifeExpectancy.toString(),
     );
+    expect(screen.getByLabelText("Requirement age")).toHaveValue(
+      defaultSettings.requirementAge.toString(),
+    );
     expect(screen.getByLabelText("How should the modeller treat inflation?")).toHaveValue(
       "real",
     );
@@ -522,9 +526,7 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Current ISA pot (£)")).toHaveValue(
       defaultSettings.isaCurrentPot,
     );
-    expect(screen.getByLabelText("ISA draw start age")).toHaveValue(
-      defaultSettings.isaDrawAge.toString(),
-    );
+    expect(screen.queryByLabelText("ISA draw start age")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Last Annual Benefits Statement")).toHaveValue(
       "2025",
     );
@@ -609,10 +611,7 @@ describe("App settings form", () => {
       "href",
       "https://commonslibrary.parliament.uk/research-briefings/cbp-7812/",
     );
-    expect(screen.getAllByRole("link", { name: "Check State Pension age" })).toHaveLength(
-      2,
-    );
-    expect(screen.getAllByRole("link", { name: "Check State Pension age" })[0]).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Check State Pension age" })).toHaveAttribute(
       "href",
       "https://www.gov.uk/state-pension-age",
     );
@@ -649,6 +648,28 @@ describe("App settings form", () => {
     expect(
       screen.getByRole("button", { name: "Reset State Pension draw date to default" }),
     ).toBeInTheDocument();
+  });
+
+  it("enforces a minimum SIPP access age of 57 for someone born on 10 April 1977", () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify(
+        expectedStoredSettings({
+          dateOfBirth: "1977-04-10",
+          sippDrawAge: 55,
+          statePensionDrawDate: "2044-05-06",
+        }),
+      ),
+    );
+
+    renderAcknowledgedApp();
+
+    expect(screen.getByLabelText("SIPP draw start age")).toHaveValue("57");
+    expect(screen.getByLabelText("SIPP draw start age")).toHaveAttribute("min", "57");
+    expect(screen.getByLabelText("SIPP draw start age exact value")).toHaveAttribute(
+      "min",
+      "57",
+    );
   });
 
   it("orders optional section toggles like the assumptions sections", () => {
@@ -1387,7 +1408,7 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Life Expectancy (Age)")).toHaveValue("100");
     expect(screen.getByLabelText("Current Full State Pension (£ per year)")).toHaveValue(0);
     expect(screen.getByLabelText("Added Alpha Pension (£ per month)")).toHaveValue("233");
-    expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveValue("40");
+    expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveValue("39");
     expect(
       screen.getByLabelText("Alpha Pension Accrued at Last Statement (£ per year)"),
     ).toHaveValue(12444);
