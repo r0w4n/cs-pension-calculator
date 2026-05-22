@@ -124,8 +124,16 @@ export type BridgePhase = {
   label: string;
   incomeSourcesActive: string[];
   potUsed: string;
+  annualTargetIncome: number;
+  annualAlphaPension: number;
+  annualNuvosPension: number;
+  annualStatePension: number;
+  annualIsaBridge: number;
+  annualSippBridge: number;
   annualShortfall: number;
   annualSurplus: number;
+  totalIsaBridge: number;
+  totalSippBridge: number;
   totalBridgeRequired: number;
   unfundedShortfall: number;
 };
@@ -134,12 +142,17 @@ export type BridgePotProjectionRow = {
   date: string;
   age: number;
   ageMonths: number;
+  monthlyAlphaPension: number;
+  monthlyNuvosPension: number;
+  monthlyStatePension: number;
   isaBalance: number;
   sippBalance: number;
   isaDrawdown: number;
   sippDrawdown: number;
   unfundedShortfall: number;
   growth: number;
+  milestones: string[];
+  milestoneDates: string[];
 };
 
 export type RetirementBridgeAnalysis = {
@@ -159,6 +172,11 @@ export type RetirementBridgeAnalysis = {
   requiredSippAtAccess: number;
   additionalMonthlyContributionRequired: number;
   earliestSustainablePensionDrawAge: number | null;
+  fullSecureIncomeStartDate: string | null;
+  fullSecureIncomeStartAge: number | null;
+  fullSecureIncomeStartAgeMonths: number | null;
+  fullSecureAnnualGuaranteedIncome: number;
+  fullSecureAnnualGuaranteedSurplus: number;
   stableAnnualGuaranteedIncome: number;
   stableAnnualGuaranteedSurplus: number;
   phases: BridgePhase[];
@@ -182,6 +200,7 @@ const LUMP_SUM_ADDED_PENSION_LABEL = "Lump Sum Added Pension";
 const SIPP_LUMP_SUM_LABEL = "SIPP Lump Sum";
 const ISA_LUMP_SUM_LABEL = "ISA Lump Sum";
 const DEFAULT_ALPHA_ACCRUAL_RATE = 0.0232;
+const ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE = 0.015;
 const DEFAULT_NUVOS_ACCRUAL_RATE = 0.023;
 const MONTHLY_NUVOS_ACCRUAL_RATE = DEFAULT_NUVOS_ACCRUAL_RATE / 12;
 
@@ -213,6 +232,68 @@ export type DerivedProjectionInputs = {
   reductionFactor: number;
   epaReductionFactor: number;
 };
+
+export type DerivedInflationAssumptions = {
+  projectionBasis: PensionSettings["projectionBasis"];
+  inflationRateAnnual: number;
+  inflationRateMonthly: number;
+  sippNominalReturnAnnual: number;
+  sippModelledReturnAnnual: number;
+  isaNominalReturnAnnual: number;
+  isaModelledReturnAnnual: number;
+  alphaNominalInServiceRevaluationAnnual: number;
+  alphaModelledInServiceRevaluationAnnual: number;
+  alphaNominalDeferredIncreaseAnnual: number;
+  alphaModelledDeferredIncreaseAnnual: number;
+  nuvosNominalDeferredIncreaseAnnual: number;
+  nuvosModelledDeferredIncreaseAnnual: number;
+  statePensionNominalIncreaseAnnual: number;
+  statePensionModelledIncreaseAnnual: number;
+};
+
+export function deriveInflationAssumptions(
+  settings: PensionSettings,
+): DerivedInflationAssumptions {
+  const inflationRateAnnual = settings.inflationRateAnnual / 100;
+  const inflationRateMonthly = (1 + inflationRateAnnual) ** (1 / 12) - 1;
+  const sippNominalReturnAnnual = settings.sippRealInterestPercent / 100;
+  const isaNominalReturnAnnual = settings.isaRealInterestPercent / 100;
+  const alphaNominalInServiceRevaluationAnnual =
+    inflationRateAnnual + ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE;
+  const statePensionNominalIncreaseAnnual = getStatePensionNominalIncreaseRate(settings);
+
+  return {
+    projectionBasis: settings.projectionBasis,
+    inflationRateAnnual,
+    inflationRateMonthly,
+    sippNominalReturnAnnual,
+    sippModelledReturnAnnual: getModelledAnnualGrowthRate(
+      settings,
+      sippNominalReturnAnnual,
+    ),
+    isaNominalReturnAnnual,
+    isaModelledReturnAnnual: getModelledAnnualGrowthRate(
+      settings,
+      isaNominalReturnAnnual,
+    ),
+    alphaNominalInServiceRevaluationAnnual,
+    alphaModelledInServiceRevaluationAnnual:
+      settings.projectionBasis === "real"
+        ? ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE
+        : alphaNominalInServiceRevaluationAnnual,
+    alphaNominalDeferredIncreaseAnnual: inflationRateAnnual,
+    alphaModelledDeferredIncreaseAnnual:
+      settings.projectionBasis === "real" ? 0 : inflationRateAnnual,
+    nuvosNominalDeferredIncreaseAnnual: inflationRateAnnual,
+    nuvosModelledDeferredIncreaseAnnual:
+      settings.projectionBasis === "real" ? 0 : inflationRateAnnual,
+    statePensionNominalIncreaseAnnual,
+    statePensionModelledIncreaseAnnual: getModelledAnnualGrowthRate(
+      settings,
+      statePensionNominalIncreaseAnnual,
+    ),
+  };
+}
 
 export function deriveProjectionInputs(
   settings: PensionSettings,
@@ -626,7 +707,7 @@ function createProjectionTableWithPensionIncreases(
       benefitComponents,
       rowDate,
       activeUntilDate: accrualStopDate,
-      cpiPercent: settings.assumedCpiPercent,
+      cpiPercent: getModelledPensionInflationPercent(settings),
     });
     const annualStandardAlphaPension = alphaPortions.standardAlphaPension;
     const annualEpaAlphaPension = alphaPortions.epaAlphaPension;
@@ -1073,6 +1154,10 @@ export function generateRetirementBridgeAnalysis(
       date: rowDate,
       age: calculateAge(settings.dateOfBirth, rowDate),
       ageMonths: calculateAgeMonths(settings.dateOfBirth, rowDate),
+      monthlyAlphaPension,
+      monthlyNuvosPension,
+      monthlyStatePension,
+      monthlyTargetIncome,
       guaranteedIncome,
       shortfall,
       surplus,
@@ -1082,6 +1167,8 @@ export function generateRetirementBridgeAnalysis(
       isaBalance,
       sippBalance,
       growth: isaGrowth + sippGrowth,
+      milestones: [],
+      milestoneDates: [],
       activeSources: getActiveBridgeIncomeSources({
         settings,
         monthlyAlphaPension,
@@ -1092,6 +1179,16 @@ export function generateRetirementBridgeAnalysis(
   });
   const stableRow = monthlyRows.at(-1);
   const stableAnnualGuaranteedIncome = (stableRow?.guaranteedIncome ?? 0) * 12;
+  const fullSecureIncomeStartDate = getFullSecureIncomeStartDate(
+    settings,
+    retirementDate,
+    endDate,
+  );
+  const fullSecureIncomeStartRow = fullSecureIncomeStartDate
+    ? monthlyRows.find((row) => row.date >= fullSecureIncomeStartDate)
+    : undefined;
+  const fullSecureAnnualGuaranteedIncome =
+    (fullSecureIncomeStartRow?.guaranteedIncome ?? 0) * 12;
   const monthsUntilRetirement = Math.max(
     1,
     calculateWholeMonthDifference(settings.startDate, retirementDate),
@@ -1114,11 +1211,25 @@ export function generateRetirementBridgeAnalysis(
     additionalMonthlyContributionRequired:
       totalUnfundedShortfall > 0 ? totalUnfundedShortfall / monthsUntilRetirement : 0,
     earliestSustainablePensionDrawAge: null,
+    fullSecureIncomeStartDate: fullSecureIncomeStartRow
+      ? fullSecureIncomeStartDate
+      : null,
+    fullSecureIncomeStartAge:
+      fullSecureIncomeStartRow && fullSecureIncomeStartDate
+        ? calculateAge(settings.dateOfBirth, fullSecureIncomeStartDate)
+        : null,
+    fullSecureIncomeStartAgeMonths:
+      fullSecureIncomeStartRow && fullSecureIncomeStartDate
+        ? calculateAgeMonths(settings.dateOfBirth, fullSecureIncomeStartDate)
+        : null,
+    fullSecureAnnualGuaranteedIncome,
+    fullSecureAnnualGuaranteedSurplus:
+      fullSecureAnnualGuaranteedIncome - settings.desiredRetirementIncome,
     stableAnnualGuaranteedIncome,
     stableAnnualGuaranteedSurplus:
       stableAnnualGuaranteedIncome - settings.desiredRetirementIncome,
     phases: buildBridgePhases(monthlyRows, settings, retirementDate, endDate),
-    potProjection: buildBridgePotProjection(monthlyRows),
+    potProjection: buildBridgePotProjection(monthlyRows, settings),
   };
 
   if (!options.calculateSafeDrawAge) {
@@ -1131,6 +1242,30 @@ export function generateRetirementBridgeAnalysis(
       settings,
     ),
   };
+}
+
+function getFullSecureIncomeStartDate(
+  settings: PensionSettings,
+  retirementDate: string,
+  endDate: string,
+) {
+  const secureStartDates = [
+    ...(settings.showAlpha ? [addYears(settings.dateOfBirth, settings.alphaPensionDrawAge)] : []),
+    ...(settings.showNuvos ? [addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge)] : []),
+    ...(settings.showStatePension ? [settings.statePensionDrawDate] : []),
+  ];
+
+  if (secureStartDates.length === 0) {
+    return null;
+  }
+
+  const latestSecureStartDate = secureStartDates.sort().at(-1);
+
+  if (!latestSecureStartDate || latestSecureStartDate > endDate) {
+    return null;
+  }
+
+  return latestSecureStartDate < retirementDate ? retirementDate : latestSecureStartDate;
 }
 
 function getActiveBridgeIncomeSources(input: {
@@ -1159,6 +1294,10 @@ function buildBridgePhases(
     date: string;
     age: number;
     ageMonths: number;
+    monthlyTargetIncome: number;
+    monthlyAlphaPension: number;
+    monthlyNuvosPension: number;
+    monthlyStatePension: number;
     shortfall: number;
     surplus: number;
     isaDrawdown: number;
@@ -1199,38 +1338,76 @@ function buildBridgePhases(
     }
 
     const firstRow = rows[0];
-    const lastRow = rows.at(-1) ?? firstRow;
+    const boundaryEndAge = calculateAge(settings.dateOfBirth, nextPhaseStart);
+    const boundaryEndAgeMonths = calculateAgeMonths(
+      settings.dateOfBirth,
+      nextPhaseStart,
+    );
     const totalDrawdown = rows.reduce(
       (total, row) => total + row.isaDrawdown + row.sippDrawdown,
       0,
     );
+    const totalIsaBridge = rows.reduce((total, row) => total + row.isaDrawdown, 0);
+    const totalSippBridge = rows.reduce((total, row) => total + row.sippDrawdown, 0);
     const totalUnfunded = rows.reduce(
       (total, row) => total + row.unfundedShortfall,
       0,
+    );
+    const annualiseAverage = (monthlyValues: number[]) =>
+      (monthlyValues.reduce((total, value) => total + value, 0) / rows.length) * 12;
+    const averageAnnualTarget = annualiseAverage(
+      rows.map((row) => row.monthlyTargetIncome),
+    );
+    const averageAnnualAlphaPension = annualiseAverage(
+      rows.map((row) => row.monthlyAlphaPension),
+    );
+    const averageAnnualNuvosPension = annualiseAverage(
+      rows.map((row) => row.monthlyNuvosPension),
+    );
+    const averageAnnualStatePension = annualiseAverage(
+      rows.map((row) => row.monthlyStatePension),
+    );
+    const averageAnnualIsaBridge = annualiseAverage(rows.map((row) => row.isaDrawdown));
+    const averageAnnualSippBridge = annualiseAverage(
+      rows.map((row) => row.sippDrawdown),
     );
     const averageAnnualShortfall =
       (rows.reduce((total, row) => total + row.shortfall, 0) / rows.length) * 12;
     const averageAnnualSurplus =
       (rows.reduce((total, row) => total + row.surplus, 0) / rows.length) * 12;
     const potLabels = [
-      rows.some((row) => row.isaDrawdown > 0) ? "ISA" : "",
-      rows.some((row) => row.sippDrawdown > 0) ? "SIPP" : "",
-      rows.some((row) => row.unfundedShortfall > 0) ? "Unfunded" : "",
+      rows.some((row) => row.isaDrawdown > 0) ? "ISA bridge" : "",
+      rows.some((row) => row.sippDrawdown > 0) ? "SIPP bridge" : "",
+      rows.some((row) => row.unfundedShortfall > 0) ? "Unfunded shortfall" : "",
     ].filter(Boolean);
 
     return [
       {
         startDate: firstRow.date,
-        endDate: lastRow.date,
+        endDate: nextPhaseStart,
         startAge: firstRow.age,
         startAgeMonths: firstRow.ageMonths,
-        endAge: lastRow.age,
-        endAgeMonths: lastRow.ageMonths,
-        label: formatBridgePhaseLabel(firstRow.date, nextPhaseStart, settings),
+        endAge: boundaryEndAge,
+        endAgeMonths: boundaryEndAgeMonths,
+        label: formatBridgePhaseLabel(
+          phaseStart,
+          nextPhaseStart,
+          settings,
+          retirementDate,
+          endDate,
+        ),
         incomeSourcesActive: firstRow.activeSources,
         potUsed: potLabels.length > 0 ? potLabels.join(" + ") : "None",
+        annualTargetIncome: averageAnnualTarget,
+        annualAlphaPension: averageAnnualAlphaPension,
+        annualNuvosPension: averageAnnualNuvosPension,
+        annualStatePension: averageAnnualStatePension,
+        annualIsaBridge: averageAnnualIsaBridge,
+        annualSippBridge: averageAnnualSippBridge,
         annualShortfall: averageAnnualShortfall,
         annualSurplus: averageAnnualSurplus,
+        totalIsaBridge,
+        totalSippBridge,
         totalBridgeRequired: totalDrawdown,
         unfundedShortfall: totalUnfunded,
       },
@@ -1242,57 +1419,156 @@ function formatBridgePhaseLabel(
   phaseStart: string,
   nextPhaseStart: string,
   settings: PensionSettings,
+  retirementDate: string,
+  endDate: string,
+) {
+  const startLabel = formatBridgeBoundaryLabel(phaseStart, settings, retirementDate, endDate);
+  const nextLabel = formatBridgeBoundaryLabel(
+    nextPhaseStart,
+    settings,
+    retirementDate,
+    endDate,
+  );
+
+  return `${startLabel} to ${nextLabel}`;
+}
+
+function formatBridgeBoundaryLabel(
+  date: string,
+  settings: PensionSettings,
+  retirementDate: string,
+  endDate: string,
 ) {
   const sippAccessDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
   const alphaDrawDate = addYears(settings.dateOfBirth, settings.alphaPensionDrawAge);
   const nuvosDrawDate = addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge);
+  const labels = [
+    date === retirementDate ? "Retirement" : "",
+    settings.showSipp && date === sippAccessDate ? "SIPP access" : "",
+    settings.showAlpha && date === alphaDrawDate ? "Alpha" : "",
+    settings.showNuvos && date === nuvosDrawDate ? "nuvos" : "",
+    settings.showStatePension && date === settings.statePensionDrawDate
+      ? "State Pension"
+      : "",
+    date === endDate ? "modelling end" : "",
+  ].filter(Boolean);
 
-  if (phaseStart === addYears(settings.dateOfBirth, settings.targetRetirementAge)) {
-    if (settings.showSipp && nextPhaseStart === sippAccessDate) {
-      return "Retirement to SIPP access";
-    }
+  return labels.length > 0 ? formatList(labels) : "bridge phase";
+}
 
-    return "From retirement";
+function formatList(items: string[]) {
+  if (items.length <= 1) {
+    return items[0] ?? "";
   }
 
-  if (settings.showSipp && phaseStart === sippAccessDate) {
-    return "From SIPP access";
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
   }
 
-  if (settings.showAlpha && phaseStart === alphaDrawDate) {
-    return "From Alpha";
-  }
-
-  if (settings.showNuvos && phaseStart === nuvosDrawDate) {
-    return "From nuvos";
-  }
-
-  if (settings.showStatePension && phaseStart === settings.statePensionDrawDate) {
-    return "State Pension onward";
-  }
-
-  return "Bridge phase";
+  return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }
 
 function buildBridgePotProjection(
   monthlyRows: BridgePotProjectionRow[],
-): BridgePotProjectionRow[] {
-  let hasIncludedFirstUnfundedRow = false;
-
-  return monthlyRows.filter((row, index) => {
-    const isFirstUnfundedRow =
-      row.unfundedShortfall > 0 && !hasIncludedFirstUnfundedRow;
-
-    if (isFirstUnfundedRow) {
-      hasIncludedFirstUnfundedRow = true;
+  settings: PensionSettings,
+) {
+  const incomeStartMilestonesByRowDate = new Map<
+    string,
+    Array<{ label: string; date: string }>
+  >();
+  const firstRowDate = monthlyRows[0]?.date;
+  const lastRowDate = monthlyRows.at(-1)?.date;
+  const addIncomeStartMilestone = (date: string, label: string) => {
+    if (!firstRowDate || !lastRowDate || date < firstRowDate || date > lastRowDate) {
+      return;
     }
 
-    return (
-      index === 0 ||
-      index === monthlyRows.length - 1 ||
-      row.ageMonths === 0 ||
-      isFirstUnfundedRow
+    const rowDate = monthlyRows.find((row) => row.date >= date)?.date;
+
+    if (!rowDate) {
+      return;
+    }
+
+    incomeStartMilestonesByRowDate.set(rowDate, [
+      ...(incomeStartMilestonesByRowDate.get(rowDate) ?? []),
+      { label, date },
+    ]);
+  };
+
+  if (settings.showAlpha) {
+    addIncomeStartMilestone(
+      addYears(settings.dateOfBirth, settings.alphaPensionDrawAge),
+      "Alpha starts",
     );
+  }
+
+  if (settings.showNuvos) {
+    addIncomeStartMilestone(
+      addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge),
+      "nuvos starts",
+    );
+  }
+
+  if (settings.showStatePension) {
+    addIncomeStartMilestone(settings.statePensionDrawDate, "State Pension starts");
+  }
+
+  let hasStartedIsaDrawdown = false;
+  let hasStartedSippDrawdown = false;
+  let hasIncludedIsaDepletion = false;
+  let hasIncludedSippDepletion = false;
+
+  return monthlyRows.map((row, index) => {
+    const milestones: string[] = [];
+    const milestoneDates: string[] = [];
+    const previousRow = index > 0 ? monthlyRows[index - 1] : undefined;
+    const isFirstIsaDrawdown = row.isaDrawdown > 0 && !hasStartedIsaDrawdown;
+    const isFirstSippDrawdown = row.sippDrawdown > 0 && !hasStartedSippDrawdown;
+    const isIsaDepleted =
+      settings.showIsa &&
+      !hasIncludedIsaDepletion &&
+      row.isaBalance <= 0.005 &&
+      ((previousRow?.isaBalance ?? 0) > 0.005 || row.isaDrawdown > 0);
+    const isSippDepleted =
+      settings.showSipp &&
+      !hasIncludedSippDepletion &&
+      row.sippBalance <= 0.005 &&
+      ((previousRow?.sippBalance ?? 0) > 0.005 || row.sippDrawdown > 0);
+
+    if (isFirstIsaDrawdown) {
+      hasStartedIsaDrawdown = true;
+      milestones.push("ISA drawdown starts");
+      milestoneDates.push(row.date);
+    }
+
+    if (isFirstSippDrawdown) {
+      hasStartedSippDrawdown = true;
+      milestones.push("SIPP drawdown starts");
+      milestoneDates.push(row.date);
+    }
+
+    if (isIsaDepleted) {
+      hasIncludedIsaDepletion = true;
+      milestones.push("ISA pot exhausted");
+      milestoneDates.push(row.date);
+    }
+
+    if (isSippDepleted) {
+      hasIncludedSippDepletion = true;
+      milestones.push("SIPP pot exhausted");
+      milestoneDates.push(row.date);
+    }
+
+    for (const milestone of incomeStartMilestonesByRowDate.get(row.date) ?? []) {
+      milestones.push(milestone.label);
+      milestoneDates.push(milestone.date);
+    }
+
+    return {
+      ...row,
+      milestones,
+      milestoneDates,
+    };
   });
 }
 
@@ -1582,7 +1858,7 @@ export function calculateAnnualNuvosPensionAtDate(input: {
       ? calculateNuvosPensionRevaluationFactor({
           fromDate: component.startDate,
           rowDate,
-          cpiPercent: settings.nuvosAssumedCpiPercent,
+          cpiPercent: getModelledPensionInflationPercent(settings),
         })
       : 1;
 
@@ -1617,7 +1893,7 @@ export function calculateAlphaPensionRevaluationFactor(input: {
 }) {
   const { fromDate, rowDate, activeUntilDate, cpiPercent } = input;
   const cpiRate = cpiPercent / 100;
-  const activeRate = cpiRate + 0.016;
+  const activeRate = cpiRate + ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE;
   const totalYears = calculateWholeYearDifference(fromDate, rowDate);
   const activeYears = Math.min(
     totalYears,
@@ -1926,12 +2202,7 @@ function calculateBaseAnnualStatePensionAtDate(
     return settings.currentStatePension;
   }
 
-  const annualGrowthRate =
-    Math.max(
-      settings.statePensionCpiPercent,
-      settings.statePensionWageGrowthPercent,
-      2.5,
-    ) / 100;
+  const annualGrowthRate = getStatePensionModelledIncreaseRate(settings);
   const growthYears = calculateWholeYearDifference(
     settings.startDate,
     rowDate,
@@ -1940,12 +2211,69 @@ function calculateBaseAnnualStatePensionAtDate(
   return settings.currentStatePension * (1 + annualGrowthRate) ** growthYears;
 }
 
+function getStatePensionNominalIncreaseRate(settings: PensionSettings) {
+  return (
+    Math.max(
+      settings.inflationRateAnnual,
+      settings.statePensionWageGrowthPercent,
+      2.5,
+    ) / 100
+  );
+}
+
+function getStatePensionModelledIncreaseRate(settings: PensionSettings) {
+  return getModelledAnnualGrowthRate(
+    settings,
+    getStatePensionNominalIncreaseRate(settings),
+  );
+}
+
 function getStatePensionDeferredExtraGrowthRate(settings: PensionSettings) {
   if (!settings.statePensionApplyFutureGrowth) {
     return 0;
   }
 
-  return settings.statePensionCpiPercent / 100;
+  return settings.projectionBasis === "real" ? 0 : settings.inflationRateAnnual / 100;
+}
+
+function getModelledPensionInflationPercent(settings: PensionSettings) {
+  return settings.projectionBasis === "real" ? 0 : settings.inflationRateAnnual;
+}
+
+export function calculateRealAnnualRate(
+  nominalRateAnnual: number,
+  inflationRateAnnual: number,
+) {
+  return (1 + nominalRateAnnual) / (1 + inflationRateAnnual) - 1;
+}
+
+function getModelledAnnualGrowthRate(
+  settings: PensionSettings,
+  nominalRateAnnual: number,
+) {
+  if (settings.projectionBasis === "nominal") {
+    return nominalRateAnnual;
+  }
+
+  return calculateRealAnnualRate(nominalRateAnnual, settings.inflationRateAnnual / 100);
+}
+
+export function calculateRetirementIncomeTargetAtDate(
+  settings: PensionSettings,
+  rowDate: string,
+) {
+  if (settings.projectionBasis === "real") {
+    return settings.desiredRetirementIncome;
+  }
+
+  const monthlyInflationRate =
+    (1 + settings.inflationRateAnnual / 100) ** (1 / 12) - 1;
+  const monthsUntilRow = Math.max(
+    0,
+    calculateWholeMonthDifference(settings.startDate, rowDate),
+  );
+
+  return settings.desiredRetirementIncome * (1 + monthlyInflationRate) ** monthsUntilRow;
 }
 
 export function calculateStatePensionDeferralIncreasePercent(
@@ -2084,7 +2412,9 @@ export function calculateSippPotAtDate(input: {
 
   const contributionMultiplier = getSippContributionMultiplier(settings.sippTaxReliefRate);
   const monthlyInterestRate = settings.sippApplyRealInterest
-    ? (1 + settings.sippRealInterestPercent / 100) ** (1 / 12) - 1
+    ? (1 + getModelledAnnualGrowthRate(settings, settings.sippRealInterestPercent / 100)) **
+        (1 / 12) -
+      1
     : 0;
   const contributionStopDate = minIsoDate(drawDate, rowDate);
   const contributionMonthCount = calculateWholeMonthDifference(
@@ -2171,7 +2501,9 @@ export function calculateIsaPotAtDate(input: {
   }
 
   const monthlyInterestRate = settings.isaApplyRealInterest
-    ? (1 + settings.isaRealInterestPercent / 100) ** (1 / 12) - 1
+    ? (1 + getModelledAnnualGrowthRate(settings, settings.isaRealInterestPercent / 100)) **
+        (1 / 12) -
+      1
     : 0;
   const contributionStopDate = minIsoDate(drawDate, rowDate);
   const contributionMonthCount =

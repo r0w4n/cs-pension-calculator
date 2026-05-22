@@ -16,7 +16,9 @@ import {
   type SelectField,
 } from "./fieldDefinitions";
 import {
+  calculateRetirementIncomeTargetAtDate,
   createProjectionTable,
+  deriveInflationAssumptions,
   generateRetirementBridgeAnalysis,
   generatePensionSummary,
   prepareBridgeProjectionSettings,
@@ -158,8 +160,17 @@ const GUIDED_JOURNEYS = [
         fieldIds: ["dateOfBirth", "lifeExpectancy", "desiredRetirementIncome"],
       },
       {
-        id: "alpha",
+        id: "inflation",
         eyebrow: "Step 3",
+        title: "Inflation and projection basis",
+        description:
+          "Choose whether to view today’s purchasing power or future inflated pound amounts.",
+        kind: "fields",
+        fieldIds: ["projectionBasis", "inflationRateAnnual"],
+      },
+      {
+        id: "alpha",
+        eyebrow: "Step 4",
         title: "Your Alpha pension plan",
         description:
           "Tell us when you expect to leave Alpha, when you want to draw it, and what your latest statement says.",
@@ -173,7 +184,6 @@ const GUIDED_JOURNEYS = [
           "alphaAddedPensionMonthly",
           "alphaAddedPensionFactorType",
           "applyPensionIncreases",
-          "assumedCpiPercent",
         ],
         visible: (settings) => settings.showAlpha,
       },
@@ -188,7 +198,6 @@ const GUIDED_JOURNEYS = [
           "currentStatePension",
           "statePensionDrawDate",
           "statePensionApplyFutureGrowth",
-          "statePensionCpiPercent",
           "statePensionWageGrowthPercent",
         ],
         visible: (settings) => settings.showStatePension,
@@ -206,7 +215,6 @@ const GUIDED_JOURNEYS = [
           "nuvosAccruedPensionAtLastAbs",
           "nuvosPensionableEarnings",
           "nuvosApplyPensionIncreases",
-          "nuvosAssumedCpiPercent",
         ],
         visible: (settings) => settings.showNuvos,
       },
@@ -468,6 +476,10 @@ function App() {
     () => validateSettings(bridgeJourneySettings),
     [bridgeJourneySettings],
   );
+  const derivedInflationAssumptions = useMemo(
+    () => deriveInflationAssumptions(deferredSettings),
+    [deferredSettings],
+  );
   const retirementIncomeTitle =
     retirementIncomeDisplay === "monthly"
       ? settings.taxationEnabled
@@ -497,10 +509,16 @@ function App() {
     retirementIncomeDisplay === "monthly"
       ? "Monthly target retirement income"
       : "Annual target retirement income";
+  const annualRetirementIncomeTarget = pensionSummary
+    ? calculateRetirementIncomeTargetAtDate(
+        settings,
+        pensionSummary.keyDates.startsAlphaPension,
+      )
+    : settings.desiredRetirementIncome;
   const retirementIncomeTarget = formatCurrencyDetailed(
     retirementIncomeDisplay === "monthly"
-      ? settings.desiredRetirementIncome / 12
-      : settings.desiredRetirementIncome,
+      ? annualRetirementIncomeTarget / 12
+      : annualRetirementIncomeTarget,
   );
 
   useEffect(() => {
@@ -621,6 +639,7 @@ function App() {
             settings={settings}
             validationIssues={validationIssues}
             pensionSummary={pensionSummary}
+            derivedInflationAssumptions={derivedInflationAssumptions}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
             retirementIncomeTitle={retirementIncomeTitle}
@@ -642,6 +661,7 @@ function App() {
             settings={bridgeJourneySettings}
             validationIssues={bridgeValidationIssues}
             pensionSummary={pensionSummary}
+            derivedInflationAssumptions={derivedInflationAssumptions}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
             retirementIncomeTitle={retirementIncomeTitle}
@@ -824,6 +844,11 @@ function App() {
               </section>
             </section>
 
+            <InflationBasisPanel
+              settings={deferredSettings}
+              assumptions={derivedInflationAssumptions}
+            />
+
             <section className="panel">
               <div className="panel-heading">
                 <h2>Monthly pension projection table</h2>
@@ -930,6 +955,7 @@ type GuidedJourneyProps = {
   settings: PensionSettings;
   validationIssues: PensionValidationIssue[];
   pensionSummary: PensionSummary | null;
+  derivedInflationAssumptions: ReturnType<typeof deriveInflationAssumptions>;
   retirementIncomeDisplay: RetirementIncomeDisplay;
   retirementIncomeItems: SummaryItem[];
   retirementIncomeTitle: string;
@@ -948,6 +974,7 @@ function GuidedJourney({
   settings,
   validationIssues,
   pensionSummary,
+  derivedInflationAssumptions,
   retirementIncomeDisplay,
   retirementIncomeItems,
   retirementIncomeTitle,
@@ -1040,6 +1067,7 @@ function GuidedJourney({
             settings={settings}
             validationIssues={validationIssues}
             pensionSummary={pensionSummary}
+            derivedInflationAssumptions={derivedInflationAssumptions}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
             retirementIncomeTitle={retirementIncomeTitle}
@@ -1086,6 +1114,7 @@ function JourneyStepContent({
   settings,
   validationIssues,
   pensionSummary,
+  derivedInflationAssumptions,
   retirementIncomeDisplay,
   retirementIncomeItems,
   retirementIncomeTitle,
@@ -1118,6 +1147,11 @@ function JourneyStepContent({
         {validationIssues.length > 0 ? (
           <ValidationIssuesSection validationIssues={validationIssues} />
         ) : null}
+
+        <InflationBasisPanel
+          settings={settings}
+          assumptions={derivedInflationAssumptions}
+        />
 
         <SummarySection
           title="Pension Summary"
@@ -1295,13 +1329,47 @@ function BridgeResult({
     analysis.stableAnnualGuaranteedSurplus >= 0
       ? `${formatCurrencyDetailed(analysis.stableAnnualGuaranteedSurplus)} surplus per year`
       : `${formatCurrencyDetailed(Math.abs(analysis.stableAnnualGuaranteedSurplus))} shortfall per year`;
+  const fullSecurePositionAmount = Math.abs(analysis.fullSecureAnnualGuaranteedSurplus);
+  const fullSecurePosition =
+    analysis.fullSecureIncomeStartDate === null
+      ? "Not reached within this model"
+      : analysis.fullSecureAnnualGuaranteedSurplus >= 0
+        ? `${formatCurrencyDetailed(fullSecurePositionAmount)} overshoot per year (${formatCurrencyDetailed(
+            fullSecurePositionAmount / 12,
+          )} per month)`
+        : `${formatCurrencyDetailed(fullSecurePositionAmount)} shortfall per year (${formatCurrencyDetailed(
+            fullSecurePositionAmount / 12,
+          )} per month)`;
+  const fullSecureIncomeStartLabel =
+    analysis.fullSecureIncomeStartDate === null ||
+    analysis.fullSecureIncomeStartAge === null ||
+    analysis.fullSecureIncomeStartAgeMonths === null
+      ? "Not reached within this model"
+      : `${formatDate(analysis.fullSecureIncomeStartDate)} (${formatAge(
+          analysis.fullSecureIncomeStartAge,
+          analysis.fullSecureIncomeStartAgeMonths,
+        )})`;
+  const fullSecurePositionDescription =
+    analysis.fullSecureIncomeStartDate === null
+      ? "Not all selected secure pension sources start before the modelling end age, so there is no later steady-state pension position to compare."
+      : analysis.fullSecureAnnualGuaranteedSurplus > 0
+        ? "Once all selected Civil Service and State Pension income is active, the model shows more secure income than your target. This is the later overshoot you can use when testing whether to adjust draw ages, bridge spending, or target income assumptions."
+        : analysis.fullSecureAnnualGuaranteedSurplus < 0
+          ? "Once all selected Civil Service and State Pension income is active, the model still sits below your target before any ISA/SIPP top-up."
+          : "Once all selected Civil Service and State Pension income is active, the model lands exactly on your target before any ISA/SIPP top-up.";
+  const fullSecurePositionLabel =
+    analysis.fullSecureIncomeStartDate === null
+      ? "Later secure pension position"
+      : analysis.fullSecureAnnualGuaranteedSurplus >= 0
+        ? "Later overshoot after secure pensions start"
+        : "Later shortfall after secure pensions start";
   const actionItems = [
     {
-      label: "ISA bridge need before SIPP access",
+      label: "ISA-only gap before SIPP access",
       value: formatCurrencyDetailed(analysis.requiredIsaAtRetirement),
     },
     {
-      label: "SIPP/ISA bridge need from SIPP access",
+      label: "Later top-up gap after SIPP access",
       value: formatCurrencyDetailed(analysis.requiredSippAtAccess),
     },
     {
@@ -1330,27 +1398,38 @@ function BridgeResult({
             value: formatDecimalAge(settings.sippDrawAge),
           },
           {
-            label: "Once secure pensions are active",
-            value: longTermPosition,
+            label: fullSecurePositionLabel,
+            value: fullSecurePosition,
           },
         ]}
       />
 
       <SummarySection
-        title="Secure income position"
+        title="Later secure income check"
         variant="feature"
-        description="This shows whether your Civil Service and State Pension income eventually sits above or below your target, before any ISA/SIPP top-up."
+        description={fullSecurePositionDescription}
         items={[
           {
             label: "Plan status",
             value: analysis.planWorks ? "Works on these assumptions" : "Shortfall remains",
           },
           {
-            label: "Secure pension income once active",
-            value: `${formatCurrencyDetailed(analysis.stableAnnualGuaranteedIncome)} per year`,
+            label: "All selected secure pensions active from",
+            value: fullSecureIncomeStartLabel,
+          },
+          {
+            label: "Secure income at that point",
+            value:
+              analysis.fullSecureIncomeStartDate === null
+                ? "Not available"
+                : `${formatCurrencyDetailed(analysis.fullSecureAnnualGuaranteedIncome)} per year`,
           },
           {
             label: "Against your target",
+            value: fullSecurePosition,
+          },
+          {
+            label: "Position by modelling end",
             value: longTermPosition,
           },
           {
@@ -1364,14 +1443,22 @@ function BridgeResult({
 
       <BridgeTable
         title="Bridging breakdown"
-        description="Each phase starts when a new income source or access point becomes available."
+        description="Each phase shows the target income, what pensions provide, what ISA/SIPP bridge pots add, and any gap left over."
         columns={[
-          "Phase",
-          "Ages",
-          "Income sources active",
-          "Shortfall/surplus per year",
-          "Pot used",
-          "Bridge needed",
+          { key: "phase", label: "Phase", width: "13rem" },
+          { key: "ages", label: "Ages", width: "8rem" },
+          { key: "target", label: "Target/yr", width: "8rem" },
+          { key: "alpha", label: "Alpha/yr", width: "8rem" },
+          { key: "nuvos", label: "nuvos/yr", width: "8rem" },
+          { key: "state", label: "State Pension/yr", width: "8rem" },
+          { key: "isa", label: "ISA bridge/yr", width: "8rem" },
+          { key: "sipp", label: "SIPP bridge/yr", width: "8rem" },
+          {
+            key: "gap",
+            label: "Gap/surplus/yr",
+            width: "9rem",
+          },
+          { key: "bridgeNeeded", label: "Total bridge used", width: "10rem" },
         ]}
         rows={analysis.phases.map((phase) => [
           phase.label,
@@ -1379,35 +1466,18 @@ function BridgeResult({
             phase.endAge,
             phase.endAgeMonths,
           )}`,
-          phase.incomeSourcesActive.join(", "),
+          formatCurrencyDetailed(phase.annualTargetIncome),
+          formatCurrencyDetailed(phase.annualAlphaPension),
+          formatCurrencyDetailed(phase.annualNuvosPension),
+          formatCurrencyDetailed(phase.annualStatePension),
+          formatCurrencyDetailed(phase.annualIsaBridge),
+          formatCurrencyDetailed(phase.annualSippBridge),
           formatShortfallOrSurplus(phase.annualShortfall, phase.annualSurplus),
-          phase.potUsed,
-          formatCurrencyDetailed(phase.totalBridgeRequired + phase.unfundedShortfall),
+          formatPhaseBridgeTotal(phase),
         ])}
       />
 
-      <BridgeTable
-        title="Pot projection"
-        description="Annual checkpoints, plus the first point where the bridge becomes unfunded."
-        columns={[
-          "Date",
-          "Age",
-          "ISA balance",
-          "SIPP balance",
-          "ISA drawdown",
-          "SIPP drawdown",
-          "Unfunded",
-        ]}
-        rows={analysis.potProjection.slice(0, 40).map((row) => [
-          formatDate(row.date),
-          formatAge(row.age, row.ageMonths),
-          formatCurrencyDetailed(row.isaBalance),
-          formatCurrencyDetailed(row.sippBalance),
-          formatCurrencyDetailed(row.isaDrawdown),
-          formatCurrencyDetailed(row.sippDrawdown),
-          formatCurrencyDetailed(row.unfundedShortfall),
-        ])}
-      />
+      <BridgePotProjectionTable rows={analysis.potProjection} />
 
       <SummarySection
         title="Scenario recap"
@@ -1458,7 +1528,7 @@ function BridgeTable({
 }: {
   title: string;
   description: string;
-  columns: string[];
+  columns: TableColumn[];
   rows: string[][];
 }) {
   return (
@@ -1467,28 +1537,97 @@ function BridgeTable({
         <h3>{title}</h3>
       </div>
       <p className="section-copy">{description}</p>
-      <div className="table-body-shell bridge-table-shell">
-        <table className="projection-table bridge-table">
-          <thead>
-            <tr>
-              {columns.map((column) => (
-                <th key={column} scope="col">
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr key={`${title}-${rowIndex}`}>
-                {row.map((cell, cellIndex) => (
-                  <td key={`${title}-${rowIndex}-${columns[cellIndex]}`}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <ProjectionTableFrame
+        columns={columns}
+        rows={rows}
+        emptyMessage="No bridge rows are available for the current settings."
+        getRowKey={(_row, rowIndex) => `${title}-${rowIndex}`}
+        minWidth="62rem"
+        renderCells={(row) => row.map((cell) => cell)}
+      />
+    </section>
+  );
+}
+
+const bridgePotProjectionColumns: TableColumn[] = [
+  { key: "date", label: "Date", width: "8rem" },
+  { key: "age", label: "Age", width: "7rem" },
+  { key: "alphaPension", label: "Alpha/yr", width: "8rem" },
+  { key: "nuvosPension", label: "nuvos/yr", width: "8rem" },
+  { key: "statePension", label: "State Pension/yr", width: "8rem" },
+  { key: "isaBalance", label: "ISA balance", width: "9rem" },
+  { key: "sippBalance", label: "SIPP balance", width: "9rem" },
+  { key: "isaDrawdown", label: "ISA drawdown/mo", width: "9rem" },
+  { key: "sippDrawdown", label: "SIPP drawdown/mo", width: "9rem" },
+  { key: "unfunded", label: "Unfunded", width: "9rem" },
+];
+
+function BridgePotProjectionTable({
+  rows,
+}: {
+  rows: RetirementBridgeAnalysis["potProjection"];
+}) {
+  const [showMilestonesOnly, setShowMilestonesOnly] = useState(true);
+  const milestoneRowCount = rows.filter((row) => row.milestones.length > 0).length;
+  const visibleRows = showMilestonesOnly
+    ? rows.filter((row) => row.milestones.length > 0)
+    : rows;
+
+  return (
+    <section className="bridge-table-section">
+      <div className="summary-section-header">
+        <h3>Pot projection</h3>
       </div>
+      <p className="section-copy">
+        Pension and pot drawdown milestones are shown first. Expand to see every monthly bridge balance.
+      </p>
+      <ProjectionTableFrame
+        columns={bridgePotProjectionColumns}
+        rows={visibleRows}
+        emptyMessage="No ISA or SIPP drawdown milestones occur in this scenario. Show all rows to inspect the monthly balances."
+        getRowKey={(row) => row.date}
+        getRowClassName={(row) =>
+          row.milestones.length > 0
+            ? "projection-row projection-row--milestone"
+            : "projection-row"
+        }
+        getRowTitle={(row) =>
+          row.milestones.length > 0 ? row.milestones.join(", ") : undefined
+        }
+        controls={
+          <>
+            <button
+              type="button"
+              className="secondary-button"
+              aria-pressed={showMilestonesOnly}
+              onClick={() => setShowMilestonesOnly((current) => !current)}
+            >
+              {showMilestonesOnly ? "Show all rows" : "Only show milestone rows"}
+            </button>
+            <p className="table-status">
+              Showing {visibleRows.length} of {rows.length} rows
+              {showMilestonesOnly ? ` (${milestoneRowCount} milestones)` : ""}.
+            </p>
+          </>
+        }
+        renderCells={(row) => [
+          <ProjectionDateCell
+            key="date"
+            date={row.date}
+            milestones={row.milestones}
+            milestoneDates={row.milestoneDates}
+          />,
+          formatAge(row.age, row.ageMonths),
+          formatCurrencyDetailed(row.monthlyAlphaPension * 12),
+          formatCurrencyDetailed(row.monthlyNuvosPension * 12),
+          formatCurrencyDetailed(row.monthlyStatePension * 12),
+          formatCurrencyDetailed(row.isaBalance),
+          formatCurrencyDetailed(row.sippBalance),
+          formatCurrencyDetailed(row.isaDrawdown),
+          formatCurrencyDetailed(row.sippDrawdown),
+          formatCurrencyDetailed(row.unfundedShortfall),
+        ]}
+      />
     </section>
   );
 }
@@ -1559,6 +1698,139 @@ function ModellerLimitations({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function InflationBasisPanel({
+  settings,
+  assumptions,
+}: {
+  settings: PensionSettings;
+  assumptions: ReturnType<typeof deriveInflationAssumptions>;
+}) {
+  const isRealTerms = settings.projectionBasis === "real";
+  const basisLabel = isRealTerms
+    ? "Projection basis: Real terms, today's money"
+    : "Projection basis: Nominal terms, future inflated values";
+  const explanation = isRealTerms
+    ? "You are viewing results in real terms. This means all figures are shown in today's money. Inflation-linked increases have been removed from Alpha, nuvos, and State Pension where they only preserve purchasing power. SIPP and ISA growth uses inflation-adjusted real returns."
+    : "You are viewing results in nominal terms. This means future figures include assumed inflation. Retirement income targets, pension increases, and investment balances are projected as future pound amounts.";
+
+  const rows = [
+    {
+      assumption: "Inflation",
+      userValue: formatPercent(assumptions.inflationRateAnnual),
+      modelledValue: formatPercent(assumptions.inflationRateAnnual),
+    },
+    ...(settings.showSipp
+      ? [
+          {
+            assumption: "SIPP nominal return",
+            userValue: settings.sippApplyRealInterest
+              ? formatPercent(assumptions.sippNominalReturnAnnual)
+              : "Not applied",
+            modelledValue: settings.sippApplyRealInterest
+              ? formatModelledReturn(
+                  assumptions.sippModelledReturnAnnual,
+                  settings.projectionBasis,
+                )
+              : "0%",
+          },
+        ]
+      : []),
+    ...(settings.showIsa
+      ? [
+          {
+            assumption: "ISA nominal return",
+            userValue: settings.isaApplyRealInterest
+              ? formatPercent(assumptions.isaNominalReturnAnnual)
+              : "Not applied",
+            modelledValue: settings.isaApplyRealInterest
+              ? formatModelledReturn(
+                  assumptions.isaModelledReturnAnnual,
+                  settings.projectionBasis,
+                )
+              : "0%",
+          },
+        ]
+      : []),
+    {
+      assumption: "Alpha in-service revaluation",
+      userValue: "CPI + 1.5%",
+      modelledValue: settings.applyPensionIncreases
+        ? isRealTerms
+          ? "1.5% real"
+          : formatPercent(assumptions.alphaModelledInServiceRevaluationAnnual)
+        : "Not applied",
+    },
+    {
+      assumption: "Deferred Alpha increase",
+      userValue: "CPI",
+      modelledValue: settings.applyPensionIncreases
+        ? isRealTerms
+          ? "0% real"
+          : formatPercent(assumptions.alphaModelledDeferredIncreaseAnnual)
+        : "Not applied",
+    },
+    ...(settings.showNuvos
+      ? [
+          {
+            assumption: "Deferred nuvos increase",
+            userValue: "CPI",
+            modelledValue: settings.nuvosApplyPensionIncreases
+              ? isRealTerms
+                ? "0% real"
+                : formatPercent(assumptions.nuvosModelledDeferredIncreaseAnnual)
+              : "Not applied",
+          },
+        ]
+      : []),
+    ...(settings.showStatePension
+      ? [
+          {
+            assumption: "State Pension increase",
+            userValue: settings.statePensionApplyFutureGrowth
+              ? formatPercent(assumptions.statePensionNominalIncreaseAnnual)
+              : "Not applied",
+            modelledValue: settings.statePensionApplyFutureGrowth
+              ? formatModelledReturn(
+                  assumptions.statePensionModelledIncreaseAnnual,
+                  settings.projectionBasis,
+                )
+              : "0%",
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <section className="panel inflation-panel" aria-labelledby="inflation-summary-title">
+      <div className="panel-heading">
+        <h2 id="inflation-summary-title">{basisLabel}</h2>
+        <p className="section-copy">{explanation}</p>
+      </div>
+
+      <div className="assumption-table-shell">
+        <table className="assumption-table">
+          <thead>
+            <tr>
+              <th scope="col">Assumption</th>
+              <th scope="col">User value</th>
+              <th scope="col">Modelled value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.assumption}>
+                <th scope="row">{row.assumption}</th>
+                <td>{row.userValue}</td>
+                <td>{row.modelledValue}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -1721,6 +1993,12 @@ function FieldLabel({ field }: { field: FieldDefinition }) {
   );
 }
 
+function FieldHelp({ field }: { field: FieldDefinition }) {
+  const description = "description" in field ? field.description : undefined;
+
+  return description ? <p className="field-help">{description}</p> : null;
+}
+
 function InfoLink({ href, text }: { href: string; text: string }) {
   return (
     <a className="field-info-link" href={href} target="_blank" rel="noreferrer">
@@ -1774,8 +2052,8 @@ function SettingsFields({
           <div className="settings-subsection-heading">
             <h4>Pension increases</h4>
             <p className="section-copy">
-              Revalue Alpha benefits annually by CPI + 1.6% while active, and CPI
-              after leaving Alpha service.
+              Revalue Alpha benefits annually by CPI + 1.5% while active, and CPI
+              after leaving Alpha service, using the selected projection basis.
             </p>
           </div>
           <div className="field-grid">
@@ -2152,7 +2430,12 @@ function SelectSettingFieldEditor({
         aria-invalid={Boolean(validationIssue) || undefined}
         aria-describedby={validationId}
         onChange={(event) => {
-          setDraftValue(event.target.value);
+          const nextValue = event.target.value;
+          setDraftValue(nextValue);
+          onChange(
+            field.id,
+            nextValue as PensionSettings[typeof field.id],
+          );
         }}
         onBlur={(event) =>
           onChange(
@@ -2167,6 +2450,7 @@ function SelectSettingFieldEditor({
           </option>
         ))}
       </select>
+      <FieldHelp field={field} />
       <FieldValidationMessage id={validationId} issue={validationIssue} />
     </label>
   );
@@ -2288,6 +2572,7 @@ function CurrencySettingFieldEditor({
           ))}
         </div>
       ) : null}
+      <FieldHelp field={field} />
       {showsResetButton ? (
         <button
           type="button"
@@ -2459,6 +2744,7 @@ function RangeSettingField({
           Reset to default
         </button>
       ) : null}
+      <FieldHelp field={field} />
       <FieldValidationMessage id={validationId} issue={validationIssue} />
     </div>
   );
@@ -2801,10 +3087,13 @@ type ProjectionTableProps = {
   settings: PensionSettings;
 };
 
-type ProjectionTableColumn = {
+type TableColumn = {
   key: string;
   label: string;
   width: string;
+};
+
+type ProjectionTableColumn = TableColumn & {
   setting?:
     | "showAlpha"
     | "showNuvos"
@@ -2915,7 +3204,6 @@ const projectionTableColumns: ProjectionTableColumn[] = [
 ] as const;
 
 function ProjectionTable({ rows, settings }: ProjectionTableProps) {
-  const headerScrollRef = useRef<HTMLDivElement | null>(null);
   const [showMilestonesOnly, setShowMilestonesOnly] = useState(true);
   const visibleColumns = projectionTableColumns.filter(
     (column) => !column.setting || settings[column.setting],
@@ -2925,23 +3213,25 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
     : rows;
   const milestoneRowCount = rows.filter((row) => row.milestones.length > 0).length;
 
-  const syncHeaderScroll = (scrollLeft: number) => {
-    if (headerScrollRef.current) {
-      headerScrollRef.current.scrollLeft = scrollLeft;
-    }
-  };
-
-  if (rows.length === 0) {
-    return (
-      <div className="table-shell">
-        <p>No projection rows are available for the current settings.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="table-shell">
-      <div className="table-controls">
+    <ProjectionTableFrame
+      columns={visibleColumns.map((column) => ({
+        ...column,
+        label: getProjectionTableColumnLabel(column, settings),
+      }))}
+      rows={visibleRows}
+      emptyMessage="No projection rows are available for the current settings."
+      getRowKey={(row) => row.date}
+      getRowClassName={(row) =>
+        row.milestones.length > 0
+          ? "projection-row projection-row--milestone"
+          : "projection-row"
+      }
+      getRowTitle={(row) =>
+        row.milestones.length > 0 ? row.milestones.join(", ") : undefined
+      }
+      controls={
+        <>
         <button
           type="button"
           className="secondary-button"
@@ -2954,21 +3244,81 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
           Showing {visibleRows.length} of {rows.length} rows
           {showMilestonesOnly ? ` (${milestoneRowCount} milestones)` : ""}.
         </p>
+        <p className="table-status table-status--basis">
+          {settings.projectionBasis === "real"
+            ? "Projection basis: Real terms, today's money"
+            : "Projection basis: Nominal terms, future inflated values"}
+        </p>
+        </>
+      }
+      renderCells={(row) =>
+        visibleColumns.map((column) =>
+          renderProjectionTableCell(row, column.key),
+        )
+      }
+    />
+  );
+}
+
+function ProjectionTableFrame<Row>({
+  columns,
+  rows,
+  emptyMessage,
+  getRowKey,
+  renderCells,
+  getRowClassName,
+  getRowTitle,
+  controls,
+  minWidth = "62rem",
+}: {
+  columns: TableColumn[];
+  rows: Row[];
+  emptyMessage: string;
+  getRowKey: (row: Row, rowIndex: number) => string;
+  renderCells: (row: Row, rowIndex: number) => ReactNode[];
+  getRowClassName?: (row: Row, rowIndex: number) => string | undefined;
+  getRowTitle?: (row: Row, rowIndex: number) => string | undefined;
+  controls?: ReactNode;
+  minWidth?: string;
+}) {
+  const headerScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const syncHeaderScroll = (scrollLeft: number) => {
+    if (headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = scrollLeft;
+    }
+  };
+
+  if (rows.length === 0) {
+    return (
+      <div className="table-shell">
+        {controls ? <div className="table-controls">{controls}</div> : null}
+        <p>{emptyMessage}</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="table-shell">
+      {controls ? <div className="table-controls">{controls}</div> : null}
 
       <div className="table-header-shell">
         <div className="table-header-scroll" ref={headerScrollRef}>
-          <table className="projection-table projection-table--header" aria-hidden="true">
+          <table
+            className="projection-table projection-table--header"
+            style={{ minWidth }}
+            aria-hidden="true"
+          >
             <colgroup>
-              {visibleColumns.map((column) => (
+              {columns.map((column) => (
                 <col key={column.key} style={{ width: column.width }} />
               ))}
             </colgroup>
             <thead>
               <tr>
-                {visibleColumns.map((column) => (
+                {columns.map((column) => (
                   <th key={column.key} scope="col">
-                    {getProjectionTableColumnLabel(column, settings)}
+                    {column.label}
                   </th>
                 ))}
               </tr>
@@ -2977,95 +3327,122 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
         </div>
       </div>
 
-      <div className="table-body-shell" onScroll={(event) => syncHeaderScroll(event.currentTarget.scrollLeft)}>
-        <table className="projection-table projection-table--body">
+      <div
+        className="table-body-shell"
+        onScroll={(event) => syncHeaderScroll(event.currentTarget.scrollLeft)}
+      >
+        <table
+          className="projection-table projection-table--body"
+          style={{ minWidth }}
+        >
           <colgroup>
-            {visibleColumns.map((column) => (
+            {columns.map((column) => (
               <col key={column.key} style={{ width: column.width }} />
             ))}
           </colgroup>
           <thead className="projection-table-sr-only">
             <tr>
-              {visibleColumns.map((column) => (
+              {columns.map((column) => (
                 <th key={column.key} scope="col">
-                  {getProjectionTableColumnLabel(column, settings)}
+                  {column.label}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row) => (
+            {rows.map((row, rowIndex) => (
               <tr
-                key={row.date}
-                className={row.milestones.length > 0 ? "projection-row projection-row--milestone" : "projection-row"}
-                title={row.milestones.length > 0 ? row.milestones.join(", ") : undefined}
+                key={getRowKey(row, rowIndex)}
+                className={getRowClassName?.(row, rowIndex)}
+                title={getRowTitle?.(row, rowIndex)}
               >
-                <td>
-                  <div className="projection-date-cell">
-                    <span>{formatDate(row.milestoneDates[0] ?? row.date)}</span>
-                    {row.milestones.length > 0 ? (
-                      <span className="milestone-badges">
-                        {row.milestones.map((milestone: string) => (
-                          <span className="milestone-badge" key={`${row.date}-${milestone}`}>
-                            {milestone}
-                          </span>
-                        ))}
-                      </span>
-                    ) : null}
-                  </div>
-                </td>
-                <td>{formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay)}</td>
-                {settings.taxationEnabled ? (
-                  <td>{formatCurrencyDetailed(row.monthlyIncomeTax)}</td>
-                ) : null}
-                {settings.taxationEnabled ? (
-                  <td>{formatCurrencyDetailed(row.totalMonthlyPensionIncomeBeforeTax)}</td>
-                ) : null}
-                <td>{formatAge(row.age, row.ageMonths)}</td>
-                {settings.showAlpha ? (
-                  <td>{formatCurrencyDetailed(row.monthlyAddedPension)}</td>
-                ) : null}
-                {settings.showAlpha ? (
-                  <td>{formatCurrencyDetailed(row.lumpSumAddedPension)}</td>
-                ) : null}
-                {settings.showAlpha ? (
-                  <td>{formatCurrencyDetailed(row.annualStandardAlphaPension)}</td>
-                ) : null}
-                {settings.showAlpha ? (
-                  <td>{formatCurrencyDetailed(row.annualEpaAlphaPension)}</td>
-                ) : null}
-                {settings.showAlpha ? (
-                  <td>{formatCurrencyDetailed(row.annualAccruedAlphaPension)}</td>
-                ) : null}
-                {settings.showAlpha ? (
-                  <td>{formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction)}</td>
-                ) : null}
-                {settings.showAlpha ? (
-                  <td>{formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome)}</td>
-                ) : null}
-                {settings.showNuvos ? (
-                  <td>{formatCurrencyDetailed(row.annualNuvosPension)}</td>
-                ) : null}
-                {settings.showNuvos ? (
-                  <td>{formatCurrencyDetailed(row.annualNuvosPensionIncludingReduction)}</td>
-                ) : null}
-                {settings.showNuvos ? (
-                  <td>{formatCurrencyDetailed(row.monthlyNuvosPensionTakeHome)}</td>
-                ) : null}
-                {settings.showStatePension ? (
-                  <td>{formatCurrencyDetailed(row.monthlyStatePension)}</td>
-                ) : null}
-                {settings.showSipp ? (
-                  <td>{formatCurrencyDetailed(row.monthlySippPension)}</td>
-                ) : null}
-                {settings.showIsa ? (
-                  <td>{formatCurrencyDetailed(row.monthlyIsaPension)}</td>
-                ) : null}
+                {renderCells(row, rowIndex).map((cell, cellIndex) => (
+                  <td key={`${getRowKey(row, rowIndex)}-${columns[cellIndex]?.key}`}>
+                    {cell}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function renderProjectionTableCell(
+  row: ProjectionRow,
+  columnKey: ProjectionTableColumn["key"],
+): ReactNode {
+  switch (columnKey) {
+    case "date":
+      return (
+        <ProjectionDateCell
+          date={row.date}
+          milestones={row.milestones}
+          milestoneDates={row.milestoneDates}
+        />
+      );
+    case "totalMonthlyPensionTakeHomePay":
+      return formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay);
+    case "monthlyIncomeTax":
+      return formatCurrencyDetailed(row.monthlyIncomeTax);
+    case "totalMonthlyPensionIncomeBeforeTax":
+      return formatCurrencyDetailed(row.totalMonthlyPensionIncomeBeforeTax);
+    case "age":
+      return formatAge(row.age, row.ageMonths);
+    case "monthlyAddedPension":
+      return formatCurrencyDetailed(row.monthlyAddedPension);
+    case "lumpSumAddedPension":
+      return formatCurrencyDetailed(row.lumpSumAddedPension);
+    case "annualStandardAlphaPension":
+      return formatCurrencyDetailed(row.annualStandardAlphaPension);
+    case "annualEpaAlphaPension":
+      return formatCurrencyDetailed(row.annualEpaAlphaPension);
+    case "annualAccruedAlphaPension":
+      return formatCurrencyDetailed(row.annualAccruedAlphaPension);
+    case "annualAlphaPensionIncludingReduction":
+      return formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction);
+    case "monthlyAlphaPensionTakeHome":
+      return formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome);
+    case "annualNuvosPension":
+      return formatCurrencyDetailed(row.annualNuvosPension);
+    case "annualNuvosPensionIncludingReduction":
+      return formatCurrencyDetailed(row.annualNuvosPensionIncludingReduction);
+    case "monthlyNuvosPensionTakeHome":
+      return formatCurrencyDetailed(row.monthlyNuvosPensionTakeHome);
+    case "monthlyStatePension":
+      return formatCurrencyDetailed(row.monthlyStatePension);
+    case "monthlySippPension":
+      return formatCurrencyDetailed(row.monthlySippPension);
+    case "monthlyIsaPension":
+      return formatCurrencyDetailed(row.monthlyIsaPension);
+    default:
+      return "";
+  }
+}
+
+function ProjectionDateCell({
+  date,
+  milestones,
+  milestoneDates,
+}: {
+  date: string;
+  milestones: string[];
+  milestoneDates: string[];
+}) {
+  return (
+    <div className="projection-date-cell">
+      <span>{formatDate(milestoneDates[0] ?? date)}</span>
+      {milestones.length > 0 ? (
+        <span className="milestone-badges">
+          {milestones.map((milestone: string) => (
+            <span className="milestone-badge" key={`${date}-${milestone}`}>
+              {milestone}
+            </span>
+          ))}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -3120,6 +3497,35 @@ function formatShortfallOrSurplus(shortfall: number, surplus: number) {
   }
 
   return formatCurrencyDetailed(0);
+}
+
+function formatPhaseBridgeTotal(phase: RetirementBridgeAnalysis["phases"][number]) {
+  const parts = [
+    phase.totalIsaBridge > 0
+      ? `ISA ${formatCurrencyDetailed(phase.totalIsaBridge)}`
+      : "",
+    phase.totalSippBridge > 0
+      ? `SIPP ${formatCurrencyDetailed(phase.totalSippBridge)}`
+      : "",
+    phase.unfundedShortfall > 0
+      ? `unfunded ${formatCurrencyDetailed(phase.unfundedShortfall)}`
+      : "",
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" + ") : formatCurrencyDetailed(0);
+}
+
+function formatPercent(rate: number) {
+  return `${(rate * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
+}
+
+function formatModelledReturn(
+  rate: number,
+  projectionBasis: PensionSettings["projectionBasis"],
+) {
+  return projectionBasis === "real"
+    ? `${formatPercent(rate)} real return`
+    : formatPercent(rate);
 }
 
 function formatAge(years: number, months: number) {

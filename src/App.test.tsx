@@ -259,6 +259,8 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     lifeExpectancy: defaultSettings.lifeExpectancy,
     targetRetirementAge: defaultSettings.targetRetirementAge,
     showAlpha: defaultSettings.showAlpha,
+    projectionBasis: defaultSettings.projectionBasis,
+    inflationRateAnnual: defaultSettings.inflationRateAnnual,
     showNuvos: defaultSettings.showNuvos,
     showStatePension: defaultSettings.showStatePension,
     showSipp: defaultSettings.showSipp,
@@ -438,6 +440,11 @@ describe("App settings form", () => {
     expect(screen.getByRole("heading", { name: "Your planning basics" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { name: "Inflation and projection basis" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByRole("heading", { name: "Your Alpha pension plan" })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Planned Alpha Pension Draw Age exact value"), {
@@ -503,6 +510,15 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Life Expectancy (Age)")).toHaveValue(
       defaultSettings.lifeExpectancy.toString(),
     );
+    expect(screen.getByLabelText("How should the modeller treat inflation?")).toHaveValue(
+      "real",
+    );
+    expect(screen.getByLabelText("Long-term inflation assumption")).toHaveValue("2.5");
+    expect(
+      screen.getByRole("heading", {
+        name: "Projection basis: Real terms, today's money",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("SIPP")).toBeChecked();
     expect(screen.getByLabelText("State Pension")).toBeChecked();
     expect(screen.getByLabelText("ISA")).toBeChecked();
@@ -514,14 +530,10 @@ describe("App settings form", () => {
       screen.getByLabelText("Retirement living standard target (£ per year)"),
     ).toHaveValue(defaultSettings.desiredRetirementIncome);
     expect(screen.getByLabelText("Project State Pension future growth")).not.toBeChecked();
-    expect(screen.getByLabelText("State Pension CPI (%)")).toBeDisabled();
     expect(screen.getByLabelText("State Pension wage growth (%)")).toBeDisabled();
     expect(screen.getByLabelText("Apply Alpha pension increases")).not.toBeChecked();
-    expect(screen.getByLabelText("Assumed CPI (%)")).toHaveValue(
-      defaultSettings.assumedCpiPercent.toString(),
-    );
-    expect(screen.getByLabelText("Assumed CPI (%)")).toBeDisabled();
-    expect(screen.getByLabelText("Assumed CPI (%) exact value")).toBeDisabled();
+    expect(screen.queryByLabelText("State Pension CPI (%)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Assumed CPI (%)")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Tax assumptions" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Personal Allowance (£ per year)")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Current SIPP pot (£)")).toHaveValue(
@@ -535,9 +547,9 @@ describe("App settings form", () => {
     );
     expect(screen.getByRole("button", { name: "Add SIPP lump sum" })).toBeInTheDocument();
     expect(screen.getByLabelText("SIPP tax relief on net additions")).toHaveValue("20");
-    expect(screen.getByLabelText("Apply real interest to SIPP pot")).not.toBeChecked();
-    expect(screen.getByLabelText("SIPP real interest rate (%)")).toBeDisabled();
-    expect(screen.getByLabelText("SIPP real interest rate (%) exact value")).toBeDisabled();
+    expect(screen.getByLabelText("Apply investment growth to SIPP pot")).not.toBeChecked();
+    expect(screen.getByLabelText("SIPP expected nominal return (%)")).toBeDisabled();
+    expect(screen.getByLabelText("SIPP expected nominal return (%) exact value")).toBeDisabled();
     expect(screen.getByLabelText("SIPP withdrawal strategy")).toHaveValue("zero_at_death");
     expect(screen.getByLabelText("SIPP withdrawal rate (%)")).toHaveValue("4");
     expect(screen.getByLabelText("SIPP withdrawal rate (%)")).toBeDisabled();
@@ -632,10 +644,6 @@ describe("App settings form", () => {
       "href",
       "https://commonslibrary.parliament.uk/research-briefings/cbp-7812/",
     );
-    expect(screen.getByRole("link", { name: "State Pension uprating" })).toHaveAttribute(
-      "href",
-      "https://commonslibrary.parliament.uk/research-briefings/cbp-7812/",
-    );
     expect(screen.getAllByRole("link", { name: "Check State Pension age" })).toHaveLength(
       2,
     );
@@ -663,10 +671,6 @@ describe("App settings form", () => {
       "href",
       "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01107",
     );
-    expect(screen.getByRole("link", { name: "Pensions Increase CPI" })).toHaveAttribute(
-      "href",
-      "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01215",
-    );
     expect(screen.getByRole("link", { name: "Check pension tax relief" })).toHaveAttribute(
       "href",
       "https://www.gov.uk/tax-on-your-private-pension/pension-tax-relief",
@@ -679,9 +683,6 @@ describe("App settings form", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Reset State Pension draw date to default" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Reset assumed CPI to default" }),
     ).toBeInTheDocument();
   });
 
@@ -1025,35 +1026,29 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("State Pension draw date")).toHaveValue("2055-06-15");
   });
 
-  it("can apply pension increases and reset CPI to the default", () => {
+  it("can apply pension increases using the global inflation assumption", () => {
     renderAcknowledgedApp();
 
     const applyIncreasesToggle = screen.getByLabelText("Apply Alpha pension increases");
-    const cpiInput = screen.getByLabelText("Assumed CPI (%) exact value");
+    const inflationInput = screen.getByLabelText("Long-term inflation assumption exact value");
 
     fireEvent.click(applyIncreasesToggle);
-
-    expect(screen.getByLabelText("Assumed CPI (%)")).not.toBeDisabled();
-    fireEvent.change(cpiInput, {
+    fireEvent.change(inflationInput, {
       target: { value: "3.4" },
     });
-    fireEvent.blur(cpiInput);
+    fireEvent.blur(inflationInput);
 
     expect(applyIncreasesToggle).toBeChecked();
-    expect(cpiInput).toHaveValue(3.4);
+    expect(inflationInput).toHaveValue(3.4);
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         applyPensionIncreases: true,
-        assumedCpiPercent: 3.4,
+        inflationRateAnnual: 3.4,
       }),
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "Reset assumed CPI to default" }));
-
-    expect(cpiInput).toHaveValue(defaultSettings.assumedCpiPercent);
   });
 
-  it("disables nuvos assumed CPI unless nuvos pension increases are enabled", () => {
+  it("uses the global inflation assumption for nuvos pension increases", () => {
     renderAcknowledgedApp();
 
     fireEvent.click(screen.getByLabelText("nuvos"));
@@ -1063,13 +1058,12 @@ describe("App settings form", () => {
     );
 
     expect(applyNuvosIncreasesToggle).not.toBeChecked();
-    expect(screen.getByLabelText("nuvos assumed CPI (%)")).toBeDisabled();
-    expect(screen.getByLabelText("nuvos assumed CPI (%) exact value")).toBeDisabled();
+    expect(screen.queryByLabelText("nuvos assumed CPI (%)")).not.toBeInTheDocument();
 
     fireEvent.click(applyNuvosIncreasesToggle);
 
-    expect(screen.getByLabelText("nuvos assumed CPI (%)")).not.toBeDisabled();
-    expect(screen.getByLabelText("nuvos assumed CPI (%) exact value")).not.toBeDisabled();
+    expect(applyNuvosIncreasesToggle).toBeChecked();
+    expect(screen.getByLabelText("Long-term inflation assumption")).toBeInTheDocument();
   });
 
   it("can apply projected State Pension future growth", () => {
@@ -1078,28 +1072,21 @@ describe("App settings form", () => {
     const applyStateGrowthToggle = screen.getByLabelText(
       "Project State Pension future growth",
     );
-    const cpiInput = screen.getByLabelText("State Pension CPI (%) exact value");
     const wageGrowthInput = screen.getByLabelText(
       "State Pension wage growth (%) exact value",
     );
 
     fireEvent.click(applyStateGrowthToggle);
-    fireEvent.change(cpiInput, {
-      target: { value: "3.1" },
-    });
     fireEvent.change(wageGrowthInput, {
       target: { value: "4.2" },
     });
-    fireEvent.blur(cpiInput);
     fireEvent.blur(wageGrowthInput);
 
     expect(applyStateGrowthToggle).toBeChecked();
-    expect(cpiInput).toHaveValue(3.1);
     expect(wageGrowthInput).toHaveValue(4.2);
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         statePensionApplyFutureGrowth: true,
-        statePensionCpiPercent: 3.1,
         statePensionWageGrowthPercent: 4.2,
       }),
     );

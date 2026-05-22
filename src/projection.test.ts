@@ -10,6 +10,8 @@ import {
   calculateAnnualAlphaPensionIncludingReduction,
   calculateAnnualIncomeTax,
   calculateAnnualNuvosPensionAtDate,
+  calculateRealAnnualRate,
+  calculateRetirementIncomeTargetAtDate,
   calculateIsaPotAtDate,
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
@@ -261,7 +263,7 @@ describe("projection calculations", () => {
     expect(calculateAccruedAlphaPension(8250, 243.6)).toBeCloseTo(8493.6, 6);
   });
 
-  it("revalues Alpha benefits by CPI plus 1.6 percent while active and CPI after leaving", () => {
+  it("revalues Alpha benefits by CPI plus 1.5 percent while active and CPI after leaving", () => {
     expect(
       calculateAlphaPensionRevaluationFactor({
         fromDate: "2025-04-01",
@@ -269,7 +271,7 @@ describe("projection calculations", () => {
         activeUntilDate: "2026-04-01",
         cpiPercent: 2,
       }),
-    ).toBeCloseTo(1.036 * 1.02 * 1.02, 6);
+    ).toBeCloseTo(1.035 * 1.02 * 1.02, 6);
   });
 
   it("returns no additional accrual when start date matches the ABS date", () => {
@@ -462,7 +464,7 @@ describe("projection calculations", () => {
       6,
     );
     expect(findRowByDate(rows, "2048-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
-      10.2,
+      10,
       6,
     );
   });
@@ -627,6 +629,7 @@ describe("projection calculations", () => {
     expect(
       calculateAnnualStatePensionAtDraw({
         ...defaultSettings,
+        projectionBasis: "nominal",
         startDate: "2026-01-01",
         statePensionDrawDate: "2028-01-01",
         currentStatePension: 10000,
@@ -646,6 +649,45 @@ describe("projection calculations", () => {
         statePensionWageGrowthPercent: 10,
       }),
     ).toBe(10000);
+  });
+
+  it("removes inflation from State Pension increases in real terms", () => {
+    expect(
+      calculateAnnualStatePensionAtDraw({
+        ...defaultSettings,
+        projectionBasis: "real",
+        inflationRateAnnual: 2.5,
+        startDate: "2026-01-01",
+        statePensionDrawDate: "2028-01-01",
+        currentStatePension: 10000,
+        statePensionApplyFutureGrowth: true,
+        statePensionWageGrowthPercent: 0,
+      }),
+    ).toBeCloseTo(10000, 6);
+  });
+
+  it("inflates retirement targets only in nominal terms", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      projectionBasis: "nominal",
+      inflationRateAnnual: 2.5,
+      desiredRetirementIncome: 31700,
+      startDate: "2026-01-01",
+    };
+
+    expect(calculateRetirementIncomeTargetAtDate(settings, "2028-01-01")).toBeCloseTo(
+      31700 * 1.025 ** 2,
+      6,
+    );
+    expect(
+      calculateRetirementIncomeTargetAtDate(
+        {
+          ...settings,
+          projectionBasis: "real",
+        },
+        "2028-01-01",
+      ),
+    ).toBe(31700);
   });
 
   it("adds the new State Pension deferral uplift from the selected draw date", () => {
@@ -669,6 +711,7 @@ describe("projection calculations", () => {
   it("continues to uprate State Pension after draw while deferred extra grows by CPI", () => {
     const settings = {
       ...defaultSettings,
+      projectionBasis: "nominal" as const,
       startDate: "2026-01-01",
       dateOfBirth: "1987-06-15",
       statePensionDrawDate: "2056-06-14",
@@ -681,7 +724,7 @@ describe("projection calculations", () => {
     const baseAtDraw = 10000 * 1.04 ** 30;
     const deferredExtraAtDraw = baseAtDraw * ((52 / 9) / 100);
     const baseAtRow = 10000 * 1.04 ** 32;
-    const deferredExtraAtRow = deferredExtraAtDraw * 1.03 ** 2;
+    const deferredExtraAtRow = deferredExtraAtDraw * 1.025 ** 2;
 
     expect(calculateAnnualStatePensionAtDate(settings, "2058-06-14")).toBeCloseTo(
       baseAtRow + deferredExtraAtRow,
@@ -819,6 +862,43 @@ describe("projection calculations", () => {
         drawDate: "2026-01-01",
       }),
     ).toBe(11375);
+  });
+
+  it("converts SIPP and ISA nominal returns to real returns in real-terms mode", () => {
+    expect(calculateRealAnnualRate(0.07, 0.025)).toBeCloseTo(0.043902439, 9);
+
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      projectionBasis: "real",
+      inflationRateAnnual: 2.5,
+      startDate: "2026-01-01",
+      dateOfBirth: "1986-01-01",
+      sippCurrentPot: 10000,
+      sippMonthlyContribution: 0,
+      sippApplyRealInterest: true,
+      sippRealInterestPercent: 7,
+      isaCurrentPot: 10000,
+      isaMonthlyContribution: 0,
+      isaApplyRealInterest: true,
+      isaRealInterestPercent: 7,
+    };
+
+    const expectedPot = 10000 * (1 + calculateRealAnnualRate(0.07, 0.025));
+
+    expect(
+      calculateSippPotAtDate({
+        settings,
+        rowDate: "2027-01-01",
+        drawDate: "2028-01-01",
+      }),
+    ).toBeCloseTo(expectedPot, 6);
+    expect(
+      calculateIsaPotAtDate({
+        settings,
+        rowDate: "2027-01-01",
+        drawDate: "2028-01-01",
+      }),
+    ).toBeCloseTo(expectedPot, 6);
   });
 
   it("applies partial retirement to regular SIPP contributions but not lump sums", () => {
@@ -1098,11 +1178,11 @@ describe("projection calculations", () => {
     const rows = createProjectionTable(settings);
 
     expect(findRowByDate(rows, "2026-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
-      10360,
+      10150,
       6,
     );
     expect(findRowByDate(rows, "2027-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
-      10567.2,
+      10150,
       6,
     );
   });
@@ -1856,6 +1936,75 @@ describe("projection calculations", () => {
     ).toBe(true);
   });
 
+  it("adds bridge pot milestones only for draw starts and pot exhaustion", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1980-04-01",
+      targetRetirementAge: 50,
+      lifeExpectancy: 60,
+      desiredRetirementIncome: 12000,
+      showAlpha: false,
+      alphaPensionDrawAge: 58,
+      showNuvos: false,
+      showStatePension: false,
+      showSipp: true,
+      showIsa: true,
+      sippDrawAge: 57,
+      isaCurrentPot: 10000,
+      sippCurrentPot: 100000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
+    const bridgeMilestones = analysis.potProjection.flatMap(
+      (row) => row.milestones,
+    );
+
+    expect(bridgeMilestones).toEqual([
+      "ISA drawdown starts",
+      "ISA pot exhausted",
+      "SIPP drawdown starts",
+    ]);
+  });
+
+  it("shows secure pension starts in the bridge pot projection timeline", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1980-04-01",
+      targetRetirementAge: 55,
+      alphaPensionDrawAge: 57,
+      lifeExpectancy: 58,
+      desiredRetirementIncome: 30000,
+      showAlpha: true,
+      showNuvos: false,
+      showStatePension: false,
+      showSipp: true,
+      showIsa: true,
+      sippDrawAge: 57,
+      sippCurrentPot: 100000,
+      isaCurrentPot: 100000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
+    const alphaStartRow = analysis.potProjection.find((row) =>
+      row.milestones.includes("Alpha starts"),
+    );
+
+    expect(alphaStartRow).toBeDefined();
+    expect(alphaStartRow?.monthlyAlphaPension).toBeGreaterThan(0);
+  });
+
   it("allows a bridge journey where the user retires after SIPP access age", () => {
     const settings = prepareBridgeProjectionSettings({
       ...defaultSettings,
@@ -1883,7 +2032,39 @@ describe("projection calculations", () => {
     expect(analysis.planWorks).toBe(true);
     expect(analysis.firstPotToFail).toBeNull();
     expect(analysis.totalBridgeRequired).toBeGreaterThan(0);
-    expect(analysis.phases[0]?.potUsed).toBe("SIPP");
+    expect(analysis.phases[0]?.potUsed).toBe("SIPP bridge");
+  });
+
+  it("labels bridge phases with combined boundary events on the same date", () => {
+    const settings = prepareBridgeProjectionSettings({
+      ...defaultSettings,
+      startDate: "2026-04-01",
+      dateOfBirth: "1980-04-01",
+      targetRetirementAge: 50,
+      lifeExpectancy: 68,
+      desiredRetirementIncome: 30000,
+      showAlpha: true,
+      alphaPensionDrawAge: 57,
+      showNuvos: false,
+      showStatePension: true,
+      statePensionDrawDate: "2047-04-01",
+      showSipp: true,
+      showIsa: true,
+      sippDrawAge: 57,
+      sippCurrentPot: 100000,
+      isaCurrentPot: 100000,
+    });
+    const pensionRows = createProjectionTable({
+      ...settings,
+      showSipp: false,
+      showIsa: false,
+    });
+
+    const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
+
+    expect(analysis.phases.map((phase) => phase.label)).toContain(
+      "SIPP access and Alpha to State Pension",
+    );
   });
 
   it("supports bridge analysis with no Civil Service pension", () => {
@@ -1982,6 +2163,9 @@ describe("projection calculations", () => {
       phase.incomeSourcesActive.includes("State Pension"),
     );
 
+    expect(analysis.fullSecureIncomeStartDate).toBe("2026-05-06");
+    expect(analysis.fullSecureAnnualGuaranteedIncome).toBeCloseTo(15000, 6);
+    expect(analysis.fullSecureAnnualGuaranteedSurplus).toBeCloseTo(3000, 6);
     expect(analysis.stableAnnualGuaranteedIncome).toBeCloseTo(15000, 6);
     expect(analysis.stableAnnualGuaranteedSurplus).toBeCloseTo(3000, 6);
     expect(statePensionPhase?.annualSurplus).toBeCloseTo(3000, 6);
