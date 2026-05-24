@@ -43,6 +43,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     partialRetirementEnabled: defaultSettings.partialRetirementEnabled,
     partialRetirementStartAge: defaultSettings.partialRetirementStartAge,
     partialRetirementWorkPercent: defaultSettings.partialRetirementWorkPercent,
+    fullSalary: defaultSettings.fullSalary,
     currentStatePension: defaultSettings.currentStatePension,
     desiredRetirementIncome: defaultSettings.desiredRetirementIncome,
     statePensionDrawDate: defaultSettings.statePensionDrawDate,
@@ -151,6 +152,7 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("partialRetirementStartAge", 75)).toBe(70);
     expect(normalizeSetting("partialRetirementStartAge", 55.5)).toBe(55.5);
     expect(normalizeSetting("partialRetirementWorkPercent", 37.6)).toBe(38);
+    expect(normalizeSetting("fullSalary", 56321.4)).toBe(56321);
     expect(normalizeSetting("assumedCpiPercent", 2.34)).toBe(2.34);
     expect(normalizeSetting("assumedCpiPercent", 11)).toBe(10);
     expect(normalizeSetting("alphaAddedPensionMonthly", 233)).toBe(233);
@@ -248,6 +250,7 @@ describe("settings unit tests", () => {
       partialRetirementEnabled: defaultSettings.partialRetirementEnabled,
       partialRetirementStartAge: defaultSettings.partialRetirementStartAge,
       partialRetirementWorkPercent: defaultSettings.partialRetirementWorkPercent,
+      fullSalary: defaultSettings.fullSalary,
       currentStatePension: 0,
       desiredRetirementIncome: 43900,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,

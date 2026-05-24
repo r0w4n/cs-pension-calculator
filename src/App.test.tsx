@@ -269,6 +269,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     partialRetirementEnabled: defaultSettings.partialRetirementEnabled,
     partialRetirementStartAge: defaultSettings.partialRetirementStartAge,
     partialRetirementWorkPercent: defaultSettings.partialRetirementWorkPercent,
+    fullSalary: defaultSettings.fullSalary,
     currentStatePension: defaultSettings.currentStatePension,
     desiredRetirementIncome: defaultSettings.desiredRetirementIncome,
     statePensionDrawDate: defaultSettings.statePensionDrawDate,
@@ -459,6 +460,19 @@ describe("App settings form", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Retirement income bridge" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Monthly pension projection table" }),
+    ).toBeInTheDocument();
+    const answerText = document.body.textContent ?? "";
+    expect(answerText.indexOf("Retirement income bridge")).toBeGreaterThan(
+      answerText.indexOf("Pension Summary"),
+    );
+    expect(answerText.indexOf("Monthly pension projection table")).toBeGreaterThan(
+      answerText.indexOf("Retirement income bridge"),
+    );
     expect(screen.getByLabelText("Monthly retirement income before tax")).toHaveTextContent(
       "£2,950.00",
     );
@@ -556,9 +570,7 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("SIPP expected nominal return (%)")).toBeDisabled();
     expect(screen.getByLabelText("SIPP expected nominal return (%) exact value")).toBeDisabled();
     expect(screen.getByLabelText("SIPP withdrawal strategy")).toHaveValue("zero_at_death");
-    expect(screen.getByLabelText("SIPP withdrawal rate (%)")).toHaveValue("4");
-    expect(screen.getByLabelText("SIPP withdrawal rate (%)")).toBeDisabled();
-    expect(screen.getByLabelText("SIPP withdrawal rate (%) exact value")).toBeDisabled();
+    expect(screen.queryByLabelText("SIPP withdrawal rate (%)")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Current ISA pot (£)")).toHaveValue(
       defaultSettings.isaCurrentPot,
     );

@@ -223,6 +223,8 @@ export function RetirementIncomeBridgeChart({
   const [draftMarkerAges, setDraftMarkerAges] = useState<
     Partial<Record<MilestoneKey, { age: number; baseAge: number }>>
   >({});
+  const [selectedMobileMarkerKey, setSelectedMobileMarkerKey] =
+    useState<MilestoneKey>("retirementAge");
   const dataSourceTargetIncomeAnnual = data[0]?.targetIncomeAnnual ?? targetIncomeAnnual;
   const displayedTargetIncomeAnnual =
     draftTargetIncomeAnnual ??
@@ -503,6 +505,16 @@ export function RetirementIncomeBridgeChart({
     xScale,
     plotWidth,
   );
+  const effectiveSelectedMobileMarkerKey = displayedMilestoneMarkers.some(
+    (marker) => marker.key === selectedMobileMarkerKey,
+  )
+    ? selectedMobileMarkerKey
+    : displayedMilestoneMarkers[0]?.key;
+  const selectedMobileMarker =
+    displayedMilestoneMarkers.find(
+      (marker) => marker.key === effectiveSelectedMobileMarkerKey,
+    ) ??
+    displayedMilestoneMarkers[0];
   const buildUpWidth = Math.max(0, xScale(retirementAge) - xScale(minAge));
 
   useEffect(() => {
@@ -882,6 +894,64 @@ export function RetirementIncomeBridgeChart({
         </div>
 
       </div>
+
+      {selectedMobileMarker ? (
+        <div className="bridge-mobile-navigation">
+          <label>
+            <span>Chart section</span>
+            <select
+              className="select-input"
+              value={selectedMobileMarker.key}
+              onChange={(event) =>
+                setSelectedMobileMarkerKey(event.target.value as MilestoneKey)
+              }
+            >
+              {displayedMilestoneMarkers.map((marker) => (
+                <option key={marker.key} value={marker.key}>
+                  {marker.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Age</span>
+            <input
+              className="number-input"
+              type="number"
+              min={limits[selectedMobileMarker.key].min}
+              max={limits[selectedMobileMarker.key].max}
+              step={limits[selectedMobileMarker.key].step}
+              value={formatAgeValue(selectedMobileMarker.age)}
+              disabled={!selectedMobileMarker.editable}
+              onChange={(event) =>
+                onChangeParameters({
+                  [selectedMobileMarker.key]: snapToLimit(
+                    Number(event.target.value),
+                    limits[selectedMobileMarker.key],
+                  ),
+                })
+              }
+            />
+          </label>
+          <input
+            aria-label={`Chart ${selectedMobileMarker.label} age`}
+            type="range"
+            min={limits[selectedMobileMarker.key].min}
+            max={limits[selectedMobileMarker.key].max}
+            step={limits[selectedMobileMarker.key].step}
+            value={selectedMobileMarker.age}
+            disabled={!selectedMobileMarker.editable}
+            onChange={(event) =>
+              onChangeParameters({
+                [selectedMobileMarker.key]: snapToLimit(
+                  Number(event.target.value),
+                  limits[selectedMobileMarker.key],
+                ),
+              })
+            }
+          />
+        </div>
+      ) : null}
 
       <div className="bridge-control-grid">
         <BridgeMetricControl

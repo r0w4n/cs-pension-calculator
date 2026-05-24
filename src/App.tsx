@@ -282,7 +282,11 @@ const GUIDED_JOURNEYS = [
         description:
           "Model a reduced work pattern and lower regular additions from that point.",
         kind: "fields",
-        fieldIds: ["partialRetirementStartAge", "partialRetirementWorkPercent"],
+        fieldIds: [
+          "partialRetirementStartAge",
+          "fullSalary",
+          "partialRetirementWorkPercent",
+        ],
         visible: (settings) => settings.partialRetirementEnabled,
       },
       {
@@ -987,6 +991,10 @@ function App() {
             settings={settings}
             validationIssues={validationIssues}
             pensionSummary={pensionSummary}
+            projectionRows={projectionRows}
+            retirementIncomeSeries={retirementIncomeSeries}
+            bridgeChartParameters={bridgeChartParameters}
+            bridgeChartLimits={bridgeChartLimits}
             derivedInflationAssumptions={derivedInflationAssumptions}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
@@ -1010,6 +1018,10 @@ function App() {
             settings={settings}
             validationIssues={validationIssues}
             pensionSummary={pensionSummary}
+            projectionRows={projectionRows}
+            retirementIncomeSeries={retirementIncomeSeries}
+            bridgeChartParameters={bridgeChartParameters}
+            bridgeChartLimits={bridgeChartLimits}
             derivedInflationAssumptions={derivedInflationAssumptions}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
@@ -1324,6 +1336,10 @@ type GuidedJourneyProps = {
   settings: PensionSettings;
   validationIssues: PensionValidationIssue[];
   pensionSummary: PensionSummary | null;
+  projectionRows: ProjectionRow[];
+  retirementIncomeSeries: RetirementIncomePoint[];
+  bridgeChartParameters: RetirementIncomeBridgeParameters;
+  bridgeChartLimits: RetirementIncomeBridgeLimits;
   derivedInflationAssumptions: ReturnType<typeof deriveInflationAssumptions>;
   retirementIncomeDisplay: RetirementIncomeDisplay;
   retirementIncomeItems: SummaryItem[];
@@ -1346,6 +1362,10 @@ function GuidedJourney({
   settings,
   validationIssues,
   pensionSummary,
+  projectionRows,
+  retirementIncomeSeries,
+  bridgeChartParameters,
+  bridgeChartLimits,
   derivedInflationAssumptions,
   retirementIncomeDisplay,
   retirementIncomeItems,
@@ -1440,6 +1460,10 @@ function GuidedJourney({
             settings={settings}
             validationIssues={validationIssues}
             pensionSummary={pensionSummary}
+            projectionRows={projectionRows}
+            retirementIncomeSeries={retirementIncomeSeries}
+            bridgeChartParameters={bridgeChartParameters}
+            bridgeChartLimits={bridgeChartLimits}
             derivedInflationAssumptions={derivedInflationAssumptions}
             retirementIncomeDisplay={retirementIncomeDisplay}
             retirementIncomeItems={retirementIncomeItems}
@@ -1488,6 +1512,10 @@ function JourneyStepContent({
   settings,
   validationIssues,
   pensionSummary,
+  projectionRows,
+  retirementIncomeSeries,
+  bridgeChartParameters,
+  bridgeChartLimits,
   derivedInflationAssumptions,
   retirementIncomeDisplay,
   retirementIncomeItems,
@@ -1523,11 +1551,6 @@ function JourneyStepContent({
           <ValidationIssuesSection validationIssues={validationIssues} />
         ) : null}
 
-        <InflationBasisPanel
-          settings={settings}
-          assumptions={derivedInflationAssumptions}
-        />
-
         <SummarySection
           title="Pension Summary"
           variant="feature"
@@ -1555,6 +1578,11 @@ function JourneyStepContent({
           }
         />
 
+        <InflationBasisPanel
+          settings={settings}
+          assumptions={derivedInflationAssumptions}
+        />
+
         <SummarySection
           title="Key dates"
           items={[
@@ -1580,6 +1608,27 @@ function JourneyStepContent({
             },
           ]}
         />
+
+        <RetirementIncomeBridgeChart
+          data={retirementIncomeSeries}
+          alphaLabel="Alpha pension"
+          limits={bridgeChartLimits}
+          statePensionEditable
+          onChangeParameters={onChangeChartParameters}
+          {...bridgeChartParameters}
+        />
+
+        <section className="panel">
+          <div className="panel-heading">
+            <h2>Monthly pension projection table</h2>
+            <p className="section-copy">
+              The table is generated from the projection layer so each row stays
+              traceable back to the modeller inputs and factor tables.
+            </p>
+          </div>
+
+          <ProjectionTable rows={projectionRows} settings={settings} />
+        </section>
       </div>
     );
   }
@@ -2493,10 +2542,14 @@ function SettingsFields({
 
 function shouldRenderField(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
+    (fieldId !== "sippWithdrawalPercent" ||
+      (settings.showSipp && settings.sippWithdrawalStrategy === "percentage")) &&
     (fieldId !== "sippWithdrawalTargetAge" ||
-      settings.sippWithdrawalStrategy === "use_by_age") &&
+      (settings.showSipp && settings.sippWithdrawalStrategy === "use_by_age")) &&
+    (fieldId !== "isaWithdrawalPercent" ||
+      (settings.showIsa && settings.isaWithdrawalStrategy === "percentage")) &&
     (fieldId !== "isaWithdrawalTargetAge" ||
-      settings.isaWithdrawalStrategy === "use_by_age")
+      (settings.showIsa && settings.isaWithdrawalStrategy === "use_by_age"))
   );
 }
 
@@ -2573,6 +2626,7 @@ function isPartialRetirementField(fieldId: FieldDefinition["id"]) {
   return [
     "partialRetirementStartAge",
     "partialRetirementWorkPercent",
+    "fullSalary",
   ].includes(fieldId);
 }
 
@@ -3230,8 +3284,13 @@ function RangeSettingField({
   const effectiveField = getEffectiveRangeField(field, settings);
   const [draftValue, setDraftValue] = useState<number | null>(null);
   const [draftExactValue, setDraftExactValue] = useState<string | null>(null);
-  const canResetToDefault = field.id === "assumedCpiPercent";
+  const canResetToDefault = [
+    "assumedCpiPercent",
+    "sippRealInterestPercent",
+    "isaRealInterestPercent",
+  ].includes(field.id);
   const resetValue = defaultSettings[field.id] as PensionSettings[typeof field.id];
+  const resetLabel = `Reset ${field.label} to default`;
   const isEditingExactValue = draftExactValue !== null;
   const parsedDraftExactValue =
     draftExactValue === null || draftExactValue.trim() === ""
@@ -3349,7 +3408,7 @@ function RangeSettingField({
         <button
           type="button"
           className="secondary-button field-reset-button"
-          aria-label="Reset assumed CPI to default"
+          aria-label={resetLabel}
           disabled={disabled}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
@@ -4083,8 +4142,12 @@ function renderProjectionTableCell(
       return formatCurrencyDetailed(row.monthlyStatePension);
     case "monthlySippPension":
       return formatCurrencyDetailed(row.monthlySippPension);
+    case "sippPot":
+      return formatCurrencyDetailed(row.sippPot);
     case "monthlyIsaPension":
       return formatCurrencyDetailed(row.monthlyIsaPension);
+    case "isaPot":
+      return formatCurrencyDetailed(row.isaPot);
     default:
       return "";
   }
@@ -4357,7 +4420,7 @@ function calculatePartialRetirementIncomeAnnual(
     return 0;
   }
 
-  return settings.pensionableEarnings * (settings.partialRetirementWorkPercent / 100);
+  return settings.fullSalary * (settings.partialRetirementWorkPercent / 100);
 }
 
 function createBridgeChartParameters(

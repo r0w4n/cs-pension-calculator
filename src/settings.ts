@@ -38,6 +38,7 @@ export type PensionSettings = {
   partialRetirementEnabled: boolean;
   partialRetirementStartAge: number;
   partialRetirementWorkPercent: number;
+  fullSalary: number;
   currentStatePension: number;
   desiredRetirementIncome: number;
   statePensionDrawDate: string;
@@ -115,6 +116,7 @@ const numericSettingRules = {
   statePensionWageGrowthPercent: { min: 0, max: 10, step: 0.1 },
   partialRetirementStartAge: { min: 40, max: 70, step: 1 },
   partialRetirementWorkPercent: { min: 0, max: 100, step: 1 },
+  fullSalary: { min: 0, max: 300000, step: 1 },
   assumedCpiPercent: { min: 0, max: 10, step: 0.1 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
   alphaPensionLeaveAge: { min: 0, max: 70, step: 1 },
@@ -182,6 +184,7 @@ export const defaultSettings: PensionSettings = {
   partialRetirementEnabled: false,
   partialRetirementStartAge: 55,
   partialRetirementWorkPercent: 60,
+  fullSalary: 42000,
   currentStatePension: 12547.6,
   desiredRetirementIncome: 31700,
   statePensionDrawDate: "2055-06-15",
@@ -214,7 +217,7 @@ export const defaultSettings: PensionSettings = {
   sippDrawAge: 58,
   sippLumpSums: [],
   sippApplyRealInterest: false,
-  sippRealInterestPercent: 3,
+  sippRealInterestPercent: 5,
   sippTaxReliefRate: "20",
   sippWithdrawalStrategy: "zero_at_death",
   sippWithdrawalPercent: 4,
@@ -224,7 +227,7 @@ export const defaultSettings: PensionSettings = {
   isaDrawAge: 60,
   isaLumpSums: [],
   isaApplyRealInterest: false,
-  isaRealInterestPercent: 3,
+  isaRealInterestPercent: 5,
   isaWithdrawalStrategy: "zero_at_death",
   isaWithdrawalPercent: 4,
   isaWithdrawalTargetAge: 75,
@@ -383,6 +386,7 @@ function coerceSettings(
     partialRetirementEnabled: coerceBoolean(input.partialRetirementEnabled),
     partialRetirementStartAge: coerceNumber(input.partialRetirementStartAge),
     partialRetirementWorkPercent: coerceNumber(input.partialRetirementWorkPercent),
+    fullSalary: coerceNumber(input.fullSalary),
     currentStatePension: coerceNumber(input.currentStatePension),
     desiredRetirementIncome: coerceNumber(input.desiredRetirementIncome),
     statePensionDrawDate: coerceString(input.statePensionDrawDate),
@@ -983,6 +987,7 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "partialRetirementWorkPercent",
       settings.partialRetirementWorkPercent,
     ),
+    fullSalary: normalizeSetting("fullSalary", settings.fullSalary),
     currentStatePension: normalizeSetting(
       "currentStatePension",
       settings.currentStatePension,
@@ -1497,6 +1502,20 @@ export function getPartialRetirementContributionMultiplier(
   return rowDate >= getPartialRetirementStartDate(settings)
     ? settings.partialRetirementWorkPercent / 100
     : 1;
+}
+
+export function getPartialRetirementSavingsContributionMultiplier(
+  settings: PensionSettings,
+  rowDate: string,
+) {
+  if (!settings.partialRetirementEnabled || rowDate < getPartialRetirementStartDate(settings)) {
+    return 1;
+  }
+
+  const fullSalary = Math.max(0, settings.fullSalary);
+  const partialSalary = fullSalary * (settings.partialRetirementWorkPercent / 100);
+
+  return fullSalary > 0 ? partialSalary / fullSalary : settings.partialRetirementWorkPercent / 100;
 }
 
 export function getLatestAlphaAddedPensionPurchaseDate(dateOfBirth: string) {

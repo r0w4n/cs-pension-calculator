@@ -645,12 +645,9 @@ h3 {
   margin-top: 0;
   width: 100%;
   padding: 0 0.1rem 0 0.1rem;
-  flex-wrap: nowrap;
   justify-content: flex-end;
-  overflow-x: auto;
-  overflow-y: hidden;
-  white-space: nowrap;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
+  white-space: normal;
 }
 
 .bridge-legend > span,
@@ -680,9 +677,14 @@ h3 {
 
 .bridge-legend > span > span,
 .bridge-legend-toggle > span {
+  flex: 0 0 auto;
   width: 0.75rem;
   height: 0.75rem;
   border-radius: 999px;
+}
+
+.bridge-mobile-navigation {
+  display: none;
 }
 
 .bridge-shortfall-key {
@@ -1466,9 +1468,33 @@ h3 {
 
   .bridge-legend--overlay {
     justify-content: flex-start;
-    flex-wrap: wrap;
-    overflow: visible;
-    white-space: normal;
+  }
+
+  .bridge-mobile-navigation {
+    display: grid;
+    gap: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.8rem;
+    padding: 0.85rem;
+    background: #fbfdfc;
+  }
+
+  .bridge-mobile-navigation label {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .bridge-mobile-navigation label > span {
+    color: var(--text-muted);
+    font-size: var(--font-size-label);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .bridge-mobile-navigation input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
   }
 
   .bridge-control-grid {

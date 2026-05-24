@@ -4,6 +4,7 @@ import {
   calculateNormalPensionAge,
   calculateStatePensionDrawDate,
   getPartialRetirementContributionMultiplier,
+  getPartialRetirementSavingsContributionMultiplier,
   getPartialRetirementStartDate,
   getAlphaEpaDate,
   resolveAlphaAbsDate,
@@ -2623,7 +2624,10 @@ function calculatePotProjectionAtDate(input: {
       pot +=
         monthlyContribution *
         contributionMultiplier *
-        getPartialRetirementContributionMultiplier(settings, projectionMonthDate);
+        getPartialRetirementSavingsContributionMultiplier(
+          settings,
+          projectionMonthDate,
+        );
     }
     pot += calculateScheduledPotLumpSums({
       lumpSums,
@@ -2794,7 +2798,7 @@ function calculateTotalSippContributionsAfterTaxRelief(
     regularContributions +=
       settings.sippMonthlyContribution *
       contributionMultiplier *
-      getPartialRetirementContributionMultiplier(settings, contributionDate);
+      getPartialRetirementSavingsContributionMultiplier(settings, contributionDate);
   }
 
   return (
@@ -2825,7 +2829,7 @@ function calculateTotalIsaContributions(settings: PensionSettings, drawDate: str
     const contributionDate = addMonths(settings.startDate, monthIndex);
     regularContributions +=
       settings.isaMonthlyContribution *
-      getPartialRetirementContributionMultiplier(settings, contributionDate);
+      getPartialRetirementSavingsContributionMultiplier(settings, contributionDate);
   }
 
   return (

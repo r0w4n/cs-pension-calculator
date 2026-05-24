@@ -83,6 +83,7 @@ export type CurrencyInputField = {
     | "accruedPensionAtLastAbs"
     | "nuvosAccruedPensionAtLastAbs"
     | "desiredRetirementIncome"
+    | "fullSalary"
     | "sippCurrentPot"
     | "isaCurrentPot"
     | "taxPersonalAllowance"
@@ -265,7 +266,7 @@ export const fieldGroups: FieldGroup[] = [
     eyebrow: "Partial Retirement",
     title: "Partial retirement details",
     description:
-      "Reduce regular Alpha, nuvos, SIPP and ISA additions after partial retirement begins.",
+      "Reduce regular Alpha and nuvos accruals from pensionable earnings, and SIPP/ISA contributions from full salary, after partial retirement begins.",
     fields: [
       {
         id: "partialRetirementStartAge",
@@ -277,12 +278,25 @@ export const fieldGroups: FieldGroup[] = [
         inputStep: 0.1,
       },
       {
+        id: "fullSalary",
+        label: "Full salary before partial retirement (£ per year)",
+        type: "currency-input",
+        min: 0,
+        max: 300000,
+        step: 1,
+        format: "currency",
+        description:
+          "Used for partial-retirement work income and SIPP/ISA contribution modelling. Alpha pension accrual still uses pensionable earnings.",
+      },
+      {
         id: "partialRetirementWorkPercent",
-        label: "Pro-rata work and contribution level (%)",
+        label: "Pro-rata work level (%)",
         type: "range",
         min: 0,
         max: 100,
         step: 1,
+        description:
+          "The share of full salary used for partial-retirement income and regular SIPP/ISA contribution modelling. Alpha and nuvos accruals are still pro-rated from pensionable earnings.",
       },
     ],
   },
@@ -368,6 +382,8 @@ export const fieldGroups: FieldGroup[] = [
         max: 150000,
         step: 500,
         format: "currency",
+        description:
+          "Used for Alpha pension accrual and modelling. If full salary differs, enter it in partial retirement for SIPP/ISA contribution modelling.",
         infoUrl: knowledgeLinks.alphaAccrual,
         infoLinkText: "Alpha accrual rate",
       },
@@ -570,6 +586,8 @@ export const fieldGroups: FieldGroup[] = [
         min: -10,
         max: 10,
         step: 0.1,
+        description:
+          "Defaults to 5% as a simple long-term planning assumption for a diversified investment pot before inflation. Nominal return means the headline growth rate before removing inflation; it is an assumption, not a prediction.",
       },
       {
         id: "sippWithdrawalStrategy",
@@ -648,6 +666,8 @@ export const fieldGroups: FieldGroup[] = [
         min: -10,
         max: 10,
         step: 0.1,
+        description:
+          "Defaults to 5% as a simple long-term planning assumption for a diversified investment pot before inflation. Nominal return means the headline growth rate before removing inflation; it is an assumption, not a prediction.",
       },
       {
         id: "isaWithdrawalStrategy",
