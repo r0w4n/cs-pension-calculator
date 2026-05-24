@@ -25,16 +25,31 @@ import {
   type ProjectionRow,
 } from "./projection";
 import {
+  RetirementIncomeBridgeChart,
+  type RetirementIncomeBridgeLimits,
+  type RetirementIncomeBridgeParameters,
+  type RetirementIncomePoint,
+} from "./RetirementIncomeBridgeChart";
+import {
+  calculateDateAge,
+  calculateMinimumStatePensionDrawAge,
+  calculateMinimumPensionAccessAge,
+  calculateMinimumSippAccessAge,
   createDefaultAddedPensionLumpSum,
   calculateNormalPensionAge,
+  calculateStatePensionDrawAge,
   createDefaultSettings,
   defaultSettings,
   formatCurrency,
   getAlphaAbsYear,
+  calculateStatePensionDrawDateFromAge,
   calculateStatePensionDrawDate,
   loadStoredSettings,
   MAX_ADDED_PENSION_PURCHASE_INPUT_AGE,
+  normalizeAlphaPensionDrawAge,
   normalizeSetting,
+  normalizeSippDrawAge,
+  normalizeStatePensionDrawAge,
   normalizeStatePensionDrawDate,
   readStorageItem,
   saveSettings,
@@ -142,7 +157,12 @@ const GUIDED_JOURNEYS = [
         description:
           "These dates and income targets anchor every projection in the modeller.",
         kind: "fields",
-        fieldIds: ["dateOfBirth", "lifeExpectancy", "desiredRetirementIncome"],
+        fieldIds: [
+          "dateOfBirth",
+          "lifeExpectancy",
+          "requirementAge",
+          "desiredRetirementIncome",
+        ],
       },
       {
         id: "inflation",
@@ -218,6 +238,7 @@ const GUIDED_JOURNEYS = [
           "sippRealInterestPercent",
           "sippWithdrawalStrategy",
           "sippWithdrawalPercent",
+          "sippWithdrawalTargetAge",
         ],
         visible: (settings) => settings.showSipp,
       },
@@ -236,6 +257,7 @@ const GUIDED_JOURNEYS = [
           "isaRealInterestPercent",
           "isaWithdrawalStrategy",
           "isaWithdrawalPercent",
+          "isaWithdrawalTargetAge",
         ],
         visible: (settings) => settings.showIsa,
       },
@@ -282,6 +304,7 @@ const GUIDED_JOURNEYS = [
 
 function App() {
   const [settings, setSettings] = useState<PensionSettings>(loadStoredSettings);
+  const [chartUndoStack, setChartUndoStack] = useState<PensionSettings[]>([]);
   const [settingsFormVersion, setSettingsFormVersion] = useState(0);
   const [appMode, setAppMode] = useState<AppMode | null>(loadStoredAppMode);
   const [retirementIncomeDisplay, setRetirementIncomeDisplay] =
@@ -307,6 +330,18 @@ function App() {
   const pensionSummary = useMemo(
     () => generatePensionSummary(projectionRows, deferredSettings),
     [projectionRows, deferredSettings],
+  );
+  const retirementIncomeSeries = useMemo(
+    () => createRetirementIncomeSeries(projectionRows, deferredSettings),
+    [projectionRows, deferredSettings],
+  );
+  const bridgeChartParameters = useMemo(
+    () => createBridgeChartParameters(settings),
+    [settings],
+  );
+  const bridgeChartLimits = useMemo(
+    () => createBridgeChartLimits(settings),
+    [settings],
   );
   const derivedInflationAssumptions = useMemo(
     () => deriveInflationAssumptions(deferredSettings),
@@ -342,11 +377,11 @@ function App() {
     retirementIncomeDisplay === "monthly"
       ? calculateRetirementIncomeTargetAtDate(
           settings,
-          pensionSummary.keyDates.startsAlphaPension,
+          addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge),
         ) / 12
       : calculateRetirementIncomeTargetAtDate(
           settings,
-          pensionSummary.keyDates.startsAlphaPension,
+          addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge),
         ),
   );
 
@@ -362,12 +397,324 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleUndoShortcut = (event: globalThis.KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== "z" ||
+        event.shiftKey ||
+        event.altKey ||
+        (!event.metaKey && !event.ctrlKey) ||
+        chartUndoStack.length === 0 ||
+        isEditableShortcutTarget(event.target)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      setChartUndoStack((current) => {
+        const previousSettings = current.at(-1);
+
+        if (!previousSettings) {
+          return current;
+        }
+
+        setSettings(previousSettings);
+        return current.slice(0, -1);
+      });
+    };
+
+    window.addEventListener("keydown", handleUndoShortcut);
+
+    return () => window.removeEventListener("keydown", handleUndoShortcut);
+  }, [chartUndoStack.length]);
+
+  function applyBridgeChartParameterPatch(
+    current: PensionSettings,
+    patch: Partial<RetirementIncomeBridgeParameters>,
+  ) {
+    const next = { ...current };
+    const minimumSippAccessAge = calculateMinimumSippAccessAge(next.dateOfBirth);
+    const minimumAlphaAccessAge = calculateMinimumPensionAccessAge(next.dateOfBirth);
+    const currentPlanningAge = calculateCurrentPlanningAge(next);
+    const defaultStatePensionAge = calculateMinimumStatePensionDrawAge(
+      next.dateOfBirth,
+    );
+
+    if (patch.targetIncomeAnnual !== undefined) {
+      next.desiredRetirementIncome = normalizeSetting(
+        "desiredRetirementIncome",
+        patch.targetIncomeAnnual,
+      );
+    }
+
+    if (patch.alphaMonthlyAddedPension !== undefined) {
+      next.alphaAddedPensionMonthly = normalizeSetting(
+        "alphaAddedPensionMonthly",
+        patch.alphaMonthlyAddedPension,
+      );
+    }
+
+    if (patch.isaMonthlyContribution !== undefined) {
+      next.isaMonthlyContribution = normalizeSetting(
+        "isaMonthlyContribution",
+        patch.isaMonthlyContribution,
+      );
+    }
+
+    if (patch.sippMonthlyContribution !== undefined) {
+      next.sippMonthlyContribution = normalizeSetting(
+        "sippMonthlyContribution",
+        patch.sippMonthlyContribution,
+      );
+    }
+
+    if (patch.partialRetirementStartAge !== undefined) {
+      const latestPartialRetirementStartAge = Math.max(
+        currentPlanningAge,
+        Math.min(next.requirementAge - 0.25, 70, next.lifeExpectancy),
+      );
+      next.partialRetirementStartAge = normalizeSetting(
+        "partialRetirementStartAge",
+        clampNumber(
+          patch.partialRetirementStartAge,
+          currentPlanningAge,
+          latestPartialRetirementStartAge,
+        ),
+      );
+    }
+
+    if (patch.partialRetirementWorkPercent !== undefined) {
+      next.partialRetirementWorkPercent = normalizeSetting(
+        "partialRetirementWorkPercent",
+        patch.partialRetirementWorkPercent,
+      );
+    }
+
+    if (patch.partialRetirementEnabled !== undefined) {
+      next.partialRetirementEnabled = patch.partialRetirementEnabled;
+    }
+
+    if (patch.showIsa !== undefined) {
+      next.showIsa = patch.showIsa;
+    }
+
+    if (patch.showSipp !== undefined) {
+      next.showSipp = patch.showSipp;
+    }
+
+    if (patch.showNuvos !== undefined) {
+      next.showNuvos = patch.showNuvos;
+    }
+
+    if (patch.showStatePension !== undefined) {
+      next.showStatePension = patch.showStatePension;
+    }
+
+    const requestedStateAge =
+      patch.statePensionAge ??
+      calculateStatePensionDrawAge(next.dateOfBirth, next.statePensionDrawDate);
+    const statePensionAge = clampNumber(
+      requestedStateAge,
+      defaultStatePensionAge,
+      Math.max(defaultStatePensionAge, next.lifeExpectancy),
+    );
+
+    if (patch.statePensionAge !== undefined) {
+      next.statePensionDrawDate = calculateStatePensionDrawDateFromAge(
+        next.dateOfBirth,
+        normalizeStatePensionDrawAge(statePensionAge, next.dateOfBirth),
+      );
+    }
+
+    if (patch.retirementAge !== undefined) {
+      const retirementAge = clampNumber(
+        patch.retirementAge,
+        currentPlanningAge,
+        Math.min(70, statePensionAge),
+      );
+      next.requirementAge = normalizeSetting("requirementAge", retirementAge);
+      next.isaDrawAge = normalizeSetting("isaDrawAge", retirementAge);
+
+      if (
+        next.partialRetirementEnabled &&
+        next.partialRetirementStartAge >= next.requirementAge
+      ) {
+        next.partialRetirementStartAge = normalizeSetting(
+          "partialRetirementStartAge",
+          clampNumber(
+            next.requirementAge - 0.25,
+            currentPlanningAge,
+            Math.min(70, next.lifeExpectancy),
+          ),
+        );
+      }
+
+      if (next.showSipp && next.sippDrawAge < Math.max(retirementAge, minimumSippAccessAge)) {
+        next.sippDrawAge = normalizeSippDrawAge(
+          Math.max(retirementAge, minimumSippAccessAge),
+          next.dateOfBirth,
+        );
+      }
+    }
+
+    if (patch.alphaLeaveAge !== undefined) {
+      const alphaLeaveAge = clampNumber(
+        patch.alphaLeaveAge,
+        currentPlanningAge,
+        Math.min(70, statePensionAge),
+      );
+      next.alphaPensionLeaveAge = normalizeSetting(
+        "alphaPensionLeaveAge",
+        alphaLeaveAge,
+      );
+    }
+
+    if (patch.sippAccessAge !== undefined) {
+      const sippAccessAge = clampNumber(
+        patch.sippAccessAge,
+        Math.max(next.requirementAge, minimumSippAccessAge),
+        Math.min(70, statePensionAge),
+      );
+      next.sippDrawAge = normalizeSippDrawAge(sippAccessAge, next.dateOfBirth);
+
+      if (
+        next.showSipp &&
+        next.sippWithdrawalStrategy === "use_by_age" &&
+        next.sippWithdrawalTargetAge <= next.sippDrawAge
+      ) {
+        next.sippWithdrawalTargetAge = normalizeSetting(
+          "sippWithdrawalTargetAge",
+          next.sippDrawAge + 0.25,
+        );
+      }
+    }
+
+    if (patch.sippUseByAge !== undefined) {
+      next.sippWithdrawalTargetAge = normalizeSetting(
+        "sippWithdrawalTargetAge",
+        clampNumber(
+          patch.sippUseByAge,
+          next.sippDrawAge + 0.25,
+          Math.min(100, next.lifeExpectancy),
+        ),
+      );
+    }
+
+    if (patch.isaAccessAge !== undefined) {
+      next.isaDrawAge = normalizeSetting(
+        "isaDrawAge",
+        clampNumber(
+          patch.isaAccessAge,
+          currentPlanningAge,
+          Math.min(70, statePensionAge),
+        ),
+      );
+
+      if (
+        next.showIsa &&
+        next.isaWithdrawalStrategy === "use_by_age" &&
+        next.isaWithdrawalTargetAge <= next.isaDrawAge
+      ) {
+        next.isaWithdrawalTargetAge = normalizeSetting(
+          "isaWithdrawalTargetAge",
+          next.isaDrawAge + 0.25,
+        );
+      }
+    }
+
+    if (patch.alphaStartAge !== undefined) {
+      const alphaStartAge = clampNumber(
+        patch.alphaStartAge,
+        Math.max(next.alphaPensionLeaveAge, minimumAlphaAccessAge),
+        Math.min(70, statePensionAge),
+      );
+      next.alphaPensionDrawAge = normalizeAlphaPensionDrawAge(
+        alphaStartAge,
+        next.dateOfBirth,
+      );
+    }
+
+    if (patch.isaUseByAge !== undefined) {
+      next.isaWithdrawalTargetAge = normalizeSetting(
+        "isaWithdrawalTargetAge",
+        clampNumber(
+          patch.isaUseByAge,
+          next.isaDrawAge + 0.25,
+          Math.min(100, next.lifeExpectancy),
+        ),
+      );
+    }
+
+    if (
+      next.showSipp &&
+      next.sippDrawAge < Math.max(next.requirementAge, minimumSippAccessAge)
+    ) {
+      next.sippDrawAge = normalizeSippDrawAge(
+        Math.max(next.requirementAge, minimumSippAccessAge),
+        next.dateOfBirth,
+      );
+    }
+
+    if (
+      next.showSipp &&
+      next.sippWithdrawalStrategy === "use_by_age" &&
+      next.sippWithdrawalTargetAge <= next.sippDrawAge
+    ) {
+      next.sippWithdrawalTargetAge = normalizeSetting(
+        "sippWithdrawalTargetAge",
+        next.sippDrawAge + 0.25,
+      );
+    }
+
+    if (
+      next.showIsa &&
+      next.isaWithdrawalStrategy === "use_by_age" &&
+      next.isaWithdrawalTargetAge <= next.isaDrawAge
+    ) {
+      next.isaWithdrawalTargetAge = normalizeSetting(
+        "isaWithdrawalTargetAge",
+        next.isaDrawAge + 0.25,
+      );
+    }
+
+    if (next.alphaPensionLeaveAge > next.alphaPensionDrawAge) {
+      next.alphaPensionDrawAge = normalizeAlphaPensionDrawAge(
+        next.alphaPensionLeaveAge,
+        next.dateOfBirth,
+      );
+    }
+
+    if (next.alphaPensionDrawAge > statePensionAge) {
+      next.alphaPensionDrawAge = normalizeAlphaPensionDrawAge(
+        Math.min(70, statePensionAge),
+        next.dateOfBirth,
+      );
+    }
+
+    return next;
+  }
+
   function updateSetting<K extends SettingsKey>(key: K, value: PensionSettings[K]) {
     showSavedLabel();
+    setChartUndoStack([]);
+
+    if (key === "requirementAge") {
+      setSettings((current) =>
+        applyBridgeChartParameterPatch(current, {
+          retirementAge: value as number,
+        }),
+      );
+      return;
+    }
+
     setSettings((current) => {
       const normalizedValue =
         key === "statePensionDrawDate"
           ? normalizeStatePensionDrawDate(value as string, current.dateOfBirth)
+          : key === "alphaPensionDrawAge"
+            ? normalizeAlphaPensionDrawAge(value as number, current.dateOfBirth)
+          : key === "sippDrawAge"
+            ? normalizeSippDrawAge(value as number, current.dateOfBirth)
           : normalizeSetting(key, value);
 
       return {
@@ -376,15 +723,32 @@ function App() {
         ...(key === "dateOfBirth"
           ? {
               normalPensionAge: calculateNormalPensionAge(value as string),
-              statePensionDrawDate: calculateStatePensionDrawDate(value as string),
+              alphaPensionDrawAge: normalizeAlphaPensionDrawAge(
+                current.alphaPensionDrawAge,
+                value as string,
+              ),
+              sippDrawAge: normalizeSippDrawAge(current.sippDrawAge, value as string),
+              statePensionDrawDate: calculateStatePensionDrawDateFromAge(
+                value as string,
+                calculateMinimumStatePensionDrawAge(value as string),
+              ),
             }
           : {}),
       };
     });
   }
 
+  function updateBridgeChartParameters(
+    patch: Partial<RetirementIncomeBridgeParameters>,
+  ) {
+    showSavedLabel();
+    setChartUndoStack((current) => [...current.slice(-19), settings]);
+    setSettings((current) => applyBridgeChartParameterPatch(current, patch));
+  }
+
   function resetSettings() {
     showSavedLabel();
+    setChartUndoStack([]);
     setSettingsFormVersion((current) => current + 1);
     setSettings(createDefaultSettings());
   }
@@ -627,8 +991,13 @@ function App() {
                 ...(settings.showStatePension
                   ? [
                       {
-                        label: "State Pension draw date",
-                        value: formatDate(pensionSummary.keyDates.startsStatePension),
+                        label: "State Pension start age",
+                        value: formatAgeValue(
+                          calculateStatePensionDrawAge(
+                            settings.dateOfBirth,
+                            settings.statePensionDrawDate,
+                          ),
+                        ),
                         infoUrl: knowledgeLinks.statePensionAge,
                         infoLinkText: "Check State Pension age",
                       },
@@ -643,6 +1012,15 @@ function App() {
             <InflationBasisPanel
               settings={deferredSettings}
               assumptions={derivedInflationAssumptions}
+            />
+
+            <RetirementIncomeBridgeChart
+              data={retirementIncomeSeries}
+              alphaLabel="Alpha pension"
+              limits={bridgeChartLimits}
+              statePensionEditable
+              onChangeParameters={updateBridgeChartParameters}
+              {...bridgeChartParameters}
             />
 
             <section className="panel">
@@ -1397,7 +1775,9 @@ function SettingsFields({
   useDropdownDates,
 }: SettingsFieldsProps) {
   const baseFields = fields.filter(
-    (field) => !["applyPensionIncreases", "assumedCpiPercent"].includes(field.id),
+    (field) =>
+      !["applyPensionIncreases", "assumedCpiPercent"].includes(field.id) &&
+      shouldRenderField(field.id, settings),
   );
   const pensionIncreaseFields = fields.filter((field) =>
     ["applyPensionIncreases", "assumedCpiPercent"].includes(field.id),
@@ -1451,6 +1831,15 @@ function SettingsFields({
   );
 }
 
+function shouldRenderField(fieldId: FieldDefinition["id"], settings: PensionSettings) {
+  return (
+    (fieldId !== "sippWithdrawalTargetAge" ||
+      settings.sippWithdrawalStrategy === "use_by_age") &&
+    (fieldId !== "isaWithdrawalTargetAge" ||
+      settings.isaWithdrawalStrategy === "use_by_age")
+  );
+}
+
 function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettings) {
   return (
     (isTaxAssumptionField(fieldId) && !settings.taxationEnabled) ||
@@ -1465,9 +1854,13 @@ function isFieldDisabled(fieldId: FieldDefinition["id"], settings: PensionSettin
     (fieldId === "sippRealInterestPercent" && !settings.sippApplyRealInterest) ||
     (fieldId === "sippWithdrawalPercent" &&
       settings.sippWithdrawalStrategy !== "percentage") ||
+    (fieldId === "sippWithdrawalTargetAge" &&
+      settings.sippWithdrawalStrategy !== "use_by_age") ||
     (fieldId === "isaRealInterestPercent" && !settings.isaApplyRealInterest) ||
     (fieldId === "isaWithdrawalPercent" &&
       settings.isaWithdrawalStrategy !== "percentage") ||
+    (fieldId === "isaWithdrawalTargetAge" &&
+      settings.isaWithdrawalStrategy !== "use_by_age") ||
     (["alphaEpaYearsBeforeNpa", "alphaEpaStartDate", "alphaEpaEndDate"].includes(
       fieldId,
     ) &&
@@ -1489,9 +1882,13 @@ function isFieldHiddenOnMobile(fieldId: FieldDefinition["id"], settings: Pension
     (fieldId === "sippRealInterestPercent" && !settings.sippApplyRealInterest) ||
     (fieldId === "sippWithdrawalPercent" &&
       settings.sippWithdrawalStrategy !== "percentage") ||
+    (fieldId === "sippWithdrawalTargetAge" &&
+      settings.sippWithdrawalStrategy !== "use_by_age") ||
     (fieldId === "isaRealInterestPercent" && !settings.isaApplyRealInterest) ||
     (fieldId === "isaWithdrawalPercent" &&
       settings.isaWithdrawalStrategy !== "percentage") ||
+    (fieldId === "isaWithdrawalTargetAge" &&
+      settings.isaWithdrawalStrategy !== "use_by_age") ||
     (["alphaEpaYearsBeforeNpa", "alphaEpaStartDate", "alphaEpaEndDate"].includes(
       fieldId,
     ) &&
@@ -1569,6 +1966,20 @@ function Field({
   hideOnMobile = false,
   validationIssue,
 }: FieldProps) {
+  if (field.id === "statePensionDrawDate") {
+    return (
+      <StatePensionAgeField
+        field={field as DateField}
+        value={value as string}
+        settings={settings}
+        onChange={onChange}
+        disabled={disabled}
+        hideOnMobile={hideOnMobile}
+        validationIssue={validationIssue}
+      />
+    );
+  }
+
   if (field.type === "date") {
     return (
       <DateSettingField
@@ -1667,6 +2078,178 @@ function Field({
   }
 
   return null;
+}
+
+function StatePensionAgeField({
+  field,
+  value,
+  settings,
+  onChange,
+  disabled = false,
+  hideOnMobile = false,
+  validationIssue,
+}: {
+  field: DateField;
+  value: string;
+  settings: PensionSettings;
+  onChange: FieldProps["onChange"];
+  disabled?: boolean;
+  hideOnMobile?: boolean;
+  validationIssue?: PensionValidationIssue;
+}) {
+  const minimumStatePensionAge = calculateMinimumStatePensionDrawAge(
+    settings.dateOfBirth,
+  );
+  const maximumStatePensionAge = Math.max(
+    minimumStatePensionAge,
+    settings.lifeExpectancy,
+  );
+  const currentStatePensionAge = calculateStatePensionDrawAge(
+    settings.dateOfBirth,
+    value,
+  );
+  const [draftValue, setDraftValue] = useState<number | null>(null);
+  const [draftExactValue, setDraftExactValue] = useState<string | null>(null);
+  const parsedDraftExactValue =
+    draftExactValue === null || draftExactValue.trim() === ""
+      ? Number.NaN
+      : Number(draftExactValue);
+  const hasValidDraftExactValue =
+    Number.isFinite(parsedDraftExactValue) &&
+    parsedDraftExactValue >= minimumStatePensionAge &&
+    parsedDraftExactValue <= maximumStatePensionAge;
+  const displayedRangeValue = hasValidDraftExactValue
+    ? parsedDraftExactValue
+    : Math.min(
+        maximumStatePensionAge,
+        Math.max(minimumStatePensionAge, draftValue ?? currentStatePensionAge),
+      );
+  const displayedExactValue = draftExactValue ?? displayedRangeValue.toString();
+  const validationId = validationIssue ? `${field.id}-validation` : undefined;
+
+  const commitAgeValue = (nextValue: number) => {
+    const normalizedAge = normalizeStatePensionDrawAge(
+      Math.min(maximumStatePensionAge, Math.max(minimumStatePensionAge, nextValue)),
+      settings.dateOfBirth,
+    );
+
+    onChange(
+      "statePensionDrawDate",
+      calculateStatePensionDrawDateFromAge(settings.dateOfBirth, normalizedAge),
+    );
+    setDraftValue(null);
+    setDraftExactValue(null);
+  };
+
+  const updateDraftExactValue = (nextDraftValue: string) => {
+    const parsedValue = Number(nextDraftValue);
+
+    if (
+      nextDraftValue.trim() !== "" &&
+      Number.isFinite(parsedValue) &&
+      parsedValue >= minimumStatePensionAge &&
+      parsedValue <= maximumStatePensionAge
+    ) {
+      setDraftValue(parsedValue);
+    }
+  };
+
+  const normalizeExactValue = (nextDraftValue: string) => {
+    const parsedValue = Number(nextDraftValue);
+    const nextValue =
+      nextDraftValue.trim() === "" || !Number.isFinite(parsedValue)
+        ? displayedRangeValue
+        : parsedValue;
+
+    commitAgeValue(nextValue);
+  };
+
+  return (
+    <div className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
+      <span className="field-header">
+        <FieldLabel field={field} />
+      </span>
+      <div className="range-control-grid">
+        <div className="range-slider-group">
+          <input
+            aria-label={field.label}
+            className="range-input"
+            type="range"
+            min={minimumStatePensionAge}
+            max={maximumStatePensionAge}
+            step={0.25}
+            value={displayedRangeValue}
+            disabled={disabled}
+            aria-invalid={Boolean(validationIssue) || undefined}
+            aria-describedby={validationId}
+            onChange={(event) => {
+              const nextValue = Number(event.target.value);
+              setDraftValue(nextValue);
+              setDraftExactValue(null);
+            }}
+            onMouseUp={(event) => commitAgeValue(Number(event.currentTarget.value))}
+            onTouchEnd={(event) => commitAgeValue(Number(event.currentTarget.value))}
+            onBlur={(event) => commitAgeValue(Number(event.currentTarget.value))}
+          />
+          <div className="range-scale">
+            <span>{formatAgeValue(minimumStatePensionAge)}</span>
+            <span>{formatAgeValue(maximumStatePensionAge)}</span>
+          </div>
+        </div>
+        <input
+          aria-label={`${field.label} exact value`}
+          className="number-input"
+          type="number"
+          min={minimumStatePensionAge}
+          max={maximumStatePensionAge}
+          step={0.25}
+          value={displayedExactValue}
+          disabled={disabled}
+          aria-invalid={Boolean(validationIssue) || undefined}
+          aria-describedby={validationId}
+          onFocus={(event) => {
+            setDraftExactValue(event.currentTarget.value);
+          }}
+          onChange={(event) => {
+            const nextDraftValue = event.target.value;
+            setDraftExactValue(nextDraftValue);
+            updateDraftExactValue(nextDraftValue);
+          }}
+          onBlur={(event) => {
+            normalizeExactValue(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              normalizeExactValue(event.currentTarget.value);
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      </div>
+      <button
+        type="button"
+        className="secondary-button field-reset-button"
+        aria-label="Reset State Pension start age to default"
+        disabled={disabled}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          onChange(
+            "statePensionDrawDate",
+            calculateStatePensionDrawDateFromAge(
+              settings.dateOfBirth,
+              minimumStatePensionAge,
+            ),
+          );
+          setDraftValue(null);
+          setDraftExactValue(null);
+        }}
+      >
+        Reset to default
+      </button>
+      <FieldHelp field={field} />
+      <FieldValidationMessage id={validationId} issue={validationIssue} />
+    </div>
+  );
 }
 
 function YearSettingField({
@@ -2125,11 +2708,54 @@ function RangeSettingField({
 }
 
 function getEffectiveRangeField(field: RangeField, settings: PensionSettings): RangeField {
+  let effectiveField = field;
+
+  if (field.id === "sippDrawAge") {
+    effectiveField = {
+      ...effectiveField,
+      min: calculateMinimumSippAccessAge(settings.dateOfBirth),
+    };
+  }
+
+  if (field.id === "alphaPensionDrawAge") {
+    effectiveField = {
+      ...effectiveField,
+      min: calculateMinimumPensionAccessAge(settings.dateOfBirth),
+    };
+  }
+
+  if (field.id === "sippWithdrawalTargetAge") {
+    effectiveField = {
+      ...effectiveField,
+      min: settings.sippDrawAge + 0.25,
+      max: Math.max(settings.sippDrawAge + 0.25, Math.min(effectiveField.max, settings.lifeExpectancy)),
+    };
+  }
+
+  if (field.id === "isaWithdrawalTargetAge") {
+    effectiveField = {
+      ...effectiveField,
+      min: settings.isaDrawAge + 0.25,
+      max: Math.max(settings.isaDrawAge + 0.25, Math.min(effectiveField.max, settings.lifeExpectancy)),
+    };
+  }
+
+  if (
+    field.id === "alphaPensionLeaveAge" ||
+    field.id === "isaDrawAge" ||
+    field.id === "requirementAge"
+  ) {
+    effectiveField = {
+      ...effectiveField,
+      min: Math.min(effectiveField.max, calculateCurrentPlanningAge(settings)),
+    };
+  }
+
   if (
     settings.alphaAddedPensionMonthly <= 0 ||
     (field.id !== "alphaPensionDrawAge" && field.id !== "alphaPensionLeaveAge")
   ) {
-    return field;
+    return effectiveField;
   }
 
   const pairedStopAge =
@@ -2138,12 +2764,15 @@ function getEffectiveRangeField(field: RangeField, settings: PensionSettings): R
       : settings.alphaPensionDrawAge;
 
   if (pairedStopAge <= MAX_ADDED_PENSION_PURCHASE_INPUT_AGE) {
-    return field;
+    return effectiveField;
   }
 
+  const cappedMax = Math.min(effectiveField.max, MAX_ADDED_PENSION_PURCHASE_INPUT_AGE);
+
   return {
-    ...field,
-    max: Math.min(field.max, MAX_ADDED_PENSION_PURCHASE_INPUT_AGE),
+    ...effectiveField,
+    min: Math.min(effectiveField.min, cappedMax),
+    max: cappedMax,
   };
 }
 
@@ -2523,8 +3152,20 @@ const projectionTableColumns: ProjectionTableColumn[] = [
     setting: "showSipp",
   },
   {
+    key: "sippPot",
+    label: "SIPP balance",
+    width: "7rem",
+    setting: "showSipp",
+  },
+  {
     key: "monthlyIsaPension",
     label: "Monthly ISA pension",
+    width: "7rem",
+    setting: "showIsa",
+  },
+  {
+    key: "isaPot",
+    label: "ISA balance",
     width: "7rem",
     setting: "showIsa",
   },
@@ -2665,8 +3306,14 @@ function ProjectionTable({ rows, settings }: ProjectionTableProps) {
                 {settings.showSipp ? (
                   <td>{formatCurrencyDetailed(row.monthlySippPension)}</td>
                 ) : null}
+                {settings.showSipp ? (
+                  <td>{formatCurrencyDetailed(row.sippPot)}</td>
+                ) : null}
                 {settings.showIsa ? (
                   <td>{formatCurrencyDetailed(row.monthlyIsaPension)}</td>
+                ) : null}
+                {settings.showIsa ? (
+                  <td>{formatCurrencyDetailed(row.isaPot)}</td>
                 ) : null}
               </tr>
             ))}
@@ -2730,6 +3377,318 @@ function formatModelledReturn(
     : formatPercent(rate);
 }
 
+export function createRetirementIncomeSeries(
+  rows: ProjectionRow[],
+  settings: PensionSettings,
+): RetirementIncomePoint[] {
+  const statePensionAge = calculateDateAge(
+    settings.dateOfBirth,
+    settings.statePensionDrawDate,
+  );
+  const requirementDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.requirementAge,
+  );
+  const alphaDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.alphaPensionDrawAge,
+  );
+  const nuvosDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.nuvosPensionDrawAge,
+  );
+  const sippDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge);
+  const isaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge);
+
+  const baseSeries = rows
+    .filter((row) => row.date >= settings.startDate)
+    .map((row) => {
+      const age = row.age + row.ageMonths / 12;
+      const isaIncomeAnnual =
+        settings.showIsa && row.date >= isaDrawDate ? row.monthlyIsaPension * 12 : 0;
+      const sippIncomeAnnual =
+        settings.showSipp && row.date >= sippDrawDate ? row.monthlySippPension * 12 : 0;
+      const alphaIncomeAnnual =
+        row.date >= alphaDrawDate ? row.monthlyAlphaPensionTakeHome * 12 : 0;
+      const nuvosIncomeAnnual =
+        settings.showNuvos && row.date >= nuvosDrawDate
+          ? row.monthlyNuvosPensionTakeHome * 12
+          : 0;
+      const partialRetirementIncomeAnnual = calculatePartialRetirementIncomeAnnual(
+        settings,
+        row.date,
+        requirementDate,
+      );
+      const statePensionIncomeAnnual =
+        settings.showStatePension && row.date >= settings.statePensionDrawDate
+          ? row.monthlyStatePension * 12
+          : 0;
+      const targetIncomeAnnual = calculateRetirementIncomeTargetAtDate(
+        settings,
+        row.date,
+      );
+      const totalIncomeAnnual =
+        isaIncomeAnnual +
+        sippIncomeAnnual +
+        partialRetirementIncomeAnnual +
+        alphaIncomeAnnual +
+        nuvosIncomeAnnual +
+        statePensionIncomeAnnual;
+
+      return {
+        date: row.date,
+        age,
+        targetIncomeAnnual,
+        isaIncomeAnnual,
+        sippIncomeAnnual,
+        partialRetirementIncomeAnnual,
+        alphaIncomeAnnual,
+        nuvosIncomeAnnual,
+        statePensionIncomeAnnual,
+        totalIncomeAnnual,
+        shortfallAnnual:
+          row.date >= requirementDate
+            ? Math.max(0, targetIncomeAnnual - totalIncomeAnnual)
+            : 0,
+        isaBalance: row.isaPot,
+        sippBalance: row.sippPot,
+        phase: getRetirementIncomePhase(age, settings, statePensionAge),
+      };
+    });
+
+  return insertChartTransitionPoints(baseSeries, settings);
+}
+
+function insertChartTransitionPoints(
+  points: RetirementIncomePoint[],
+  settings: PensionSettings,
+) {
+  const transitionDates = [
+    addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge),
+    addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge),
+    settings.showSipp ? addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge) : "",
+    addYearsToIsoDate(settings.dateOfBirth, settings.alphaPensionDrawAge),
+    settings.showStatePension ? settings.statePensionDrawDate : "",
+    settings.partialRetirementEnabled
+      ? addYearsToIsoDate(settings.dateOfBirth, settings.partialRetirementStartAge)
+      : "",
+  ]
+    .filter(Boolean)
+    .filter((date, index, dates) => dates.indexOf(date) === index)
+    .sort();
+
+  let nextPoints = [...points];
+
+  transitionDates.forEach((transitionDate) => {
+    nextPoints = insertChartTransitionPoint(nextPoints, settings, transitionDate);
+  });
+
+  return nextPoints;
+}
+
+function insertChartTransitionPoint(
+  points: RetirementIncomePoint[],
+  settings: PensionSettings,
+  transitionDate: string,
+) {
+  if (points.length === 0 || points.some((point) => point.date === transitionDate)) {
+    return points;
+  }
+
+  const insertionIndex = points.findIndex((point) => point.date > transitionDate);
+
+  if (insertionIndex <= 0) {
+    return points;
+  }
+
+  const nextPoint = points[insertionIndex];
+
+  if (!nextPoint) {
+    return points;
+  }
+
+  const transitionPoint: RetirementIncomePoint = {
+    ...nextPoint,
+    date: transitionDate,
+    age: calculateDateAge(settings.dateOfBirth, transitionDate),
+  };
+
+  return [
+    ...points.slice(0, insertionIndex),
+    transitionPoint,
+    ...points.slice(insertionIndex),
+  ];
+}
+
+function calculatePartialRetirementIncomeAnnual(
+  settings: PensionSettings,
+  rowDate: string,
+  requirementDate: string,
+) {
+  const partialRetirementStartDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.partialRetirementStartAge,
+  );
+
+  if (
+    !settings.partialRetirementEnabled ||
+    rowDate < partialRetirementStartDate ||
+    rowDate >= requirementDate
+  ) {
+    return 0;
+  }
+
+  return settings.pensionableEarnings * (settings.partialRetirementWorkPercent / 100);
+}
+
+function createBridgeChartParameters(
+  settings: PensionSettings,
+): RetirementIncomeBridgeParameters {
+  return {
+    targetIncomeAnnual: settings.desiredRetirementIncome,
+    alphaMonthlyAddedPension: settings.alphaAddedPensionMonthly,
+    isaMonthlyContribution: settings.isaMonthlyContribution,
+    sippMonthlyContribution: settings.sippMonthlyContribution,
+    retirementAge: settings.requirementAge,
+    alphaLeaveAge: settings.alphaPensionLeaveAge,
+    sippAccessAge: settings.sippDrawAge,
+    sippUseByAge: settings.sippWithdrawalTargetAge,
+    isaAccessAge: settings.isaDrawAge,
+    alphaStartAge: settings.alphaPensionDrawAge,
+    isaUseByAge: settings.isaWithdrawalTargetAge,
+    partialRetirementStartAge: settings.partialRetirementStartAge,
+    partialRetirementWorkPercent: settings.partialRetirementWorkPercent,
+    partialRetirementEnabled: settings.partialRetirementEnabled,
+    statePensionAge: calculateStatePensionDrawAge(
+      settings.dateOfBirth,
+      settings.statePensionDrawDate,
+    ),
+    showIsa: settings.showIsa,
+    showSipp: settings.showSipp,
+    sippUseByAgeEnabled:
+      settings.showSipp && settings.sippWithdrawalStrategy === "use_by_age",
+    showNuvos: settings.showNuvos,
+    isaUseByAgeEnabled:
+      settings.showIsa && settings.isaWithdrawalStrategy === "use_by_age",
+    showStatePension: settings.showStatePension,
+  };
+}
+
+function createBridgeChartLimits(settings: PensionSettings): RetirementIncomeBridgeLimits {
+  const statePensionAge = calculateStatePensionDrawAge(
+    settings.dateOfBirth,
+    settings.statePensionDrawDate,
+  );
+  const minimumSippAccessAge = calculateMinimumSippAccessAge(settings.dateOfBirth);
+  const minimumAlphaAccessAge = calculateMinimumPensionAccessAge(settings.dateOfBirth);
+  const currentPlanningAge = calculateCurrentPlanningAge(settings);
+  const defaultStatePensionAge = calculateMinimumStatePensionDrawAge(
+    settings.dateOfBirth,
+  );
+  const ageUpperLimit = Math.max(currentPlanningAge, Math.min(70, statePensionAge));
+  const partialRetirementMaxAge = Math.max(
+    currentPlanningAge,
+    Math.min(settings.requirementAge - 0.25, 70, settings.lifeExpectancy),
+  );
+  const sippUseByMin = settings.sippDrawAge + 0.25;
+  const isaUseByMin = settings.isaDrawAge + 0.25;
+  const useByMax = Math.min(100, settings.lifeExpectancy);
+
+  return {
+    targetIncomeAnnual: { min: 0, max: 200000, step: 600 },
+    alphaMonthlyAddedPension: { min: 0, max: 1000, step: 25 },
+    isaMonthlyContribution: { min: 0, max: 5000, step: 25 },
+    sippMonthlyContribution: { min: 0, max: 5000, step: 25 },
+    retirementAge: { min: currentPlanningAge, max: ageUpperLimit, step: 0.25 },
+    alphaLeaveAge: { min: currentPlanningAge, max: ageUpperLimit, step: 0.25 },
+    sippAccessAge: {
+      min: Math.max(settings.requirementAge, minimumSippAccessAge),
+      max: ageUpperLimit,
+      step: 0.25,
+    },
+    sippUseByAge: {
+      min: sippUseByMin,
+      max: Math.max(sippUseByMin, useByMax),
+      step: 0.25,
+    },
+    isaAccessAge: {
+      min: currentPlanningAge,
+      max: ageUpperLimit,
+      step: 0.25,
+    },
+    alphaStartAge: {
+      min: Math.max(settings.alphaPensionLeaveAge, minimumAlphaAccessAge),
+      max: ageUpperLimit,
+      step: 0.25,
+    },
+    isaUseByAge: {
+      min: isaUseByMin,
+      max: Math.max(isaUseByMin, useByMax),
+      step: 0.25,
+    },
+    partialRetirementStartAge: {
+      min: currentPlanningAge,
+      max: partialRetirementMaxAge,
+      step: 0.25,
+    },
+    partialRetirementWorkPercent: { min: 0, max: 100, step: 1 },
+    statePensionAge: {
+      min: defaultStatePensionAge,
+      max: Math.max(defaultStatePensionAge, settings.lifeExpectancy),
+      step: 0.25,
+    },
+  };
+}
+
+function getRetirementIncomePhase(
+  age: number,
+  settings: PensionSettings,
+  statePensionAge: number,
+): RetirementIncomePoint["phase"] {
+  if (age < settings.isaDrawAge) {
+    return "build-up";
+  }
+
+  if (settings.showIsa && (!settings.showSipp || age < settings.sippDrawAge)) {
+    return "isa-bridge";
+  }
+
+  if (settings.showSipp && age < settings.alphaPensionDrawAge) {
+    return "sipp-bridge";
+  }
+
+  if (!settings.showStatePension || age < statePensionAge) {
+    if (!settings.showSipp) {
+      return "alpha-only";
+    }
+
+    return "alpha-sipp";
+  }
+
+  return "alpha-state";
+}
+
+function calculateCurrentPlanningAge(settings: PensionSettings) {
+  return Math.max(0, Math.ceil(calculateDateAge(settings.dateOfBirth, settings.startDate)));
+}
+
+function addYearsToIsoDate(value: string, years: number) {
+  const [year, month, day] = value.split("-").map(Number);
+  const wholeYears = Math.floor(years);
+  const remainingMonths = Math.round((years - wholeYears) * 12);
+  const nextDate = new Date(Date.UTC(year + wholeYears, month - 1 + remainingMonths, day));
+
+  return [
+    nextDate.getUTCFullYear(),
+    String(nextDate.getUTCMonth() + 1).padStart(2, "0"),
+    String(nextDate.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function formatAge(years: number, months: number) {
   return `${years}y ${months}m`;
 }
@@ -2740,6 +3699,10 @@ function formatDecimalAge(age: number) {
   const months = totalMonths % 12;
 
   return months === 0 ? `${years}` : `${years}y ${months}m`;
+}
+
+function formatAgeValue(value: number) {
+  return value.toFixed(2).replace(/\.00$/, "");
 }
 
 function isSettingsGroupVisible(groupId: string, settings: PensionSettings) {
@@ -3106,6 +4069,21 @@ function loadStoredAppMode(): AppMode | null {
   const storedMode = readStorageItem(APP_MODE_STORAGE_KEY);
 
   return storedMode === "journey" || storedMode === "expert" ? storedMode : null;
+}
+
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = target.tagName.toLowerCase();
+
+  return (
+    target.isContentEditable ||
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select"
+  );
 }
 
 function saveStoredAppMode(mode: AppMode) {

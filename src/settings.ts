@@ -1,6 +1,8 @@
 export const SETTINGS_STORAGE_KEY = "cs-pension-modeller.settings";
 export const FIRST_UNSUPPORTED_ADDED_PENSION_PURCHASE_AGE = 68;
 export const MAX_ADDED_PENSION_PURCHASE_INPUT_AGE = 67.9;
+export const NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE = "2028-04-06";
+export const STATE_PENSION_AGE_STEP = 0.25;
 
 export type AddedPensionLumpSumCadence = "once" | "yearly";
 export type AddedPensionFactorType = "self" | "self_plus_beneficiaries";
@@ -14,8 +16,8 @@ export type AddedPensionLumpSum = {
   factorType?: AddedPensionFactorType;
 };
 
-export type SippWithdrawalStrategy = "zero_at_death" | "percentage";
-export type IsaWithdrawalStrategy = "zero_at_death" | "percentage";
+export type SippWithdrawalStrategy = "zero_at_death" | "percentage" | "use_by_age";
+export type IsaWithdrawalStrategy = "zero_at_death" | "percentage" | "use_by_age";
 export type SippTaxReliefRate = "none" | "20" | "40";
 export type ProjectionBasis = "real" | "nominal";
 
@@ -23,6 +25,7 @@ export type PensionSettings = {
   startDate: string;
   dateOfBirth: string;
   lifeExpectancy: number;
+  requirementAge: number;
   normalPensionAge: number;
   projectionBasis: ProjectionBasis;
   inflationRateAnnual: number;
@@ -70,6 +73,7 @@ export type PensionSettings = {
   sippTaxReliefRate: SippTaxReliefRate;
   sippWithdrawalStrategy: SippWithdrawalStrategy;
   sippWithdrawalPercent: number;
+  sippWithdrawalTargetAge: number;
   isaCurrentPot: number;
   isaMonthlyContribution: number;
   isaDrawAge: number;
@@ -78,6 +82,7 @@ export type PensionSettings = {
   isaRealInterestPercent: number;
   isaWithdrawalStrategy: IsaWithdrawalStrategy;
   isaWithdrawalPercent: number;
+  isaWithdrawalTargetAge: number;
   taxPersonalAllowance: number;
   taxPersonalAllowanceTaperThreshold: number;
   taxBasicRateLimit: number;
@@ -101,6 +106,7 @@ type StoredPensionSettings = Omit<
 
 const numericSettingRules = {
   lifeExpectancy: { min: 75, max: 100, step: 1 },
+  requirementAge: { min: 0, max: 70, step: 1 },
   inflationRateAnnual: { min: 0, max: 10, step: 0.1 },
   currentStatePension: { min: 0, max: 15000, step: 0.01 },
   desiredRetirementIncome: { min: 0, max: 200000, step: 1 },
@@ -110,7 +116,7 @@ const numericSettingRules = {
   partialRetirementWorkPercent: { min: 0, max: 100, step: 1 },
   assumedCpiPercent: { min: 0, max: 10, step: 0.1 },
   alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
-  alphaPensionLeaveAge: { min: 40, max: 70, step: 1 },
+  alphaPensionLeaveAge: { min: 0, max: 70, step: 1 },
   accruedPensionAtLastAbs: { min: 0, max: 50000, step: 1 },
   pensionableEarnings: { min: 10000, max: 150000, step: 500 },
   alphaPensionDrawAge: { min: 55, max: 70, step: 1 },
@@ -125,11 +131,13 @@ const numericSettingRules = {
   sippDrawAge: { min: 55, max: 70, step: 1 },
   sippRealInterestPercent: { min: -10, max: 10, step: 0.1 },
   sippWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
+  sippWithdrawalTargetAge: { min: 55, max: 100, step: 1 },
   isaCurrentPot: { min: 0, max: 2_000_000, step: 1 },
   isaMonthlyContribution: { min: 0, max: 5000, step: 25 },
-  isaDrawAge: { min: 55, max: 70, step: 1 },
+  isaDrawAge: { min: 0, max: 70, step: 1 },
   isaRealInterestPercent: { min: -10, max: 10, step: 0.1 },
   isaWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
+  isaWithdrawalTargetAge: { min: 0, max: 100, step: 1 },
   taxPersonalAllowance: { min: 0, max: 50000, step: 1 },
   taxPersonalAllowanceTaperThreshold: { min: 0, max: 200000, step: 1 },
   taxBasicRateLimit: { min: 0, max: 100000, step: 1 },
@@ -144,19 +152,23 @@ type NumericSettingKey = keyof typeof numericSettingRules;
 
 const decimalAgeSettingKeys: readonly NumericSettingKey[] = [
   "lifeExpectancy",
+  "requirementAge",
   "partialRetirementStartAge",
   "alphaPensionLeaveAge",
   "alphaPensionDrawAge",
   "nuvosPensionLeaveAge",
   "nuvosPensionDrawAge",
   "sippDrawAge",
+  "sippWithdrawalTargetAge",
   "isaDrawAge",
+  "isaWithdrawalTargetAge",
 ];
 
 export const defaultSettings: PensionSettings = {
   startDate: getTodayIsoDate(),
   dateOfBirth: "1987-06-15",
   lifeExpectancy: 88,
+  requirementAge: 60,
   normalPensionAge: 68,
   projectionBasis: "real",
   inflationRateAnnual: 2.5,
@@ -204,6 +216,7 @@ export const defaultSettings: PensionSettings = {
   sippTaxReliefRate: "20",
   sippWithdrawalStrategy: "zero_at_death",
   sippWithdrawalPercent: 4,
+  sippWithdrawalTargetAge: 75,
   isaCurrentPot: 0,
   isaMonthlyContribution: 0,
   isaDrawAge: 60,
@@ -212,6 +225,7 @@ export const defaultSettings: PensionSettings = {
   isaRealInterestPercent: 3,
   isaWithdrawalStrategy: "zero_at_death",
   isaWithdrawalPercent: 4,
+  isaWithdrawalTargetAge: 75,
   taxPersonalAllowance: 12570,
   taxPersonalAllowanceTaperThreshold: 100000,
   taxBasicRateLimit: 37700,
@@ -349,6 +363,8 @@ function coerceSettings(
   return {
     dateOfBirth: coerceString(input.dateOfBirth),
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
+    requirementAge:
+      coerceNumber(input.requirementAge) ?? coerceNumber(input.isaDrawAge),
     projectionBasis: coerceString(input.projectionBasis) as
       | ProjectionBasis
       | undefined,
@@ -415,6 +431,7 @@ function coerceSettings(
       | SippWithdrawalStrategy
       | undefined,
     sippWithdrawalPercent: coerceNumber(input.sippWithdrawalPercent),
+    sippWithdrawalTargetAge: coerceNumber(input.sippWithdrawalTargetAge),
     isaCurrentPot: coerceNumber(input.isaCurrentPot),
     isaMonthlyContribution: coerceNumber(input.isaMonthlyContribution),
     isaDrawAge: coerceNumber(input.isaDrawAge),
@@ -425,6 +442,7 @@ function coerceSettings(
       | IsaWithdrawalStrategy
       | undefined,
     isaWithdrawalPercent: coerceNumber(input.isaWithdrawalPercent),
+    isaWithdrawalTargetAge: coerceNumber(input.isaWithdrawalTargetAge),
     taxPersonalAllowance: coerceNumber(input.taxPersonalAllowance),
     taxPersonalAllowanceTaperThreshold: coerceNumber(
       input.taxPersonalAllowanceTaperThreshold,
@@ -470,12 +488,18 @@ function removeUndefinedValues<T extends object>(input: T) {
 
 export function createDefaultSettings(): PensionSettings {
   const normalPensionAge = calculateNormalPensionAge(defaultSettings.dateOfBirth);
+  const statePensionDrawAge = calculateMinimumStatePensionDrawAge(
+    defaultSettings.dateOfBirth,
+  );
 
   return {
     ...defaultSettings,
     normalPensionAge,
     startDate: getTodayIsoDate(),
-    statePensionDrawDate: calculateStatePensionDrawDate(defaultSettings.dateOfBirth),
+    statePensionDrawDate: calculateStatePensionDrawDateFromAge(
+      defaultSettings.dateOfBirth,
+      statePensionDrawAge,
+    ),
   };
 }
 
@@ -549,6 +573,19 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
   const nuvosAbsDate = resolveAlphaAbsDate(settings.nuvosPensionAbsDate);
   const sippDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge);
   const isaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge);
+  const retirementDate = addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge);
+  const sippContributionStopDate =
+    sippDrawDate <= retirementDate ? sippDrawDate : retirementDate;
+  const isaContributionStopDate =
+    isaDrawDate <= retirementDate ? isaDrawDate : retirementDate;
+  const sippWithdrawalTargetDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.sippWithdrawalTargetAge,
+  );
+  const isaWithdrawalTargetDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.isaWithdrawalTargetAge,
+  );
   const partialRetirementStartDate = getPartialRetirementStartDate(settings);
   const defaultStatePensionDrawDate = calculateStatePensionDrawDate(
     settings.dateOfBirth,
@@ -606,10 +643,77 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
+  if (
+    alphaDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE &&
+    settings.alphaPensionDrawAge < 57
+  ) {
+    issues.push({
+      field: "alphaPensionDrawAge",
+      message:
+        "Alpha pension draw age must be at least 57 for access dates on or after 6 April 2028.",
+    });
+  }
+
+  if (
+    settings.showSipp &&
+    sippDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE &&
+    sippDrawDate < addYearsToIsoDate(settings.dateOfBirth, 57)
+  ) {
+    issues.push({
+      field: "sippDrawAge",
+      message:
+        "SIPP draw start age must be at least 57 for access dates on or after 6 April 2028.",
+    });
+  }
+
+  if (
+    settings.showSipp &&
+    settings.sippWithdrawalStrategy === "use_by_age" &&
+    sippWithdrawalTargetDate <= sippDrawDate
+  ) {
+    issues.push({
+      field: "sippWithdrawalTargetAge",
+      message: "SIPP use-by age must be after the SIPP draw start age.",
+    });
+  }
+
+  if (
+    settings.showSipp &&
+    settings.sippWithdrawalStrategy === "use_by_age" &&
+    sippWithdrawalTargetDate > lifeExpectancyDate
+  ) {
+    issues.push({
+      field: "sippWithdrawalTargetAge",
+      message: "SIPP use-by age must be within life expectancy.",
+    });
+  }
+
   if (settings.showIsa && isaDrawDate > lifeExpectancyDate) {
     issues.push({
       field: "isaDrawAge",
       message: "ISA draw start age must be within life expectancy.",
+    });
+  }
+
+  if (
+    settings.showIsa &&
+    settings.isaWithdrawalStrategy === "use_by_age" &&
+    isaWithdrawalTargetDate <= isaDrawDate
+  ) {
+    issues.push({
+      field: "isaWithdrawalTargetAge",
+      message: "ISA use-by age must be after the ISA draw start age.",
+    });
+  }
+
+  if (
+    settings.showIsa &&
+    settings.isaWithdrawalStrategy === "use_by_age" &&
+    isaWithdrawalTargetDate > lifeExpectancyDate
+  ) {
+    issues.push({
+      field: "isaWithdrawalTargetAge",
+      message: "ISA use-by age must be within life expectancy.",
     });
   }
 
@@ -630,6 +734,16 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     issues.push({
       field: "partialRetirementStartAge",
       message: "Partial retirement start must be within life expectancy.",
+    });
+  }
+
+  if (
+    settings.partialRetirementEnabled &&
+    partialRetirementStartDate >= retirementDate
+  ) {
+    issues.push({
+      field: "partialRetirementStartAge",
+      message: "Partial retirement start age must be before the retirement start age.",
     });
   }
 
@@ -716,21 +830,24 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
       field: "alphaAddedPensionLumpSums",
       label: "Alpha lump sum",
       earliestDate: alphaAbsDate,
-      latestDate:
-        alphaAccrualStopDate < latestAlphaAddedPensionPurchaseDate
-          ? alphaAccrualStopDate
-          : latestAlphaAddedPensionPurchaseDate,
+      latestDate: latestAlphaAddedPensionPurchaseDate,
       rangeMessage:
         "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
+    }),
+    ...validateLumpSumScheduleEndsByDate(settings.alphaAddedPensionLumpSums, {
+      field: "alphaAddedPensionLumpSums",
+      latestDate: alphaAccrualStopDate,
+      message:
+        "Alpha lump sums must be scheduled on or before Alpha pensionable service stops.",
     }),
     ...(settings.showSipp
       ? validateLumpSums(settings.sippLumpSums, {
           field: "sippLumpSums",
           label: "SIPP lump sum",
           earliestDate: settings.startDate,
-          latestDate: sippDrawDate,
+          latestDate: sippContributionStopDate,
           rangeMessage:
-            "SIPP lump sums must fall between the calculation start date and SIPP draw start.",
+            "SIPP lump sums must fall between the calculation start date and the earlier of retirement age and SIPP draw start.",
         })
       : []),
     ...(settings.showIsa
@@ -738,9 +855,9 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
           field: "isaLumpSums",
           label: "ISA lump sum",
           earliestDate: settings.startDate,
-          latestDate: isaDrawDate,
+          latestDate: isaContributionStopDate,
           rangeMessage:
-            "ISA lump sums must fall between the calculation start date and ISA draw start.",
+            "ISA lump sums must fall between the calculation start date and the earlier of retirement age and ISA draw start.",
         })
       : []),
   );
@@ -783,13 +900,44 @@ function validateLumpSums(
   });
 }
 
+function validateLumpSumScheduleEndsByDate(
+  lumpSums: AddedPensionLumpSum[],
+  options: {
+    field: "alphaAddedPensionLumpSums" | "sippLumpSums" | "isaLumpSums";
+    latestDate: string;
+    message: string;
+  },
+) {
+  return lumpSums.flatMap((lumpSum) => {
+    const scheduleEndDate =
+      lumpSum.cadence === "yearly" ? lumpSum.endDate : lumpSum.startDate;
+
+    if (scheduleEndDate <= options.latestDate) {
+      return [];
+    }
+
+    return [
+      {
+        field: options.field,
+        itemId: lumpSum.id,
+        message: options.message,
+      },
+    ];
+  });
+}
+
 function normalizeSettings(settings: PensionSettings): PensionSettings {
   const dateOfBirth = normalizeSetting("dateOfBirth", settings.dateOfBirth);
+  const requirementAge = normalizeSetting(
+    "requirementAge",
+    settings.requirementAge,
+  );
 
   return {
     startDate: normalizeSetting("startDate", settings.startDate),
     dateOfBirth,
     lifeExpectancy: normalizeSetting("lifeExpectancy", settings.lifeExpectancy),
+    requirementAge,
     normalPensionAge: calculateNormalPensionAge(dateOfBirth),
     projectionBasis: normalizeSetting("projectionBasis", settings.projectionBasis),
     inflationRateAnnual: normalizeSetting(
@@ -860,9 +1008,9 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "pensionableEarnings",
       settings.pensionableEarnings,
     ),
-    alphaPensionDrawAge: normalizeSetting(
-      "alphaPensionDrawAge",
+    alphaPensionDrawAge: normalizeAlphaPensionDrawAge(
       settings.alphaPensionDrawAge,
+      dateOfBirth,
     ),
     alphaEpaEnabled: Boolean(settings.alphaEpaEnabled),
     alphaEpaYearsBeforeNpa: normalizeSetting(
@@ -908,7 +1056,7 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "sippMonthlyContribution",
       settings.sippMonthlyContribution,
     ),
-    sippDrawAge: normalizeSetting("sippDrawAge", settings.sippDrawAge),
+    sippDrawAge: normalizeSippDrawAge(settings.sippDrawAge, dateOfBirth),
     sippLumpSums: normalizeSetting("sippLumpSums", settings.sippLumpSums),
     sippApplyRealInterest: Boolean(settings.sippApplyRealInterest),
     sippRealInterestPercent: normalizeSetting(
@@ -924,12 +1072,16 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
       "sippWithdrawalPercent",
       settings.sippWithdrawalPercent,
     ),
+    sippWithdrawalTargetAge: normalizeSetting(
+      "sippWithdrawalTargetAge",
+      settings.sippWithdrawalTargetAge,
+    ),
     isaCurrentPot: normalizeSetting("isaCurrentPot", settings.isaCurrentPot),
     isaMonthlyContribution: normalizeSetting(
       "isaMonthlyContribution",
       settings.isaMonthlyContribution,
     ),
-    isaDrawAge: normalizeSetting("isaDrawAge", settings.isaDrawAge),
+    isaDrawAge: normalizeSetting("isaDrawAge", requirementAge),
     isaLumpSums: normalizeSetting("isaLumpSums", settings.isaLumpSums),
     isaApplyRealInterest: Boolean(settings.isaApplyRealInterest),
     isaRealInterestPercent: normalizeSetting(
@@ -943,6 +1095,10 @@ function normalizeSettings(settings: PensionSettings): PensionSettings {
     isaWithdrawalPercent: normalizeSetting(
       "isaWithdrawalPercent",
       settings.isaWithdrawalPercent,
+    ),
+    isaWithdrawalTargetAge: normalizeSetting(
+      "isaWithdrawalTargetAge",
+      settings.isaWithdrawalTargetAge,
     ),
     taxPersonalAllowance: normalizeSetting(
       "taxPersonalAllowance",
@@ -985,8 +1141,121 @@ export function normalizeStatePensionDrawDate(
 ) {
   const defaultDrawDate = calculateStatePensionDrawDate(dateOfBirth);
   const normalizedDrawDate = normalizeDate(value, defaultDrawDate);
+  const normalizedDrawAge = calculateStatePensionDrawAge(
+    dateOfBirth,
+    normalizedDrawDate,
+  );
 
-  return normalizedDrawDate < defaultDrawDate ? defaultDrawDate : normalizedDrawDate;
+  return calculateStatePensionDrawDateFromAge(dateOfBirth, normalizedDrawAge);
+}
+
+export function calculateDateAge(dateOfBirth: string, date: string) {
+  const [birthYear, birthMonth, birthDay] = dateOfBirth.split("-").map(Number);
+  const [year, month, day] = date.split("-").map(Number);
+
+  if (
+    !Number.isFinite(birthYear) ||
+    !Number.isFinite(birthMonth) ||
+    !Number.isFinite(birthDay) ||
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  ) {
+    return 0;
+  }
+
+  const yearAge = year - birthYear;
+  const monthOffset = month - birthMonth;
+  const dayOffset = day - birthDay;
+  const adjustedMonthOffset = monthOffset + dayOffset / 31;
+
+  return yearAge + adjustedMonthOffset / 12;
+}
+
+export function calculateMinimumStatePensionDrawAge(dateOfBirth: string) {
+  const normalizedDateOfBirth = normalizeDate(dateOfBirth, defaultSettings.dateOfBirth);
+  const defaultDrawDate = calculateStatePensionDrawDate(normalizedDateOfBirth);
+
+  return roundUpToStep(
+    calculateDateAge(normalizedDateOfBirth, defaultDrawDate),
+    STATE_PENSION_AGE_STEP,
+  );
+}
+
+export function normalizeStatePensionDrawAge(value: number, dateOfBirth: string) {
+  const minimumStatePensionDrawAge = calculateMinimumStatePensionDrawAge(dateOfBirth);
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue)) {
+    return minimumStatePensionDrawAge;
+  }
+
+  return roundUpToStep(
+    Math.min(100, Math.max(minimumStatePensionDrawAge, parsedValue)),
+    STATE_PENSION_AGE_STEP,
+  );
+}
+
+export function calculateStatePensionDrawAge(
+  dateOfBirth: string,
+  statePensionDrawDate: string,
+) {
+  const normalizedDateOfBirth = normalizeDate(dateOfBirth, defaultSettings.dateOfBirth);
+  const normalizedDrawDate = normalizeDate(
+    statePensionDrawDate,
+    calculateStatePensionDrawDate(normalizedDateOfBirth),
+  );
+
+  return normalizeStatePensionDrawAge(
+    calculateDateAge(normalizedDateOfBirth, normalizedDrawDate),
+    normalizedDateOfBirth,
+  );
+}
+
+export function calculateStatePensionDrawDateFromAge(
+  dateOfBirth: string,
+  statePensionDrawAge: number,
+) {
+  const normalizedDateOfBirth = normalizeDate(dateOfBirth, defaultSettings.dateOfBirth);
+  const normalizedDrawAge = normalizeStatePensionDrawAge(
+    statePensionDrawAge,
+    normalizedDateOfBirth,
+  );
+
+  return addYearsToIsoDate(normalizedDateOfBirth, normalizedDrawAge);
+}
+
+export function calculateMinimumPensionAccessAge(dateOfBirth: string) {
+  const normalizedDateOfBirth = normalizeDate(dateOfBirth, defaultSettings.dateOfBirth);
+
+  return normalizeMinimumPensionAccessAge(55, normalizedDateOfBirth) > 55 ? 57 : 55;
+}
+
+export function calculateMinimumSippAccessAge(dateOfBirth: string) {
+  return calculateMinimumPensionAccessAge(dateOfBirth);
+}
+
+export function normalizeAlphaPensionDrawAge(value: number, dateOfBirth: string) {
+  return normalizeMinimumPensionAccessAge(value, dateOfBirth);
+}
+
+export function normalizeSippDrawAge(value: number, dateOfBirth: string) {
+  return normalizeMinimumPensionAccessAge(value, dateOfBirth);
+}
+
+function normalizeMinimumPensionAccessAge(value: number, dateOfBirth: string) {
+  const normalizedDateOfBirth = normalizeDate(dateOfBirth, defaultSettings.dateOfBirth);
+  const normalizedAge = normalizeNumericSetting("sippDrawAge", value);
+  const sippDrawDate = addYearsToIsoDate(normalizedDateOfBirth, normalizedAge);
+
+  if (
+    sippDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE &&
+    normalizedAge < 57
+  ) {
+    return 57;
+  }
+
+  return normalizedAge;
 }
 
 export function getAlphaEpaDate(settings: PensionSettings) {
@@ -1047,7 +1316,7 @@ function normalizeAlphaAbsYear(value: string, fallback: string) {
 }
 
 function normalizeSippWithdrawalStrategy(value: unknown): SippWithdrawalStrategy {
-  return value === "percentage" || value === "zero_at_death"
+  return value === "percentage" || value === "zero_at_death" || value === "use_by_age"
     ? value
     : defaultSettings.sippWithdrawalStrategy;
 }
@@ -1071,7 +1340,7 @@ function normalizeAddedPensionFactorType(value: unknown): AddedPensionFactorType
 }
 
 function normalizeIsaWithdrawalStrategy(value: unknown): IsaWithdrawalStrategy {
-  return value === "percentage" || value === "zero_at_death"
+  return value === "percentage" || value === "zero_at_death" || value === "use_by_age"
     ? value
     : defaultSettings.isaWithdrawalStrategy;
 }
@@ -1229,6 +1498,10 @@ function normalizeWholeCurrency(value: number) {
 
   const clamped = Math.min(1_000_000, Math.max(0, parsed));
   return Math.round(clamped);
+}
+
+function roundUpToStep(value: number, step: number) {
+  return Math.ceil((value - Number.EPSILON) / step) * step;
 }
 
 export function calculateStatePensionDrawDate(dateOfBirth: string) {
