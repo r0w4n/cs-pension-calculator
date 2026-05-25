@@ -177,7 +177,6 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-GB", {
 const BUILD_UP_META = {
   label: "Build-up",
 };
-const HANDLE_RADIUS = 9;
 const MOBILE_HANDLE_WIDTH = 24;
 const MOBILE_HANDLE_HEIGHT = 84;
 const HANDLE_STACK_SPACING = 28;
