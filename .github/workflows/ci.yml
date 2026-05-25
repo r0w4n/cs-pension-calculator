@@ -3,8 +3,6 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -80,6 +78,7 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v4

@@ -129,6 +129,11 @@ Static analysis is performed with type-aware `eslint` backed by
 `typescript-eslint` and `eslint-plugin-sonarjs`, so `npm run lint` checks for
 TypeScript misuse and common bug patterns in addition to normal lint rules.
 
+This repository also includes a Git `pre-commit` hook in `.githooks/pre-commit`
+that runs `npm run lint:hook`. GitHub Desktop uses normal Git hooks, so once
+`core.hooksPath` is set to `.githooks` for the clone, commits made in GitHub
+Desktop will run the same lint gate before they are created.
+
 Run tests with coverage:
 
 ```bash

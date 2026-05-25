@@ -9,6 +9,7 @@
     "check": "npm run lint && npm run audit && npm run test:coverage && npm run build",
     "audit": "npm audit --audit-level=moderate",
     "lint": "eslint . --max-warnings=0",
+    "lint:hook": "npm run lint",
     "preview": "vite preview",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

@@ -55,10 +55,32 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": "off",
       "@typescript-eslint/no-floating-promises": "error",
+      "sonarjs/cognitive-complexity": ["error", 25],
+      "sonarjs/cyclomatic-complexity": ["error", { threshold: 20 }],
       "sonarjs/no-identical-expressions": "error",
       "sonarjs/no-small-switch": "off",
       "sonarjs/pseudo-random": "off",
       "sonarjs/prefer-read-only-props": "off",
+    },
+  },
+  {
+    files: ["src/App.tsx"],
+    rules: {
+      "sonarjs/cognitive-complexity": ["error", 40],
+      "sonarjs/cyclomatic-complexity": ["error", { threshold: 45 }],
+    },
+  },
+  {
+    files: ["src/settings.ts"],
+    rules: {
+      "sonarjs/cognitive-complexity": ["error", 60],
+      "sonarjs/cyclomatic-complexity": ["error", { threshold: 70 }],
+    },
+  },
+  {
+    files: ["src/projection.ts", "src/RetirementIncomeBridgeChart.tsx"],
+    rules: {
+      "sonarjs/cyclomatic-complexity": ["error", { threshold: 35 }],
     },
   },
   {
@@ -67,6 +89,10 @@ export default tseslint.config(
       globals: {
         ...globals.vitest,
       },
+    },
+    rules: {
+      "sonarjs/cognitive-complexity": "off",
+      "sonarjs/cyclomatic-complexity": "off",
     },
   },
 );
