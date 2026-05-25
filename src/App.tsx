@@ -71,6 +71,7 @@ const ACKNOWLEDGEMENT_STORAGE_KEY = "cs-pension-modeller.acknowledgement";
 const ACKNOWLEDGEMENT_VERSION = "v1";
 export const APP_MODE_STORAGE_KEY = "cs-pension-modeller.appMode";
 const GUIDANCE_NOTES_STORAGE_KEY = "cs-pension-modeller.guidanceNotes";
+const MAX_COMPARISON_SCENARIOS = 5;
 const GuidanceNotesContext = createContext(true);
 const MODELLER_LIMITATIONS = [
   "Income Tax is estimated from configurable standard assumptions. It does not cover Scottish tax bands, benefit interactions, tax code changes, or other personal reliefs.",
@@ -627,6 +628,9 @@ function App() {
   );
   const [retirementIncomeDisplay, setRetirementIncomeDisplay] =
     useState<RetirementIncomeDisplay>("monthly");
+  const [comparisonScenarios, setComparisonScenarios] = useState<
+    ComparisonScenario[]
+  >([]);
   const [showLimitations, setShowLimitations] = useState(false);
   const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(
     loadAcknowledgementState,
@@ -1107,6 +1111,13 @@ function App() {
     setSettings(createDefaultSettings());
   }
 
+  function loadComparisonScenario(scenarioSettings: PensionSettings) {
+    showSavedLabel();
+    setChartUndoStack([]);
+    setSettingsFormVersion((current) => current + 1);
+    setSettings(clonePensionSettings(scenarioSettings));
+  }
+
   function showSavedLabel() {
     if (savedFeedbackTimer.current) {
       window.clearTimeout(savedFeedbackTimer.current);
@@ -1180,6 +1191,7 @@ function App() {
               settings={settings}
               validationIssues={validationIssues}
               pensionSummary={pensionSummary}
+              projectionRows={projectionRows}
               retirementIncomeSeries={retirementIncomeSeries}
               bridgeChartParameters={bridgeChartParameters}
               bridgeChartLimits={bridgeChartLimits}
@@ -1210,6 +1222,7 @@ function App() {
               settings={settings}
               validationIssues={validationIssues}
               pensionSummary={pensionSummary}
+              projectionRows={projectionRows}
               retirementIncomeSeries={retirementIncomeSeries}
               bridgeChartParameters={bridgeChartParameters}
               bridgeChartLimits={bridgeChartLimits}
@@ -1240,6 +1253,7 @@ function App() {
               settings={settings}
               validationIssues={validationIssues}
               pensionSummary={pensionSummary}
+              projectionRows={projectionRows}
               retirementIncomeSeries={retirementIncomeSeries}
               bridgeChartParameters={bridgeChartParameters}
               bridgeChartLimits={bridgeChartLimits}
@@ -1467,6 +1481,16 @@ function App() {
             </section>
           </div>
         ) : null}
+
+        {appMode ? (
+          <ComparisonPrototype
+            settings={deferredSettings}
+            validationIssues={validationIssues}
+            scenarios={comparisonScenarios}
+            onScenariosChange={setComparisonScenarios}
+            onLoadScenario={loadComparisonScenario}
+          />
+        ) : null}
       </main>
     </GuidanceNotesContext.Provider>
   );
@@ -1587,6 +1611,561 @@ function getModeCardClassName(isActive: boolean) {
     .join(" ");
 }
 
+type ComparisonScenario = {
+  id: string;
+  name: string;
+  settings: PensionSettings;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ComparisonResult = {
+  scenario: ComparisonScenario;
+  rows: ProjectionRow[];
+  summary: PensionSummary;
+  annualIncome: number;
+  annualTarget: number;
+  annualGap: number;
+  isaDepletedAge: number | null;
+  sippDepletedAge: number | null;
+  retirementAnnualIncome: number;
+  statePensionAnnualIncome: number;
+  lifeExpectancyAnnualIncome: number;
+  targetMissMonths: number;
+  currentMatchesSaved: boolean;
+};
+
+function ComparisonPrototype({
+  settings,
+  validationIssues,
+  scenarios,
+  onScenariosChange,
+  onLoadScenario,
+}: {
+  settings: PensionSettings;
+  validationIssues: PensionValidationIssue[];
+  scenarios: ComparisonScenario[];
+  onScenariosChange: (scenarios: ComparisonScenario[]) => void;
+  onLoadScenario: (settings: PensionSettings) => void;
+}) {
+  const [scenarioNameDraft, setScenarioNameDraft] = useState("");
+  const currentSettingsSignature = useMemo(() => getSettingsSignature(settings), [settings]);
+  const currentScenarioIsValid = validationIssues.length === 0;
+  const comparisonLimitReached = scenarios.length >= MAX_COMPARISON_SCENARIOS;
+  const results = useMemo(
+    () =>
+      scenarios.map((scenario) =>
+        createComparisonResult(scenario, currentSettingsSignature),
+      ),
+    [currentSettingsSignature, scenarios],
+  );
+  const earliestRetirementResult = results.reduce<ComparisonResult | null>(
+    (best, result) =>
+      !best ||
+      result.scenario.settings.requirementAge < best.scenario.settings.requirementAge
+        ? result
+        : best,
+    null,
+  );
+  const bestTargetResult = results.reduce<ComparisonResult | null>(
+    (best, result) =>
+      !best || result.targetMissMonths < best.targetMissMonths ? result : best,
+    null,
+  );
+  const lowestShortfallRiskResult = results.reduce<ComparisonResult | null>(
+    (best, result) => {
+      if (!best) {
+        return result;
+      }
+
+      const bestShortfall = Math.max(0, -best.annualGap);
+      const resultShortfall = Math.max(0, -result.annualGap);
+
+      return resultShortfall < bestShortfall ? result : best;
+    },
+    null,
+  );
+  const longestCapitalResult = results.reduce<ComparisonResult | null>(
+    (best, result) => {
+      if (!best) {
+        return result;
+      }
+
+      return getCapitalPreservationScore(result) > getCapitalPreservationScore(best)
+        ? result
+        : best;
+    },
+    null,
+  );
+  const highestLaterIncomeResult = results.reduce<ComparisonResult | null>(
+    (best, result) =>
+      !best || result.lifeExpectancyAnnualIncome > best.lifeExpectancyAnnualIncome
+        ? result
+        : best,
+    null,
+  );
+
+  function addCurrentScenario() {
+    if (!currentScenarioIsValid || comparisonLimitReached) {
+      return;
+    }
+
+    const scenarioNumber = scenarios.length + 1;
+    const now = new Date().toISOString();
+    const name = scenarioNameDraft.trim() || `Scenario ${scenarioNumber}`;
+
+    onScenariosChange([
+      ...scenarios,
+      {
+        id: createComparisonScenarioId(),
+        name,
+        settings: clonePensionSettings(settings),
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    setScenarioNameDraft("");
+  }
+
+  function renameScenario(id: string, name: string) {
+    onScenariosChange(
+      scenarios.map((scenario, index) =>
+        scenario.id === id
+          ? {
+              ...scenario,
+              name: name.trim() || `Scenario ${index + 1}`,
+              updatedAt: new Date().toISOString(),
+            }
+          : scenario,
+      ),
+    );
+  }
+
+  function removeScenario(id: string) {
+    onScenariosChange(scenarios.filter((scenario) => scenario.id !== id));
+  }
+
+  function replaceScenario(id: string) {
+    if (!currentScenarioIsValid) {
+      return;
+    }
+
+    onScenariosChange(
+      scenarios.map((scenario) =>
+        scenario.id === id
+          ? {
+              ...scenario,
+              settings: clonePensionSettings(settings),
+              updatedAt: new Date().toISOString(),
+            }
+          : scenario,
+      ),
+    );
+  }
+
+  return (
+    <section className="panel comparison-panel" aria-labelledby="comparison-title">
+      <div className="panel-heading">
+        <p className="eyebrow">Scenario comparison</p>
+        <h2 id="comparison-title">Compare saved scenarios</h2>
+        <p className="section-copy">
+          Add snapshots from the current modeller inputs, then compare the saved
+          scenarios side by side. Saved scenarios stay fixed until you replace
+          them with the current model state.
+        </p>
+      </div>
+
+      <section className="comparison-builder" aria-labelledby="comparison-builder-title">
+        <div>
+          <h3 id="comparison-builder-title">Add the current model</h3>
+          <p className="section-copy">
+            Up to {MAX_COMPARISON_SCENARIOS} scenarios can be held in this
+            comparison set during the current session.
+          </p>
+        </div>
+        <div className="comparison-add-row">
+          <label className="comparison-name-field">
+            <span>Scenario name</span>
+            <input
+              className="text-input"
+              type="text"
+              value={scenarioNameDraft}
+              placeholder={`Scenario ${scenarios.length + 1}`}
+              onChange={(event) => setScenarioNameDraft(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={!currentScenarioIsValid || comparisonLimitReached}
+            onClick={addCurrentScenario}
+          >
+            Add to comparison
+          </button>
+        </div>
+        {!currentScenarioIsValid ? (
+          <p className="table-status">
+            Fix the current validation issues before adding or replacing a scenario.
+          </p>
+        ) : null}
+        {comparisonLimitReached ? (
+          <p className="table-status">
+            Comparison limit reached. Remove a scenario before adding another.
+          </p>
+        ) : null}
+      </section>
+
+      <section className="comparison-saved-section" aria-labelledby="saved-scenarios-title">
+        <div className="summary-section-header">
+          <h3 id="saved-scenarios-title">Saved scenarios</h3>
+          <span className="table-status">
+            {scenarios.length} of {MAX_COMPARISON_SCENARIOS} saved
+          </span>
+        </div>
+
+        {scenarios.length === 0 ? (
+          <p className="section-copy">
+            No scenarios saved yet. Configure the model, name the scenario if you
+            want, then add it to the comparison set.
+          </p>
+        ) : (
+          <div className="comparison-card-grid" role="list">
+            {results.map((result) => {
+              return (
+                <article
+                  className="comparison-card"
+                  key={result.scenario.id}
+                >
+                  <label className="comparison-name-field">
+                    <span>Scenario name</span>
+                    <input
+                      className="text-input"
+                      type="text"
+                      value={result.scenario.name}
+                      onChange={(event) =>
+                        renameScenario(result.scenario.id, event.target.value)
+                      }
+                    />
+                  </label>
+                  <strong>{formatCurrencyDetailed(result.annualIncome)}</strong>
+                  <span>
+                    {formatShortfallOrSurplus(
+                      Math.max(0, -result.annualGap),
+                      Math.max(0, result.annualGap),
+                    )}{" "}
+                    against target
+                  </span>
+                  <small>
+                    {result.currentMatchesSaved
+                      ? "Matches current model inputs"
+                      : "Current model inputs differ from this saved snapshot"}
+                  </small>
+                  <div className="comparison-card-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => onLoadScenario(result.scenario.settings)}
+                    >
+                      Load this scenario
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={!currentScenarioIsValid}
+                      onClick={() => replaceScenario(result.scenario.id)}
+                    >
+                      Replace with current
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => removeScenario(result.scenario.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {results.length < 2 ? (
+        <section className="summary-section summary-section--compact">
+          <div className="summary-section-header">
+            <h3>Comparison appears after two scenarios</h3>
+          </div>
+          <p className="section-copy">
+            Add at least two saved scenarios to unlock the side-by-side summary.
+          </p>
+        </section>
+      ) : (
+        <>
+          <div className="comparison-insight-grid">
+            <SummarySection
+              title="Earliest retirement"
+              items={[
+                {
+                  label: earliestRetirementResult?.scenario.name ?? "Not available",
+                  value: earliestRetirementResult
+                    ? formatDecimalAge(
+                        earliestRetirementResult.scenario.settings.requirementAge,
+                      )
+                    : "Not available",
+                },
+              ]}
+            />
+            <SummarySection
+              title="Best maintains target"
+              items={[
+                {
+                  label: bestTargetResult?.scenario.name ?? "Not available",
+                  value: bestTargetResult
+                    ? formatTargetMissDuration(bestTargetResult.targetMissMonths)
+                    : "Not available",
+                },
+              ]}
+            />
+            <SummarySection
+              title="Lowest shortfall risk"
+              items={[
+                {
+                  label: lowestShortfallRiskResult?.scenario.name ?? "Not available",
+                  value: lowestShortfallRiskResult
+                    ? formatShortfallOrSurplus(
+                        Math.max(0, -lowestShortfallRiskResult.annualGap),
+                        Math.max(0, lowestShortfallRiskResult.annualGap),
+                      )
+                    : "Not available",
+                },
+              ]}
+            />
+            <SummarySection
+              title="Preserves pots longest"
+              items={[
+                {
+                  label: longestCapitalResult?.scenario.name ?? "Not available",
+                  value: longestCapitalResult
+                    ? formatCapitalPreservation(longestCapitalResult)
+                    : "Not available",
+                },
+              ]}
+            />
+            <SummarySection
+              title="Highest later income"
+              items={[
+                {
+                  label: highestLaterIncomeResult?.scenario.name ?? "Not available",
+                  value: highestLaterIncomeResult
+                    ? `${formatCurrencyDetailed(
+                        highestLaterIncomeResult.lifeExpectancyAnnualIncome,
+                      )} per year`
+                    : "Not available",
+                },
+              ]}
+            />
+          </div>
+
+          <ComparisonSummaryTable results={results} />
+
+        </>
+      )}
+    </section>
+  );
+}
+
+function ComparisonSummaryTable({ results }: { results: ComparisonResult[] }) {
+  return (
+    <section className="bridge-table-section">
+      <div className="summary-section-header">
+        <h3>Comparison table</h3>
+      </div>
+      <p className="section-copy">
+        These are saved snapshots. Changing the live model will not change these
+        rows unless you replace a saved scenario.
+      </p>
+      <ProjectionTableFrame
+        columns={[
+          { key: "scenario", label: "Scenario", width: "13rem" },
+          { key: "retirementAge", label: "Retirement age", width: "8rem" },
+          { key: "alphaAge", label: "Alpha draw age", width: "8rem" },
+          { key: "state", label: "State Pension", width: "11rem" },
+          { key: "isa", label: "ISA", width: "7rem" },
+          { key: "sipp", label: "SIPP", width: "7rem" },
+          { key: "target", label: "Target/yr", width: "8rem" },
+          { key: "gap", label: "Shortfall/surplus", width: "10rem" },
+          { key: "isaDepleted", label: "ISA depleted", width: "8rem" },
+          { key: "sippDepleted", label: "SIPP depleted", width: "8rem" },
+          { key: "retirementIncome", label: "Income at retirement", width: "10rem" },
+          { key: "stateIncome", label: "Income at State age", width: "10rem" },
+          { key: "lateIncome", label: "Later income", width: "9rem" },
+          { key: "misses", label: "Target not met", width: "9rem" },
+        ]}
+        rows={results}
+        emptyMessage="No comparison rows are available."
+        getRowKey={(result) => result.scenario.id}
+        minWidth="126rem"
+        renderCells={(result) => [
+          result.scenario.name,
+          formatDecimalAge(result.scenario.settings.requirementAge),
+          formatDecimalAge(result.scenario.settings.alphaPensionDrawAge),
+          result.scenario.settings.showStatePension
+            ? `${formatDate(result.summary.keyDates.startsStatePension)} (${formatDecimalAge(
+                calculateStatePensionDrawAge(
+                  result.scenario.settings.dateOfBirth,
+                  result.scenario.settings.statePensionDrawDate,
+                ),
+              )})`
+            : "No",
+          result.scenario.settings.showIsa ? "Yes" : "No",
+          result.scenario.settings.showSipp ? "Yes" : "No",
+          formatCurrencyDetailed(result.annualTarget),
+          formatShortfallOrSurplus(
+            Math.max(0, -result.annualGap),
+            Math.max(0, result.annualGap),
+          ),
+          formatDepletionAge(result.isaDepletedAge),
+          formatDepletionAge(result.sippDepletedAge),
+          formatCurrencyDetailed(result.retirementAnnualIncome),
+          formatCurrencyDetailed(result.statePensionAnnualIncome),
+          formatCurrencyDetailed(result.lifeExpectancyAnnualIncome),
+          formatTargetMissDuration(result.targetMissMonths),
+        ]}
+      />
+    </section>
+  );
+}
+
+function createComparisonResult(
+  scenario: ComparisonScenario,
+  currentSettingsSignature: string,
+): ComparisonResult {
+  const rows = createProjectionTable(scenario.settings);
+  const summary = generatePensionSummary(rows, scenario.settings);
+  const retirementDate = addYearsToIsoDate(
+    scenario.settings.dateOfBirth,
+    scenario.settings.requirementAge,
+  );
+  const annualTarget = calculateRetirementIncomeTargetAtDate(
+    scenario.settings,
+    retirementDate,
+  );
+  const annualIncome = summary.retirementIncome.totalAnnualIncome;
+  const statePensionAge = calculateStatePensionDrawAge(
+    scenario.settings.dateOfBirth,
+    scenario.settings.statePensionDrawDate,
+  );
+
+  return {
+    scenario,
+    rows,
+    summary,
+    annualIncome,
+    annualTarget,
+    annualGap: annualIncome - annualTarget,
+    isaDepletedAge: findPotDepletedAge(rows, "isaPot", scenario.settings.isaDrawAge),
+    sippDepletedAge: findPotDepletedAge(rows, "sippPot", scenario.settings.sippDrawAge),
+    retirementAnnualIncome: findAnnualIncomeAtAge(
+      rows,
+      scenario.settings.requirementAge,
+    ),
+    statePensionAnnualIncome: findAnnualIncomeAtAge(rows, statePensionAge),
+    lifeExpectancyAnnualIncome: findAnnualIncomeAtAge(
+      rows,
+      scenario.settings.lifeExpectancy,
+    ),
+    targetMissMonths: countTargetMissMonths(rows, scenario.settings),
+    currentMatchesSaved:
+      getSettingsSignature(scenario.settings) === currentSettingsSignature,
+  };
+}
+
+function createComparisonScenarioId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `scenario-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function clonePensionSettings(settings: PensionSettings): PensionSettings {
+  return JSON.parse(JSON.stringify(settings)) as PensionSettings;
+}
+
+function getSettingsSignature(settings: PensionSettings) {
+  return JSON.stringify(settings);
+}
+
+function findPotDepletedAge(
+  rows: ProjectionRow[],
+  potKey: "isaPot" | "sippPot",
+  drawAge: number,
+) {
+  const depletionRow = rows.find(
+    (row) => row.age + row.ageMonths / 12 >= drawAge && row[potKey] <= 0,
+  );
+
+  return depletionRow ? depletionRow.age + depletionRow.ageMonths / 12 : null;
+}
+
+function findAnnualIncomeAtAge(rows: ProjectionRow[], targetAge: number) {
+  const row =
+    rows.find((candidate) => candidate.age + candidate.ageMonths / 12 >= targetAge) ??
+    rows.at(-1);
+
+  return (row?.totalMonthlyPensionTakeHomePay ?? 0) * 12;
+}
+
+function countTargetMissMonths(rows: ProjectionRow[], settings: PensionSettings) {
+  return rows.filter((row) => {
+    const rowAge = row.age + row.ageMonths / 12;
+
+    if (rowAge < settings.requirementAge || rowAge > settings.lifeExpectancy) {
+      return false;
+    }
+
+    const annualIncome = row.totalMonthlyPensionTakeHomePay * 12;
+    const annualTarget = calculateRetirementIncomeTargetAtDate(settings, row.date);
+
+    return annualIncome < annualTarget;
+  }).length;
+}
+
+function formatTargetMissDuration(months: number) {
+  if (months <= 0) {
+    return "Target met throughout";
+  }
+
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+
+  if (years === 0) {
+    return `${remainingMonths}m`;
+  }
+
+  return remainingMonths === 0 ? `${years}y` : `${years}y ${remainingMonths}m`;
+}
+
+function formatDepletionAge(age: number | null) {
+  return age === null ? "Not depleted" : formatDecimalAge(age);
+}
+
+function getCapitalPreservationScore(result: ComparisonResult) {
+  const isaAge = result.isaDepletedAge ?? result.scenario.settings.lifeExpectancy + 1;
+  const sippAge = result.sippDepletedAge ?? result.scenario.settings.lifeExpectancy + 1;
+
+  return Math.min(isaAge, sippAge);
+}
+
+function formatCapitalPreservation(result: ComparisonResult) {
+  const score = getCapitalPreservationScore(result);
+
+  return score > result.scenario.settings.lifeExpectancy
+    ? "Pots last through model"
+    : `First depletion at ${formatDecimalAge(score)}`;
+}
+
 function GuidanceNotesToggle({
   checked,
   onChange,
@@ -1611,6 +2190,7 @@ type GuidedJourneyProps = {
   settings: PensionSettings;
   validationIssues: PensionValidationIssue[];
   pensionSummary: PensionSummary | null;
+  projectionRows: ProjectionRow[];
   retirementIncomeSeries: RetirementIncomePoint[];
   bridgeChartParameters: RetirementIncomeBridgeParameters;
   bridgeChartLimits: RetirementIncomeBridgeLimits;
@@ -1638,6 +2218,7 @@ function GuidedJourney({
   settings,
   validationIssues,
   pensionSummary,
+  projectionRows,
   retirementIncomeSeries,
   bridgeChartParameters,
   bridgeChartLimits,
@@ -1806,6 +2387,7 @@ function GuidedJourney({
             settings={settings}
             validationIssues={validationIssues}
             pensionSummary={pensionSummary}
+            projectionRows={projectionRows}
             retirementIncomeSeries={retirementIncomeSeries}
             bridgeChartParameters={bridgeChartParameters}
             bridgeChartLimits={bridgeChartLimits}
@@ -1860,6 +2442,7 @@ function JourneyStepContent({
   settings,
   validationIssues,
   pensionSummary,
+  projectionRows,
   retirementIncomeSeries,
   bridgeChartParameters,
   bridgeChartLimits,
@@ -1964,6 +2547,18 @@ function JourneyStepContent({
           onChangeParameters={onChangeChartParameters}
           {...bridgeChartParameters}
         />
+
+        <section className="panel">
+          <div className="panel-heading">
+            <h2>Monthly pension projection table</h2>
+            <p className="section-copy">
+              The table is generated from the projection layer so each row stays
+              traceable back to the modeller inputs and factor tables.
+            </p>
+          </div>
+
+          <ProjectionTable rows={projectionRows} settings={settings} />
+        </section>
       </div>
     );
   }
@@ -4233,6 +4828,7 @@ function ProjectionTableFrame<Row>({
   minWidth?: string;
 }) {
   const headerScrollRef = useRef<HTMLDivElement | null>(null);
+  const showMobileCards = useMobileDateDropdowns();
 
   const syncHeaderScroll = (scrollLeft: number) => {
     if (headerScrollRef.current) {
@@ -4253,30 +4849,32 @@ function ProjectionTableFrame<Row>({
     <div className="table-shell">
       {controls ? <div className="table-controls">{controls}</div> : null}
 
-      <div className="projection-mobile-cards">
-        {rows.map((row, rowIndex) => {
-          const rowKey = getRowKey(row, rowIndex);
-          const cells = renderCells(row, rowIndex);
+      {showMobileCards ? (
+        <div className="projection-mobile-cards">
+          {rows.map((row, rowIndex) => {
+            const rowKey = getRowKey(row, rowIndex);
+            const cells = renderCells(row, rowIndex);
 
-          return (
-            <article
-              key={`${rowKey}-mobile`}
-              className={`projection-mobile-card ${getRowClassName?.(row, rowIndex) ?? ""}`}
-              title={getRowTitle?.(row, rowIndex)}
-            >
-              {cells.map((cell, cellIndex) => (
-                <div
-                  key={`${rowKey}-mobile-${columns[cellIndex]?.key}`}
-                  className="projection-mobile-card-row"
-                >
-                  <span>{columns[cellIndex]?.label}</span>
-                  <div className="projection-mobile-card-value">{cell}</div>
-                </div>
-              ))}
-            </article>
-          );
-        })}
-      </div>
+            return (
+              <article
+                key={`${rowKey}-mobile`}
+                className={`projection-mobile-card ${getRowClassName?.(row, rowIndex) ?? ""}`}
+                title={getRowTitle?.(row, rowIndex)}
+              >
+                {cells.map((cell, cellIndex) => (
+                  <div
+                    key={`${rowKey}-mobile-${columns[cellIndex]?.key}`}
+                    className="projection-mobile-card-row"
+                  >
+                    <span>{columns[cellIndex]?.label}</span>
+                    <div className="projection-mobile-card-value">{cell}</div>
+                  </div>
+                ))}
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
 
       <div className="table-header-shell">
         <div className="table-header-scroll" ref={headerScrollRef}>
@@ -4473,6 +5071,18 @@ function formatCurrencyDetailed(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatShortfallOrSurplus(shortfall: number, surplus: number) {
+  if (shortfall > 0) {
+    return `${formatCurrencyDetailed(shortfall)} shortfall`;
+  }
+
+  if (surplus > 0) {
+    return `${formatCurrencyDetailed(surplus)} surplus`;
+  }
+
+  return formatCurrencyDetailed(0);
 }
 
 function formatPercent(rate: number) {
