@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useDeferredValue,
   useEffect,
   useContext,
@@ -485,6 +486,17 @@ function App() {
   const savedFeedbackTimer = useRef<ReturnType<typeof window.setTimeout> | null>(
     null,
   );
+  const activeModeRef = useRef<HTMLDivElement | null>(null);
+  const shouldFocusActiveMode = useRef(false);
+  const scrollActiveModeIntoView = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      activeModeRef.current?.focus({ preventScroll: true });
+      activeModeRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, []);
   const useDropdownDates = useMobileDateDropdowns();
   const deferredSettings = useDeferredValue(settings);
   const validationIssues = useMemo(
@@ -564,6 +576,15 @@ function App() {
   useEffect(() => {
     saveStoredGuidanceNotes(showGuidanceNotes);
   }, [showGuidanceNotes]);
+
+  useEffect(() => {
+    if (!appMode || !shouldFocusActiveMode.current) {
+      return;
+    }
+
+    shouldFocusActiveMode.current = false;
+    scrollActiveModeIntoView();
+  }, [appMode, scrollActiveModeIntoView]);
 
   useEffect(() => {
     return () => {
@@ -997,65 +1018,69 @@ function App() {
         </section>
 
         {appMode === "journey" ? (
-          <GuidedJourney
-            key="retirement-date"
-            journey={GUIDED_JOURNEYS[0]}
-            settings={settings}
-            validationIssues={validationIssues}
-            pensionSummary={pensionSummary}
-            projectionRows={projectionRows}
-            retirementIncomeSeries={retirementIncomeSeries}
-            bridgeChartParameters={bridgeChartParameters}
-            bridgeChartLimits={bridgeChartLimits}
-            derivedInflationAssumptions={derivedInflationAssumptions}
-            retirementIncomeDisplay={retirementIncomeDisplay}
-            retirementIncomeItems={retirementIncomeItems}
-            retirementIncomeTitle={retirementIncomeTitle}
-            retirementIncomeTotal={retirementIncomeTotal}
-            retirementIncomeTargetTitle={retirementIncomeTargetTitle}
-            retirementIncomeTarget={retirementIncomeTarget}
-            useDropdownDates={useDropdownDates}
-            onChange={updateSetting}
-            onChangeChartParameters={updateBridgeChartParameters}
-            onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
-            showLimitations={showLimitations}
-            onToggleLimitations={() => setShowLimitations((current) => !current)}
-            showGuidanceNotes={showGuidanceNotes}
-            onShowGuidanceNotesChange={setShowGuidanceNotes}
-          />
+          <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
+            <GuidedJourney
+              key="retirement-date"
+              journey={GUIDED_JOURNEYS[0]}
+              settings={settings}
+              validationIssues={validationIssues}
+              pensionSummary={pensionSummary}
+              projectionRows={projectionRows}
+              retirementIncomeSeries={retirementIncomeSeries}
+              bridgeChartParameters={bridgeChartParameters}
+              bridgeChartLimits={bridgeChartLimits}
+              derivedInflationAssumptions={derivedInflationAssumptions}
+              retirementIncomeDisplay={retirementIncomeDisplay}
+              retirementIncomeItems={retirementIncomeItems}
+              retirementIncomeTitle={retirementIncomeTitle}
+              retirementIncomeTotal={retirementIncomeTotal}
+              retirementIncomeTargetTitle={retirementIncomeTargetTitle}
+              retirementIncomeTarget={retirementIncomeTarget}
+              useDropdownDates={useDropdownDates}
+              onChange={updateSetting}
+              onChangeChartParameters={updateBridgeChartParameters}
+              onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
+              showLimitations={showLimitations}
+              onToggleLimitations={() => setShowLimitations((current) => !current)}
+              showGuidanceNotes={showGuidanceNotes}
+              onShowGuidanceNotesChange={setShowGuidanceNotes}
+            />
+          </div>
         ) : null}
 
         {appMode === "bridge" ? (
-          <GuidedJourney
-            key="early-retirement-bridge"
-            journey={GUIDED_JOURNEYS[1]}
-            settings={settings}
-            validationIssues={validationIssues}
-            pensionSummary={pensionSummary}
-            projectionRows={projectionRows}
-            retirementIncomeSeries={retirementIncomeSeries}
-            bridgeChartParameters={bridgeChartParameters}
-            bridgeChartLimits={bridgeChartLimits}
-            derivedInflationAssumptions={derivedInflationAssumptions}
-            retirementIncomeDisplay={retirementIncomeDisplay}
-            retirementIncomeItems={retirementIncomeItems}
-            retirementIncomeTitle={retirementIncomeTitle}
-            retirementIncomeTotal={retirementIncomeTotal}
-            retirementIncomeTargetTitle={retirementIncomeTargetTitle}
-            retirementIncomeTarget={retirementIncomeTarget}
-            useDropdownDates={useDropdownDates}
-            onChange={updateSetting}
-            onChangeChartParameters={updateBridgeChartParameters}
-            onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
-            showLimitations={showLimitations}
-            onToggleLimitations={() => setShowLimitations((current) => !current)}
-            showGuidanceNotes={showGuidanceNotes}
-            onShowGuidanceNotesChange={setShowGuidanceNotes}
-          />
+          <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
+            <GuidedJourney
+              key="early-retirement-bridge"
+              journey={GUIDED_JOURNEYS[1]}
+              settings={settings}
+              validationIssues={validationIssues}
+              pensionSummary={pensionSummary}
+              projectionRows={projectionRows}
+              retirementIncomeSeries={retirementIncomeSeries}
+              bridgeChartParameters={bridgeChartParameters}
+              bridgeChartLimits={bridgeChartLimits}
+              derivedInflationAssumptions={derivedInflationAssumptions}
+              retirementIncomeDisplay={retirementIncomeDisplay}
+              retirementIncomeItems={retirementIncomeItems}
+              retirementIncomeTitle={retirementIncomeTitle}
+              retirementIncomeTotal={retirementIncomeTotal}
+              retirementIncomeTargetTitle={retirementIncomeTargetTitle}
+              retirementIncomeTarget={retirementIncomeTarget}
+              useDropdownDates={useDropdownDates}
+              onChange={updateSetting}
+              onChangeChartParameters={updateBridgeChartParameters}
+              onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
+              showLimitations={showLimitations}
+              onToggleLimitations={() => setShowLimitations((current) => !current)}
+              showGuidanceNotes={showGuidanceNotes}
+              onShowGuidanceNotesChange={setShowGuidanceNotes}
+            />
+          </div>
         ) : null}
 
         {appMode === "expert" ? (
-          <>
+          <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
             <SummarySection
               title="Pension Summary"
               headingLevel={2}
@@ -1257,7 +1282,7 @@ function App() {
 
               <ProjectionTable rows={projectionRows} settings={settings} />
             </section>
-          </>
+          </div>
         ) : null}
       </main>
     </GuidanceNotesContext.Provider>
@@ -1274,6 +1299,10 @@ function App() {
       setChartUndoStack([]);
     }
 
+    shouldFocusActiveMode.current = true;
+    if (mode === appMode) {
+      scrollActiveModeIntoView();
+    }
     setAppMode(mode);
     saveStoredAppMode(mode);
   }
@@ -1428,6 +1457,7 @@ function GuidedJourney({
     (step) => !step.visible || step.visible(settings),
   );
   const [activeStepId, setActiveStepId] = useState(visibleSteps[0]?.id ?? "");
+  const [showMobileSteps, setShowMobileSteps] = useState(false);
   const activeStep = visibleSteps.find((step) => step.id === activeStepId) ?? visibleSteps[0];
   const activeStepIndex = Math.max(
     0,
@@ -1452,6 +1482,7 @@ function GuidedJourney({
 
     if (nextStep) {
       setActiveStepId(nextStep.id);
+      setShowMobileSteps(false);
     }
   };
 
@@ -1486,7 +1517,7 @@ function GuidedJourney({
                   : "journey-step-button"
               }
               aria-current={step.id === activeStep.id ? "step" : undefined}
-              onClick={() => setActiveStepId(step.id)}
+              onClick={() => goToStep(index)}
             >
               <span>{index + 1}</span>
               {step.title}
@@ -1499,6 +1530,67 @@ function GuidedJourney({
           ref={stepRef}
           aria-labelledby={`journey-step-${activeStep.id}`}
         >
+          <div className="journey-mobile-steps">
+            <div className="journey-mobile-step-summary">
+              <div>
+                <span>
+                  Step {activeStepIndex + 1} of {visibleSteps.length}
+                </span>
+                <strong>{activeStep.title}</strong>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                aria-expanded={showMobileSteps}
+                aria-controls="journey-mobile-step-list"
+                onClick={() => setShowMobileSteps((current) => !current)}
+              >
+                {showMobileSteps ? "Hide steps" : "View all steps"}
+              </button>
+            </div>
+            <div
+              className="journey-progress-bar"
+              role="progressbar"
+              aria-label="Journey progress"
+              aria-valuemin={1}
+              aria-valuemax={visibleSteps.length}
+              aria-valuenow={activeStepIndex + 1}
+            >
+              <span
+                style={{
+                  width: `${((activeStepIndex + 1) / visibleSteps.length) * 100}%`,
+                }}
+              />
+            </div>
+            {showMobileSteps ? (
+              <nav
+                id="journey-mobile-step-list"
+                className="journey-mobile-step-list"
+                aria-label="Journey steps"
+              >
+                {visibleSteps.map((step, index) => (
+                  <button
+                    key={step.id}
+                    type="button"
+                    className={
+                      step.id === activeStep.id
+                        ? "journey-step-button journey-step-button--active"
+                        : "journey-step-button"
+                    }
+                    aria-current={step.id === activeStep.id ? "step" : undefined}
+                    onClick={() => {
+                      setActiveStepId(step.id);
+                      setShowMobileSteps(false);
+                    }}
+                  >
+                    <span>{index + 1}</span>
+                    {step.title}
+                  </button>
+                ))}
+              </nav>
+            ) : null}
+          </div>
+
           <div className="section-heading">
             <p className="eyebrow">{activeStep.eyebrow}</p>
             <h3 id={`journey-step-${activeStep.id}`}>{activeStep.title}</h3>
@@ -2337,8 +2429,8 @@ function InflationBasisPanel({
             {rows.map((row) => (
               <tr key={row.assumption}>
                 <th scope="row">{row.assumption}</th>
-                <td>{row.userValue}</td>
-                <td>{row.modelledValue}</td>
+                <td data-label="User value">{row.userValue}</td>
+                <td data-label="Modelled value">{row.modelledValue}</td>
               </tr>
             ))}
           </tbody>
@@ -4101,6 +4193,31 @@ function ProjectionTableFrame<Row>({
     <div className="table-shell">
       {controls ? <div className="table-controls">{controls}</div> : null}
 
+      <div className="projection-mobile-cards">
+        {rows.map((row, rowIndex) => {
+          const rowKey = getRowKey(row, rowIndex);
+          const cells = renderCells(row, rowIndex);
+
+          return (
+            <article
+              key={`${rowKey}-mobile`}
+              className={`projection-mobile-card ${getRowClassName?.(row, rowIndex) ?? ""}`}
+              title={getRowTitle?.(row, rowIndex)}
+            >
+              {cells.map((cell, cellIndex) => (
+                <div
+                  key={`${rowKey}-mobile-${columns[cellIndex]?.key}`}
+                  className="projection-mobile-card-row"
+                >
+                  <span>{columns[cellIndex]?.label}</span>
+                  <div className="projection-mobile-card-value">{cell}</div>
+                </div>
+              ))}
+            </article>
+          );
+        })}
+      </div>
+
       <div className="table-header-shell">
         <div className="table-header-scroll" ref={headerScrollRef}>
           <table
@@ -4149,19 +4266,27 @@ function ProjectionTableFrame<Row>({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr
-                key={getRowKey(row, rowIndex)}
-                className={getRowClassName?.(row, rowIndex)}
-                title={getRowTitle?.(row, rowIndex)}
-              >
-                {renderCells(row, rowIndex).map((cell, cellIndex) => (
-                  <td key={`${getRowKey(row, rowIndex)}-${columns[cellIndex]?.key}`}>
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {rows.map((row, rowIndex) => {
+              const rowKey = getRowKey(row, rowIndex);
+              const cells = renderCells(row, rowIndex);
+
+              return (
+                <tr
+                  key={rowKey}
+                  className={getRowClassName?.(row, rowIndex)}
+                  title={getRowTitle?.(row, rowIndex)}
+                >
+                  {cells.map((cell, cellIndex) => (
+                    <td
+                      key={`${rowKey}-${columns[cellIndex]?.key}`}
+                      data-label={columns[cellIndex]?.label}
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

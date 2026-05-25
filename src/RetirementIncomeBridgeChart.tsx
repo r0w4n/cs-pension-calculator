@@ -515,6 +515,25 @@ export function RetirementIncomeBridgeChart({
       (marker) => marker.key === effectiveSelectedMobileMarkerKey,
     ) ??
     displayedMilestoneMarkers[0];
+  const mobileBridgeSummary = useMemo(
+    () =>
+      createMobileBridgeSummary({
+        displayedData,
+        displayedTargetIncomeAnnual,
+        retirementAge,
+        showStatePension,
+        statePensionAge,
+        alphaStartAge,
+      }),
+    [
+      alphaStartAge,
+      displayedData,
+      displayedTargetIncomeAnnual,
+      retirementAge,
+      showStatePension,
+      statePensionAge,
+    ],
+  );
   const buildUpWidth = Math.max(0, xScale(retirementAge) - xScale(minAge));
 
   useEffect(() => {
@@ -681,6 +700,15 @@ export function RetirementIncomeBridgeChart({
         </div>
       </div>
 
+      <div className="bridge-mobile-summary" aria-label="Chart summary">
+        {mobileBridgeSummary.map((item) => (
+          <div key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </div>
+
       <div className="bridge-chart-shell" ref={shellRef}>
         <svg
           className="bridge-chart-svg"
@@ -796,9 +824,15 @@ export function RetirementIncomeBridgeChart({
                     }
                   }}
                   className={
-                    marker.editable
-                      ? "bridge-milestone bridge-milestone--editable"
-                      : "bridge-milestone"
+                    [
+                      "bridge-milestone",
+                      marker.editable ? "bridge-milestone--editable" : "",
+                      marker.key === effectiveSelectedMobileMarkerKey
+                        ? "bridge-milestone--selected"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")
                   }
                   role={marker.editable ? "slider" : "img"}
                   tabIndex={0}
@@ -917,6 +951,14 @@ export function RetirementIncomeBridgeChart({
         </div>
 
       </div>
+
+      {selectedMobileMarker ? (
+        <div className="bridge-mobile-marker-summary">
+          <span>Selected milestone</span>
+          <strong>{selectedMobileMarker.label}</strong>
+          <span>Age {formatAgeValue(selectedMobileMarker.age)}</span>
+        </div>
+      ) : null}
 
       {selectedMobileMarker ? (
         <div className="bridge-mobile-navigation">
@@ -1162,6 +1204,49 @@ function getTargetIncomeControlLimit(
     max: limit.max / 12,
     step: limit.step / 12,
   };
+}
+
+function createMobileBridgeSummary({
+  displayedData,
+  displayedTargetIncomeAnnual,
+  retirementAge,
+  showStatePension,
+  statePensionAge,
+  alphaStartAge,
+}: {
+  displayedData: RetirementIncomePoint[];
+  displayedTargetIncomeAnnual: number;
+  retirementAge: number;
+  showStatePension: boolean;
+  statePensionAge: number;
+  alphaStartAge: number;
+}) {
+  const shortfallPoints = displayedData.filter(
+    (point) => point.age >= retirementAge && point.shortfallAnnual > 0,
+  );
+  const firstShortfallPoint = shortfallPoints[0];
+  const lastShortfallPoint = shortfallPoints.at(-1);
+  const shortfallLabel =
+    firstShortfallPoint && lastShortfallPoint
+      ? `Ages ${formatAgeValue(firstShortfallPoint.age)}-${formatAgeValue(lastShortfallPoint.age)}`
+      : "No modelled shortfall";
+
+  return [
+    {
+      label: "Target",
+      value: `${formatCurrency(displayedTargetIncomeAnnual)} / year`,
+    },
+    {
+      label: "Shortfall",
+      value: shortfallLabel,
+    },
+    {
+      label: showStatePension ? "State Pension" : "Alpha pension",
+      value: `Age ${formatAgeValue(
+        showStatePension ? statePensionAge : alphaStartAge,
+      )}`,
+    },
+  ];
 }
 
 function isIncomeSourceEnabled(

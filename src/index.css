@@ -88,6 +88,13 @@ select {
   gap: 1.25rem;
 }
 
+.active-mode-region {
+  display: grid;
+  gap: 1.25rem;
+  scroll-margin-top: 1rem;
+  outline: none;
+}
+
 .hero,
 .panel {
   border: 1px solid var(--border);
@@ -347,6 +354,7 @@ h3 {
 }
 
 .journey-progress {
+  display: none;
   align-self: start;
   border: 1px solid rgba(17, 100, 102, 0.16);
   border-radius: 999px;
@@ -365,7 +373,7 @@ h3 {
 }
 
 .journey-sidebar {
-  display: flex;
+  display: none;
   gap: 0.6rem;
   overflow-x: auto;
   padding-bottom: 0.25rem;
@@ -410,6 +418,64 @@ h3 {
 
 .journey-step {
   min-width: 0;
+}
+
+.journey-mobile-steps {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 1.25rem;
+}
+
+.journey-mobile-step-summary {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.journey-mobile-step-summary > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.journey-mobile-step-summary span {
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  font-weight: 800;
+  line-height: var(--line-height-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.journey-mobile-step-summary strong {
+  font-size: var(--font-size-heading-sm);
+  line-height: var(--line-height-heading);
+}
+
+.journey-progress-bar {
+  height: 0.45rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6efed;
+}
+
+.journey-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-strong);
+  transition: width 180ms ease;
+}
+
+.journey-mobile-step-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.journey-mobile-step-list .journey-step-button {
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-content: start;
+  border-radius: 0.8rem;
+  text-align: left;
 }
 
 .journey-actions {
@@ -504,6 +570,11 @@ h3 {
   overflow: hidden;
 }
 
+.bridge-mobile-summary,
+.bridge-mobile-marker-summary {
+  display: none;
+}
+
 .bridge-chart-svg {
   display: block;
   width: 100%;
@@ -570,6 +641,11 @@ h3 {
 
 .bridge-milestone:focus-visible line,
 .bridge-milestone:focus-visible circle {
+  stroke: #122033;
+  stroke-width: 2.5;
+}
+
+.bridge-milestone--selected circle {
   stroke: #122033;
   stroke-width: 2.5;
 }
@@ -1300,6 +1376,10 @@ h3 {
   border-bottom-right-radius: inherit;
 }
 
+.projection-mobile-cards {
+  display: none;
+}
+
 .projection-table--header,
 .projection-table--body {
   min-width: 62rem;
@@ -1482,6 +1562,14 @@ h3 {
     padding-bottom: 0;
   }
 
+  .journey-mobile-steps {
+    display: none;
+  }
+
+  .journey-progress {
+    display: block;
+  }
+
   .journey-step-button {
     grid-template-columns: auto minmax(0, 1fr);
     border-radius: 0.8rem;
@@ -1489,6 +1577,135 @@ h3 {
 }
 
 @media (max-width: 640px) {
+  .assumption-table-shell {
+    overflow-x: visible;
+  }
+
+  .assumption-table,
+  .assumption-table tbody,
+  .assumption-table tr,
+  .assumption-table th,
+  .assumption-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .assumption-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .assumption-table tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .assumption-table tr {
+    border: 1px solid var(--border);
+    border-radius: 0.9rem;
+    padding: 0.85rem;
+    background: #fbfdfc;
+  }
+
+  .assumption-table th,
+  .assumption-table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .assumption-table tbody th {
+    margin-bottom: 0.65rem;
+  }
+
+  .assumption-table td {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding-top: 0.45rem;
+    color: #122033;
+  }
+
+  .assumption-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: var(--font-size-label);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .table-header-shell,
+  .table-body-shell {
+    display: none;
+  }
+
+  .projection-mobile-cards {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+  }
+
+  .projection-mobile-card {
+    display: grid;
+    gap: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 0.95rem;
+    padding: 0.95rem;
+    background: #fbfdfc;
+  }
+
+  .projection-mobile-card.projection-row--milestone {
+    border-left: 4px solid #d7a43f;
+    background: #fff8e4;
+  }
+
+  .projection-mobile-card-row {
+    display: grid;
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  .projection-mobile-card-row > span {
+    color: var(--text-muted);
+    font-size: var(--font-size-label);
+    font-weight: 800;
+    line-height: var(--line-height-heading);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .projection-mobile-card-value {
+    min-width: 0;
+    text-align: right;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .projection-mobile-card-value .projection-date-cell {
+    align-items: end;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .projection-mobile-card-value .milestone-badges {
+    justify-content: flex-end;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .projection-mobile-card-value .milestone-badge {
+    max-width: 100%;
+    white-space: normal;
+    text-align: right;
+  }
+
   .bridge-chart-heading {
     justify-content: stretch;
   }
@@ -1497,8 +1714,61 @@ h3 {
     flex: 1 1 10rem;
   }
 
+  .bridge-mobile-summary {
+    display: grid;
+    gap: 0.65rem;
+    border: 1px solid rgba(17, 100, 102, 0.16);
+    border-radius: 0.9rem;
+    padding: 0.85rem;
+    background: #f7fbfa;
+  }
+
+  .bridge-mobile-summary div {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+
+  .bridge-mobile-summary span,
+  .bridge-mobile-marker-summary > span:first-child {
+    color: var(--text-muted);
+    font-size: var(--font-size-label);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .bridge-mobile-summary strong {
+    text-align: right;
+  }
+
   .bridge-legend--overlay {
     justify-content: flex-start;
+  }
+
+  .bridge-mobile-marker-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem 0.75rem;
+    align-items: baseline;
+    border: 1px solid rgba(17, 100, 102, 0.16);
+    border-radius: 0.8rem;
+    padding: 0.85rem;
+    background: #f7fbfa;
+  }
+
+  .bridge-mobile-marker-summary > span:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .bridge-mobile-marker-summary strong {
+    min-width: 0;
+  }
+
+  .bridge-mobile-marker-summary > span:last-child {
+    color: var(--text-muted);
+    font-weight: 700;
   }
 
   .bridge-mobile-navigation {
