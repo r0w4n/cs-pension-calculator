@@ -1835,7 +1835,7 @@ function OptionalSectionToggleGrid({
               onChange={(event) =>
                 onChange(
                   toggle.key,
-                  event.target.checked as PensionSettings[typeof toggle.key],
+                  event.target.checked,
                 )
               }
             />
@@ -2844,7 +2844,7 @@ function Field({
   if (field.id === "statePensionDrawDate") {
     return (
       <StatePensionAgeField
-        field={field as DateField}
+        field={field}
         value={value as string}
         settings={settings}
         onChange={onChange}
@@ -2898,7 +2898,7 @@ function Field({
   if (field.type === "select") {
     return (
       <SelectSettingField
-        field={field as SelectField}
+        field={field}
         value={value as string}
         onChange={onChange}
         disabled={disabled}
@@ -2928,7 +2928,7 @@ function Field({
             onChange={(event) =>
               onChange(
                 field.id,
-                event.target.checked as PensionSettings[typeof field.id],
+                event.target.checked,
               )
             }
           />
@@ -2942,7 +2942,7 @@ function Field({
   if (field.type === "currency-input") {
     return (
       <CurrencySettingField
-        field={field as CurrencyInputField}
+        field={field}
         value={value as number}
         onChange={onChange}
         disabled={disabled}
@@ -3189,7 +3189,7 @@ function YearSettingFieldEditor({
           setLocalYear(event.target.value);
         }}
         onBlur={(event) => {
-          onChange(field.id, event.target.value as PensionSettings[typeof field.id]);
+          onChange(field.id, event.target.value);
         }}
       >
         {yearOptions.map((year) => (
@@ -3304,7 +3304,7 @@ function CurrencySettingField({
   hideOnMobile?: boolean;
   validationIssue?: PensionValidationIssue;
 }) {
-  const resetValue = defaultSettings[field.id] as PensionSettings[typeof field.id];
+  const resetValue = defaultSettings[field.id];
 
   return (
     <CurrencySettingFieldEditor
@@ -3344,9 +3344,9 @@ function CurrencySettingFieldEditor({
   const commitDraftValue = (nextDraftValue: string) => {
     const parsedValue = nextDraftValue.trim() === "" ? 0 : Number(nextDraftValue);
     const nextValue = Number.isFinite(parsedValue) ? parsedValue : initialValue;
-    onChange(field.id, nextValue as PensionSettings[typeof field.id]);
+    onChange(field.id, nextValue);
     setDraftValue(
-      normalizeSetting(field.id, nextValue as PensionSettings[typeof field.id]).toString(),
+      normalizeSetting(field.id, nextValue).toString(),
     );
   };
 
@@ -3354,7 +3354,7 @@ function CurrencySettingFieldEditor({
     presetValue: NonNullable<CurrencyInputField["presets"]>[number]["value"],
   ) => {
     setDraftValue(presetValue.toString());
-    onChange(field.id, presetValue as PensionSettings[typeof field.id]);
+    onChange(field.id, presetValue);
   };
 
   return (
@@ -3452,7 +3452,7 @@ function RangeSettingField({
     "sippRealInterestPercent",
     "isaRealInterestPercent",
   ].includes(field.id);
-  const resetValue = defaultSettings[field.id] as PensionSettings[typeof field.id];
+  const resetValue = defaultSettings[field.id];
   const resetLabel = `Reset ${field.label} to default`;
   const isEditingExactValue = draftExactValue !== null;
   const parsedDraftExactValue =
@@ -3475,7 +3475,7 @@ function RangeSettingField({
       Math.max(effectiveField.min, nextValue),
     );
 
-    onChange(field.id, boundedValue as PensionSettings[typeof field.id]);
+    onChange(field.id, boundedValue);
     setDraftValue(null);
     setDraftExactValue(null);
   };
@@ -3819,10 +3819,10 @@ function DateSettingField({
         ? normalizeStatePensionDrawDate(nextValue, settings.dateOfBirth)
         : (normalizeSetting(
             field.id,
-            nextValue as PensionSettings[typeof field.id],
-          ) as string);
+            nextValue,
+          ));
 
-    onChange(field.id, normalizedValue as PensionSettings[typeof field.id]);
+    onChange(field.id, normalizedValue);
     return normalizedValue;
   }
 

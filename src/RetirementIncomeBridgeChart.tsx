@@ -113,6 +113,12 @@ type MilestoneMarker = {
   editable: boolean;
 };
 
+type SvgDragEvent<Element extends SVGElement> = d3.D3DragEvent<
+  Element,
+  unknown,
+  unknown
+>;
+
 const incomeKeys: IncomeKey[] = [
   "isaIncomeAnnual",
   "sippIncomeAnnual",
@@ -548,7 +554,7 @@ export function RetirementIncomeBridgeChart({
 
       const drag = d3
         .drag<SVGGElement, unknown>()
-        .on("start drag", (event) => {
+        .on("start drag", (event: SvgDragEvent<SVGGElement>) => {
           const nextAge = xScale.invert(clampNumber(event.x, 0, plotWidth));
 
           setDraftMarkerAges((current) => ({
@@ -559,7 +565,7 @@ export function RetirementIncomeBridgeChart({
             },
           }));
         })
-        .on("end", (event) => {
+        .on("end", (event: SvgDragEvent<SVGGElement>) => {
           const nextAge = xScale.invert(clampNumber(event.x, 0, plotWidth));
           const committedAge = snapToLimit(nextAge, limits[marker.key]);
 
@@ -589,12 +595,12 @@ export function RetirementIncomeBridgeChart({
 
     const drag = d3
       .drag<SVGPathElement, unknown>()
-      .on("start drag", (event) => {
+      .on("start drag", (event: SvgDragEvent<SVGPathElement>) => {
         const nextValue = yScale.invert(clampNumber(event.y, 0, plotHeight)) * divisor;
 
         setDraftTargetIncomeAnnual(snapToLimit(nextValue, limits.targetIncomeAnnual));
       })
-      .on("end", (event) => {
+      .on("end", (event: SvgDragEvent<SVGPathElement>) => {
         const nextValue = yScale.invert(clampNumber(event.y, 0, plotHeight)) * divisor;
         const committedValue = snapToLimit(nextValue, limits.targetIncomeAnnual);
 
