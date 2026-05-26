@@ -2748,10 +2748,10 @@ function calculateMonthlyWithdrawalFromPot(input: {
     return Math.min(pot, (pot * (withdrawalPercent / 100)) / 12);
   }
 
-  const drawdownMonthsRemaining = Math.max(
-    1,
-    calculateWholeMonthDifference(rowDate, endDate),
-  );
+  const drawdownMonthsRemaining =
+    strategy === "use_by_age"
+      ? countScheduledWithdrawalDatesRemaining(rowDate, endDate)
+      : Math.max(1, calculateWholeMonthDifference(rowDate, endDate));
 
   return Math.min(pot, pot / drawdownMonthsRemaining);
 }
@@ -2763,9 +2763,9 @@ function calculateLevelMonthlyWithdrawalFromPot(input: {
   monthlyInterestRate: number;
 }) {
   const { pot, rowDate, endDate, monthlyInterestRate } = input;
-  const drawdownMonthsRemaining = Math.max(
-    1,
-    calculateWholeMonthDifference(rowDate, endDate),
+  const drawdownMonthsRemaining = countScheduledWithdrawalDatesRemaining(
+    rowDate,
+    endDate,
   );
 
   if (pot <= 0) {
@@ -2781,6 +2781,17 @@ function calculateLevelMonthlyWithdrawalFromPot(input: {
     (1 - discountFactor ** drawdownMonthsRemaining) / (1 - discountFactor);
 
   return annuityDueFactor > 0 ? pot / annuityDueFactor : pot / drawdownMonthsRemaining;
+}
+
+function countScheduledWithdrawalDatesRemaining(rowDate: string, endDate: string) {
+  if (endDate < rowDate) {
+    return 1;
+  }
+
+  const wholeMonths = calculateWholeMonthDifference(rowDate, endDate);
+  const lastScheduledDate = addMonths(rowDate, wholeMonths);
+
+  return lastScheduledDate <= endDate ? wholeMonths + 1 : Math.max(1, wholeMonths);
 }
 
 function calculateTotalSippContributionsAfterTaxRelief(

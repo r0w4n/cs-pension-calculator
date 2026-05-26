@@ -47,6 +47,7 @@ import {
   createDefaultSettings,
   defaultSettings,
   formatCurrency,
+  getPartialRetirementSavingsContributionMultiplier,
   getAlphaAbsYear,
   calculateStatePensionDrawDateFromAge,
   calculateStatePensionDrawDate,
@@ -1474,17 +1475,6 @@ function App() {
               {...bridgeChartParameters}
             />
 
-            <section className="panel">
-              <div className="panel-heading">
-                <h2>Monthly pension projection table</h2>
-                <p className="section-copy">
-                  The table is generated from the projection layer so each row stays
-                  traceable back to the modeller inputs and factor tables.
-                </p>
-              </div>
-
-              <ProjectionTable rows={projectionRows} settings={settings} />
-            </section>
           </div>
         ) : null}
 
@@ -1496,6 +1486,20 @@ function App() {
             onScenariosChange={setComparisonScenarios}
             onLoadScenario={loadComparisonScenario}
           />
+        ) : null}
+
+        {appMode === "expert" ? (
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Monthly pension projection table</h2>
+              <p className="section-copy">
+                The table is generated from the projection layer so each row stays
+                traceable back to the modeller inputs and factor tables.
+              </p>
+            </div>
+
+            <ProjectionTable rows={projectionRows} settings={settings} />
+          </section>
         ) : null}
       </main>
     </GuidanceNotesContext.Provider>
@@ -1542,7 +1546,6 @@ function ModeSelectionPanel({
   return (
     <section className="mode-panel" aria-labelledby="mode-selection-title">
       <div className="panel-heading">
-        <p className="eyebrow">Planner view</p>
         <h2 id="mode-selection-title">Choose the level of detail</h2>
         <p className="section-copy">
           The simple planner is the quickest way through. Switch to expert mode any
@@ -1639,6 +1642,14 @@ type ComparisonResult = {
   lifeExpectancyAnnualIncome: number;
   targetMissMonths: number;
   currentMatchesSaved: boolean;
+};
+
+type ComparisonTableRow = {
+  key: string;
+  section: string;
+  metric: string;
+  values: ReactNode[];
+  sectionStart: boolean;
 };
 
 function ComparisonPrototype({
@@ -1982,6 +1993,18 @@ function ComparisonPrototype({
 }
 
 function ComparisonSummaryTable({ results }: { results: ComparisonResult[] }) {
+  const columns: TableColumn[] = [
+    { key: "section", label: "Section", width: "14rem" },
+    { key: "metric", label: "Metric", width: "18rem" },
+    ...results.map((result, index) => ({
+      key: result.scenario.id,
+      label: result.scenario.name || `Scenario ${index + 1}`,
+      width: "13rem",
+    })),
+  ];
+  const rows = buildComparisonTableRows(results);
+  const minWidth = `${32 + results.length * 13}rem`;
+
   return (
     <section className="bridge-table-section">
       <div className="summary-section-header">
@@ -1992,55 +2015,436 @@ function ComparisonSummaryTable({ results }: { results: ComparisonResult[] }) {
         rows unless you replace a saved scenario.
       </p>
       <ProjectionTableFrame
-        columns={[
-          { key: "scenario", label: "Scenario", width: "13rem" },
-          { key: "retirementAge", label: "Retirement age", width: "8rem" },
-          { key: "alphaAge", label: "Alpha draw age", width: "8rem" },
-          { key: "state", label: "State Pension", width: "11rem" },
-          { key: "isa", label: "ISA", width: "7rem" },
-          { key: "sipp", label: "SIPP", width: "7rem" },
-          { key: "target", label: "Target/yr", width: "8rem" },
-          { key: "gap", label: "Shortfall/surplus", width: "10rem" },
-          { key: "isaDepleted", label: "ISA depleted", width: "8rem" },
-          { key: "sippDepleted", label: "SIPP depleted", width: "8rem" },
-          { key: "retirementIncome", label: "Income at retirement", width: "10rem" },
-          { key: "stateIncome", label: "Income at State age", width: "10rem" },
-          { key: "lateIncome", label: "Later income", width: "9rem" },
-          { key: "misses", label: "Target not met", width: "9rem" },
-        ]}
-        rows={results}
+        columns={columns}
+        rows={rows}
         emptyMessage="No comparison rows are available."
-        getRowKey={(result) => result.scenario.id}
-        minWidth="126rem"
-        renderCells={(result) => [
-          result.scenario.name,
-          formatDecimalAge(result.scenario.settings.requirementAge),
-          formatDecimalAge(result.scenario.settings.alphaPensionDrawAge),
-          result.scenario.settings.showStatePension
-            ? `${formatDate(result.summary.keyDates.startsStatePension)} (${formatDecimalAge(
-                calculateStatePensionDrawAge(
-                  result.scenario.settings.dateOfBirth,
-                  result.scenario.settings.statePensionDrawDate,
-                ),
-              )})`
-            : "No",
-          result.scenario.settings.showIsa ? "Yes" : "No",
-          result.scenario.settings.showSipp ? "Yes" : "No",
-          formatCurrencyDetailed(result.annualTarget),
-          formatShortfallOrSurplus(
-            Math.max(0, -result.annualGap),
-            Math.max(0, result.annualGap),
-          ),
-          formatDepletionAge(result.isaDepletedAge),
-          formatDepletionAge(result.sippDepletedAge),
-          formatCurrencyDetailed(result.retirementAnnualIncome),
-          formatCurrencyDetailed(result.statePensionAnnualIncome),
-          formatCurrencyDetailed(result.lifeExpectancyAnnualIncome),
-          formatTargetMissDuration(result.targetMissMonths),
+        getRowKey={(row) => row.key}
+        getRowClassName={(row) =>
+          row.sectionStart ? "comparison-summary-row comparison-summary-row--section" : "comparison-summary-row"
+        }
+        minWidth={minWidth}
+        renderCells={(row) => [
+          row.sectionStart ? <strong>{row.section}</strong> : "",
+          row.metric,
+          ...row.values,
         ]}
       />
     </section>
   );
+}
+
+function buildComparisonTableRows(results: ComparisonResult[]): ComparisonTableRow[] {
+  return [
+    createComparisonSection("Headline outcome", results, [
+      ["Overall status", (result) => renderComparisonStatusCell(result)],
+      [
+        "Retirement pathway",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled
+            ? "Partial retirement"
+            : "Full retirement",
+      ],
+      ["Target annual income", (result) => formatAnnualCurrency(result.annualTarget)],
+      [
+        "Lowest annual income",
+        (result) =>
+          formatAnnualCurrency(
+            getLowestAnnualIncome(result.rows, result.scenario.settings),
+          ),
+      ],
+      [
+        "Years below target",
+        (result) =>
+          renderComparisonToneCell(
+            formatYearsBelowTarget(result.targetMissMonths),
+            result.targetMissMonths > 0 ? "caution" : "good",
+          ),
+      ],
+      [
+        "Largest annual shortfall",
+        (result) =>
+          renderComparisonToneCell(
+            formatAnnualCurrency(
+              getLargestAnnualShortfall(result.rows, result.scenario.settings),
+            ),
+            getLargestAnnualShortfall(result.rows, result.scenario.settings) > 0
+              ? "caution"
+              : "good",
+          ),
+      ],
+      [
+        "Total lifetime shortfall",
+        (result) =>
+          renderComparisonToneCell(
+            formatCurrencyDetailed(
+              getTotalLifetimeShortfall(result.rows, result.scenario.settings),
+            ),
+            getTotalLifetimeShortfall(result.rows, result.scenario.settings) > 0
+              ? "caution"
+              : "good",
+          ),
+      ],
+    ]),
+    createComparisonSection("Retirement timing", results, [
+      [
+        "Requirement age",
+        (result) => formatDecimalAge(result.scenario.settings.requirementAge),
+      ],
+      [
+        "Partial retirement start age",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled
+            ? formatDecimalAge(result.scenario.settings.partialRetirementStartAge)
+            : "n/a",
+      ],
+      [
+        "Pro-rata work level",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled
+            ? formatWholePercent(
+                result.scenario.settings.partialRetirementWorkPercent / 100,
+              )
+            : "n/a",
+      ],
+      [
+        "Final work exit age",
+        (result) => formatDecimalAge(result.scenario.settings.requirementAge),
+      ],
+      [
+        "Age leaving Alpha scheme",
+        (result) => formatDecimalAge(result.scenario.settings.alphaPensionLeaveAge),
+      ],
+      [
+        "Alpha draw age",
+        (result) => formatDecimalAge(result.scenario.settings.alphaPensionDrawAge),
+      ],
+      [
+        "SIPP draw start age",
+        (result) =>
+          result.scenario.settings.showSipp
+            ? formatDecimalAge(result.scenario.settings.sippDrawAge)
+            : "n/a",
+      ],
+      [
+        "ISA draw start age",
+        (result) =>
+          result.scenario.settings.showIsa
+            ? formatDecimalAge(result.scenario.settings.isaDrawAge)
+            : "n/a",
+      ],
+      [
+        "State Pension start age",
+        (result) =>
+          result.scenario.settings.showStatePension
+            ? formatDecimalAge(result.summary.calculated.statePensionAge)
+            : "n/a",
+      ],
+      [
+        "Life expectancy age",
+        (result) => formatDecimalAge(result.scenario.settings.lifeExpectancy),
+      ],
+    ]),
+    createComparisonSection("Partial retirement impact", results, [
+      [
+        "Partial retirement income",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled
+            ? formatAnnualCurrency(
+                result.scenario.settings.fullSalary *
+                  (result.scenario.settings.partialRetirementWorkPercent / 100),
+              )
+            : "n/a",
+      ],
+      [
+        "Full salary before partial retirement",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled
+            ? formatAnnualCurrency(result.scenario.settings.fullSalary)
+            : "n/a",
+      ],
+      [
+        "Pensionable earnings during partial retirement",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled
+            ? formatAnnualCurrency(
+                result.scenario.settings.pensionableEarnings *
+                  (result.scenario.settings.partialRetirementWorkPercent / 100),
+              )
+            : "n/a",
+      ],
+      [
+        "Additional Alpha earned after partial retirement starts",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled
+            ? formatAnnualCurrency(
+                getAdditionalAlphaEarnedAfterPartialRetirement(
+                  result.rows,
+                  result.scenario.settings,
+                  result.summary,
+                ),
+              )
+            : "n/a",
+      ],
+      [
+        "ISA contribution during partial retirement",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled &&
+          result.scenario.settings.showIsa
+            ? formatMonthlyCurrency(
+                result.scenario.settings.isaMonthlyContribution *
+                  getPartialRetirementSavingsContributionMultiplier(
+                    result.scenario.settings,
+                    getPartialRetirementStartDateString(result.scenario.settings),
+                  ),
+              )
+            : "n/a",
+      ],
+      [
+        "SIPP contribution during partial retirement",
+        (result) =>
+          result.scenario.settings.partialRetirementEnabled &&
+          result.scenario.settings.showSipp
+            ? formatMonthlyCurrency(
+                result.scenario.settings.sippMonthlyContribution *
+                  getPartialRetirementSavingsContributionMultiplier(
+                    result.scenario.settings,
+                    getPartialRetirementStartDateString(result.scenario.settings),
+                  ),
+              )
+            : "n/a",
+      ],
+    ]),
+    createComparisonSection("Secure pension income", results, [
+      [
+        "Alpha income at draw age",
+        (result) => formatAnnualCurrency(result.summary.alphaPension.annualAtDraw),
+      ],
+      [
+        "Alpha Normal Pension Age",
+        (result) => formatDecimalAge(result.summary.calculated.normalPensionAge),
+      ],
+      [
+        "Alpha early reduction applied",
+        (result) => formatYesNo(result.summary.calculated.earlyRetirementReductionPercent > 0),
+      ],
+      [
+        "nuvos income at draw age",
+        (result) =>
+          result.scenario.settings.showNuvos
+            ? formatAnnualCurrency(result.summary.nuvosPension.annualAtDraw)
+            : "n/a",
+      ],
+      [
+        "State Pension income at start age",
+        (result) =>
+          result.scenario.settings.showStatePension
+            ? formatAnnualCurrency(result.summary.incomeOverTime.monthlyStatePension * 12)
+            : "n/a",
+      ],
+      [
+        "Combined secure pension at State Pension age",
+        (result) =>
+          result.scenario.settings.showStatePension
+            ? formatAnnualCurrency(getCombinedSecurePensionAtStateAge(result))
+            : "n/a",
+      ],
+      [
+        "Secure pension as % of target",
+        (result) =>
+          result.scenario.settings.showStatePension
+            ? formatWholePercent(
+                getCombinedSecurePensionAtStateAge(result) /
+                  calculateRetirementIncomeTargetAtDate(
+                    result.scenario.settings,
+                    result.scenario.settings.statePensionDrawDate,
+                  ),
+              )
+            : "n/a",
+      ],
+    ]),
+    createComparisonSection("ISA bridge", results, [
+      [
+        "Current ISA balance",
+        (result) =>
+          result.scenario.settings.showIsa
+            ? formatCurrencyDetailed(result.scenario.settings.isaCurrentPot)
+            : "n/a",
+      ],
+      [
+        "ISA draw start age",
+        (result) =>
+          result.scenario.settings.showIsa
+            ? formatDecimalAge(result.scenario.settings.isaDrawAge)
+            : "n/a",
+      ],
+      [
+        "ISA use-by age",
+        (result) => formatUseByAge(result.scenario.settings, "isa"),
+      ],
+      [
+        "Total ISA withdrawals",
+        (result) =>
+          result.scenario.settings.showIsa
+            ? formatCurrencyDetailed(getTotalWithdrawals(result.rows, "monthlyIsaPension"))
+            : "n/a",
+      ],
+      [
+        "ISA depleted age",
+        (result) =>
+          result.scenario.settings.showIsa
+            ? renderComparisonToneCell(
+                formatDepletionAgeOrNa(result.isaDepletedAge),
+                getPotDepletionTone(result.isaDepletedAge, result.scenario.settings),
+              )
+            : "n/a",
+      ],
+      [
+        "Final ISA balance",
+        (result) =>
+          result.scenario.settings.showIsa
+            ? formatCurrencyDetailed(getFinalPotBalance(result.rows, "isaPot"))
+            : "n/a",
+      ],
+    ]),
+    createComparisonSection("SIPP bridge", results, [
+      [
+        "Current SIPP balance",
+        (result) =>
+          result.scenario.settings.showSipp
+            ? formatCurrencyDetailed(result.scenario.settings.sippCurrentPot)
+            : "n/a",
+      ],
+      [
+        "SIPP draw start age",
+        (result) =>
+          result.scenario.settings.showSipp
+            ? formatDecimalAge(result.scenario.settings.sippDrawAge)
+            : "n/a",
+      ],
+      [
+        "SIPP use-by age",
+        (result) => formatUseByAge(result.scenario.settings, "sipp"),
+      ],
+      [
+        "SIPP withdrawal strategy",
+        (result) => formatSippWithdrawalStrategy(result.scenario.settings),
+      ],
+      [
+        "Total SIPP withdrawals",
+        (result) =>
+          result.scenario.settings.showSipp
+            ? formatCurrencyDetailed(getTotalWithdrawals(result.rows, "monthlySippPension"))
+            : "n/a",
+      ],
+      [
+        "SIPP depleted age",
+        (result) =>
+          result.scenario.settings.showSipp
+            ? renderComparisonToneCell(
+                formatDepletionAgeOrNa(result.sippDepletedAge),
+                getPotDepletionTone(result.sippDepletedAge, result.scenario.settings),
+              )
+            : "n/a",
+      ],
+      [
+        "Final SIPP balance",
+        (result) =>
+          result.scenario.settings.showSipp
+            ? formatCurrencyDetailed(getFinalPotBalance(result.rows, "sippPot"))
+            : "n/a",
+      ],
+    ]),
+    createComparisonSection("Flexible asset position", results, [
+      [
+        "Total ISA + SIPP withdrawals",
+        (result) =>
+          formatCurrencyDetailed(
+            getTotalWithdrawals(result.rows, "monthlyIsaPension") +
+              getTotalWithdrawals(result.rows, "monthlySippPension"),
+          ),
+      ],
+      [
+        "Final ISA + SIPP balance",
+        (result) =>
+          formatCurrencyDetailed(
+            getFinalPotBalance(result.rows, "isaPot") +
+              getFinalPotBalance(result.rows, "sippPot"),
+          ),
+      ],
+      [
+        "Flexible assets exhausted",
+        (result) => renderFlexibleAssetsExhaustedCell(result),
+      ],
+    ]),
+    createComparisonSection("Assumptions", results, [
+      [
+        "Projection basis",
+        (result) =>
+          result.scenario.settings.projectionBasis === "real"
+            ? "Real terms"
+            : "Nominal",
+      ],
+      [
+        "Tax basis",
+        (result) =>
+          result.scenario.settings.taxationEnabled ? "After tax" : "Before tax",
+      ],
+      [
+        "Inflation assumption",
+        (result) => formatPercent(result.scenario.settings.inflationRateAnnual / 100),
+      ],
+      [
+        "ISA nominal return",
+        (result) =>
+          formatPercent(
+            deriveInflationAssumptions(result.scenario.settings).isaNominalReturnAnnual,
+          ),
+      ],
+      [
+        "ISA modelled real return",
+        (result) =>
+          formatPercent(
+            deriveInflationAssumptions(result.scenario.settings).isaModelledReturnAnnual,
+          ),
+      ],
+      [
+        "SIPP nominal return",
+        (result) =>
+          formatPercent(
+            deriveInflationAssumptions(result.scenario.settings).sippNominalReturnAnnual,
+          ),
+      ],
+      [
+        "SIPP modelled real return",
+        (result) =>
+          formatPercent(
+            deriveInflationAssumptions(result.scenario.settings).sippModelledReturnAnnual,
+          ),
+      ],
+      [
+        "State Pension growth projected",
+        (result) => formatYesNo(result.scenario.settings.statePensionApplyFutureGrowth),
+      ],
+      [
+        "Taxation enabled",
+        (result) => formatYesNo(result.scenario.settings.taxationEnabled),
+      ],
+    ]),
+  ].flat();
+}
+
+function createComparisonSection(
+  section: string,
+  results: ComparisonResult[],
+  rows: Array<[metric: string, getValue: (result: ComparisonResult) => ReactNode]>,
+) {
+  return rows.map(([metric, getValue], index) => ({
+    key: `${section}-${metric}`,
+    section,
+    metric,
+    values: results.map(getValue),
+    sectionStart: index === 0,
+  }));
 }
 
 function createComparisonResult(
@@ -2070,8 +2474,24 @@ function createComparisonResult(
     annualIncome,
     annualTarget,
     annualGap: annualIncome - annualTarget,
-    isaDepletedAge: findPotDepletedAge(rows, "isaPot", scenario.settings.isaDrawAge),
-    sippDepletedAge: findPotDepletedAge(rows, "sippPot", scenario.settings.sippDrawAge),
+    isaDepletedAge: findPotDepletedAge(
+      rows,
+      "isaPot",
+      scenario.settings.isaDrawAge,
+      scenario.settings.showIsa &&
+        scenario.settings.isaWithdrawalStrategy === "use_by_age"
+        ? scenario.settings.isaWithdrawalTargetAge
+        : null,
+    ),
+    sippDepletedAge: findPotDepletedAge(
+      rows,
+      "sippPot",
+      scenario.settings.sippDrawAge,
+      scenario.settings.showSipp &&
+        scenario.settings.sippWithdrawalStrategy === "use_by_age"
+        ? scenario.settings.sippWithdrawalTargetAge
+        : null,
+    ),
     retirementAnnualIncome: findAnnualIncomeAtAge(
       rows,
       scenario.settings.requirementAge,
@@ -2107,35 +2527,156 @@ function findPotDepletedAge(
   rows: ProjectionRow[],
   potKey: "isaPot" | "sippPot",
   drawAge: number,
+  targetAge: number | null = null,
 ) {
   const depletionRow = rows.find(
     (row) => row.age + row.ageMonths / 12 >= drawAge && row[potKey] <= 0,
   );
 
-  return depletionRow ? depletionRow.age + depletionRow.ageMonths / 12 : null;
+  if (!depletionRow) {
+    return null;
+  }
+
+  const depletionAge = depletionRow.age + depletionRow.ageMonths / 12;
+
+  if (targetAge !== null && depletionAge < targetAge) {
+    return targetAge;
+  }
+
+  return depletionAge;
 }
 
 function findAnnualIncomeAtAge(rows: ProjectionRow[], targetAge: number) {
-  const row =
-    rows.find((candidate) => candidate.age + candidate.ageMonths / 12 >= targetAge) ??
-    rows.at(-1);
+  const row = findRowAtAge(rows, targetAge);
 
   return (row?.totalMonthlyPensionTakeHomePay ?? 0) * 12;
 }
 
-function countTargetMissMonths(rows: ProjectionRow[], settings: PensionSettings) {
-  return rows.filter((row) => {
-    const rowAge = row.age + row.ageMonths / 12;
+function findRowAtAge(rows: ProjectionRow[], targetAge: number) {
+  return (
+    rows.find((candidate) => candidate.age + candidate.ageMonths / 12 >= targetAge) ??
+    rows.at(-1)
+  );
+}
 
-    if (rowAge < settings.requirementAge || rowAge > settings.lifeExpectancy) {
-      return false;
+function getLowestAnnualIncome(rows: ProjectionRow[], settings: PensionSettings) {
+  const incomes = createRetirementIncomeSeries(rows, settings)
+    .filter(
+      (point) =>
+        point.age >= settings.requirementAge && point.age <= settings.lifeExpectancy,
+    )
+    .map((point) => point.assessedIncomeAnnual);
+
+  return incomes.length ? Math.min(...incomes) : 0;
+}
+
+function getLargestAnnualShortfall(rows: ProjectionRow[], settings: PensionSettings) {
+  return createRetirementIncomeSeries(rows, settings).reduce((largest, point) => {
+    if (point.age < settings.requirementAge || point.age > settings.lifeExpectancy) {
+      return largest;
     }
 
-    const annualIncome = row.totalMonthlyPensionTakeHomePay * 12;
-    const annualTarget = calculateRetirementIncomeTargetAtDate(settings, row.date);
+    return Math.max(largest, point.shortfallAnnual);
+  }, 0);
+}
 
-    return annualIncome < annualTarget;
-  }).length;
+function getTotalLifetimeShortfall(rows: ProjectionRow[], settings: PensionSettings) {
+  return createRetirementIncomeSeries(rows, settings).reduce((total, point) => {
+    if (point.age < settings.requirementAge || point.age > settings.lifeExpectancy) {
+      return total;
+    }
+
+    return total + point.shortfallAnnual / 12;
+  }, 0);
+}
+
+function getFinalPotBalance(rows: ProjectionRow[], key: "isaPot" | "sippPot") {
+  return rows.at(-1)?.[key] ?? 0;
+}
+
+function getTotalWithdrawals(
+  rows: ProjectionRow[],
+  key: "monthlyIsaPension" | "monthlySippPension",
+) {
+  return rows.reduce((total, row) => total + row[key], 0);
+}
+
+function getAdditionalAlphaEarnedAfterPartialRetirement(
+  rows: ProjectionRow[],
+  settings: PensionSettings,
+  summary: PensionSummary,
+) {
+  const partialStartRow = findRowAtAge(rows, settings.partialRetirementStartAge);
+  const accruedAtPartialStart = partialStartRow?.annualAccruedAlphaPension ?? 0;
+
+  return Math.max(0, summary.alphaPension.maximumAnnualAccrued - accruedAtPartialStart);
+}
+
+function getPartialRetirementStartDateString(settings: PensionSettings) {
+  return addYearsToIsoDate(settings.dateOfBirth, settings.partialRetirementStartAge);
+}
+
+function getCombinedSecurePensionAtStateAge(result: ComparisonResult) {
+  const stateAgeRow = findRowAtAge(
+    result.rows,
+    result.summary.calculated.statePensionAge,
+  );
+
+  return (
+    ((stateAgeRow?.monthlyAlphaPensionTakeHome ?? 0) +
+      (stateAgeRow?.monthlyNuvosPensionTakeHome ?? 0) +
+      (stateAgeRow?.monthlyStatePension ?? 0)) *
+    12
+  );
+}
+
+function findFlexibleAssetsExhaustedAge(result: ComparisonResult) {
+  const startAge = Math.min(
+    result.scenario.settings.showIsa ? result.scenario.settings.isaDrawAge : Number.POSITIVE_INFINITY,
+    result.scenario.settings.showSipp ? result.scenario.settings.sippDrawAge : Number.POSITIVE_INFINITY,
+  );
+
+  if (!Number.isFinite(startAge)) {
+    return null;
+  }
+
+  const depletionRow = result.rows.find((row) => {
+    const rowAge = row.age + row.ageMonths / 12;
+    return rowAge >= startAge && row.isaPot + row.sippPot <= 0;
+  });
+
+  return depletionRow ? depletionRow.age + depletionRow.ageMonths / 12 : null;
+}
+
+function getComparisonStatusLabel(result: ComparisonResult) {
+  if (result.targetMissMonths === 0) {
+    return "Meets target";
+  }
+
+  const exhaustedAge = findFlexibleAssetsExhaustedAge(result);
+
+  if (exhaustedAge !== null && exhaustedAge < result.scenario.settings.lifeExpectancy) {
+    return "Problem";
+  }
+
+  return "Caution";
+}
+
+function renderComparisonStatusCell(result: ComparisonResult) {
+  const status = getComparisonStatusLabel(result);
+  const tone =
+    status === "Problem" ? "problem" : status === "Caution" ? "caution" : "good";
+
+  return renderComparisonToneCell(status, tone);
+}
+
+function countTargetMissMonths(rows: ProjectionRow[], settings: PensionSettings) {
+  return createRetirementIncomeSeries(rows, settings).filter(
+    (point) =>
+      point.age >= settings.requirementAge &&
+      point.age <= settings.lifeExpectancy &&
+      point.shortfallAnnual > 0,
+  ).length;
 }
 
 function formatTargetMissDuration(months: number) {
@@ -2153,8 +2694,106 @@ function formatTargetMissDuration(months: number) {
   return remainingMonths === 0 ? `${years}y` : `${years}y ${remainingMonths}m`;
 }
 
-function formatDepletionAge(age: number | null) {
+function formatDepletionAgeOrNa(age: number | null) {
   return age === null ? "Not depleted" : formatDecimalAge(age);
+}
+
+function formatAnnualCurrency(value: number) {
+  return `${formatCurrencyDetailed(value)}/year`;
+}
+
+function formatMonthlyCurrency(value: number) {
+  return `${formatCurrencyDetailed(value)}/month`;
+}
+
+function formatWholePercent(value: number) {
+  return `${(value * 100).toFixed(0)}%`;
+}
+
+function formatYesNo(value: boolean) {
+  return value ? "Yes" : "No";
+}
+
+function formatYearsBelowTarget(months: number) {
+  if (months <= 0) {
+    return "0 years";
+  }
+
+  const years = months / 12;
+  const formattedYears =
+    years % 1 === 0 ? years.toFixed(0) : years.toFixed(1).replace(/\.0$/, "");
+
+  return `${formattedYears} years`;
+}
+
+function formatUseByAge(settings: PensionSettings, pot: "isa" | "sipp") {
+  if (pot === "isa") {
+    if (!settings.showIsa) {
+      return "n/a";
+    }
+
+    return settings.isaWithdrawalStrategy === "use_by_age"
+      ? formatDecimalAge(settings.isaWithdrawalTargetAge)
+      : "n/a";
+  }
+
+  if (!settings.showSipp) {
+    return "n/a";
+  }
+
+  return settings.sippWithdrawalStrategy === "use_by_age"
+    ? formatDecimalAge(settings.sippWithdrawalTargetAge)
+    : "n/a";
+}
+
+function formatSippWithdrawalStrategy(settings: PensionSettings) {
+  if (!settings.showSipp) {
+    return "n/a";
+  }
+
+  if (settings.sippWithdrawalStrategy === "use_by_age") {
+    return `Use by ${formatDecimalAge(settings.sippWithdrawalTargetAge)}`;
+  }
+
+  if (settings.sippWithdrawalStrategy === "percentage") {
+    return formatWholePercent(settings.sippWithdrawalPercent / 100);
+  }
+
+  return "Life expectancy";
+}
+
+function renderFlexibleAssetsExhaustedCell(result: ComparisonResult) {
+  const exhaustedAge = findFlexibleAssetsExhaustedAge(result);
+
+  if (exhaustedAge === null) {
+    return renderComparisonToneCell("No", "good");
+  }
+
+  const tone =
+    exhaustedAge < result.scenario.settings.lifeExpectancy ? "problem" : "caution";
+
+  return renderComparisonToneCell(
+    `Yes at age ${formatDecimalAge(exhaustedAge)}`,
+    tone,
+  );
+}
+
+function getPotDepletionTone(
+  age: number | null,
+  settings: PensionSettings,
+): "good" | "caution" | "problem" {
+  if (age === null) {
+    return "good";
+  }
+
+  return age < settings.lifeExpectancy ? "problem" : "caution";
+}
+
+function renderComparisonToneCell(
+  value: ReactNode,
+  tone: "good" | "caution" | "problem",
+) {
+  return <span className={`comparison-cell comparison-cell--${tone}`}>{value}</span>;
 }
 
 function getCapitalPreservationScore(result: ComparisonResult) {
@@ -2448,7 +3087,6 @@ function JourneyStepContent({
   settings,
   validationIssues,
   pensionSummary,
-  projectionRows,
   retirementIncomeSeries,
   bridgeChartParameters,
   bridgeChartLimits,
@@ -2554,17 +3192,6 @@ function JourneyStepContent({
           {...bridgeChartParameters}
         />
 
-        <section className="panel">
-          <div className="panel-heading">
-            <h2>Monthly pension projection table</h2>
-            <p className="section-copy">
-              The table is generated from the projection layer so each row stays
-              traceable back to the modeller inputs and factor tables.
-            </p>
-          </div>
-
-          <ProjectionTable rows={projectionRows} settings={settings} />
-        </section>
       </div>
     );
   }
@@ -4743,7 +5370,7 @@ const projectionTableColumns: ProjectionTableColumn[] = [
   },
   {
     key: "monthlyIsaPension",
-    label: "Monthly ISA pension",
+    label: "ISA",
     width: "7rem",
     setting: "showIsa",
   },
@@ -5126,15 +5753,46 @@ export function createRetirementIncomeSeries(
   );
   const sippDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge);
   const isaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge);
+  const sippUseByDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.sippWithdrawalTargetAge,
+  );
+  const isaUseByDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.isaWithdrawalTargetAge,
+  );
 
   const baseSeries = rows
     .filter((row) => row.date >= settings.startDate)
-    .map((row) => {
+    .map((row, index) => {
       const age = row.age + row.ageMonths / 12;
+      const previousRow = index > 0 ? rows[index - 1] : undefined;
       const isaIncomeAnnual =
-        settings.showIsa && row.date >= isaDrawDate ? row.monthlyIsaPension * 12 : 0;
+        settings.showIsa
+          ? getBridgePotIncomeAnnual({
+              row,
+              previousRow,
+              rowDate: row.date,
+              drawDate: isaDrawDate,
+              stopDate:
+                settings.isaWithdrawalStrategy === "use_by_age" ? isaUseByDate : null,
+              monthlyIncome: row.monthlyIsaPension,
+              previousMonthlyIncome: previousRow?.monthlyIsaPension ?? 0,
+            })
+          : 0;
       const sippIncomeAnnual =
-        settings.showSipp && row.date >= sippDrawDate ? row.monthlySippPension * 12 : 0;
+        settings.showSipp
+          ? getBridgePotIncomeAnnual({
+              row,
+              previousRow,
+              rowDate: row.date,
+              drawDate: sippDrawDate,
+              stopDate:
+                settings.sippWithdrawalStrategy === "use_by_age" ? sippUseByDate : null,
+              monthlyIncome: row.monthlySippPension,
+              previousMonthlyIncome: previousRow?.monthlySippPension ?? 0,
+            })
+          : 0;
       const alphaIncomeAnnual =
         row.date >= alphaDrawDate ? row.monthlyAlphaPensionTakeHome * 12 : 0;
       const nuvosIncomeAnnual =
@@ -5173,9 +5831,15 @@ export function createRetirementIncomeSeries(
         nuvosIncomeAnnual,
         statePensionIncomeAnnual,
         totalIncomeAnnual,
+        assessedIncomeAnnual:
+          row.totalMonthlyPensionTakeHomePay * 12 + partialRetirementIncomeAnnual,
         shortfallAnnual:
           row.date >= requirementDate
-            ? Math.max(0, targetIncomeAnnual - totalIncomeAnnual)
+            ? Math.max(
+                0,
+                targetIncomeAnnual -
+                  (row.totalMonthlyPensionTakeHomePay * 12 + partialRetirementIncomeAnnual),
+              )
             : 0,
         isaBalance: row.isaPot,
         sippBalance: row.sippPot,
@@ -5186,6 +5850,34 @@ export function createRetirementIncomeSeries(
   return insertChartTransitionPoints(baseSeries, settings);
 }
 
+function getBridgePotIncomeAnnual(input: {
+  row: ProjectionRow;
+  previousRow?: ProjectionRow;
+  rowDate: string;
+  drawDate: string;
+  stopDate: string | null;
+  monthlyIncome: number;
+  previousMonthlyIncome: number;
+}) {
+  const {
+    rowDate,
+    drawDate,
+    stopDate,
+    monthlyIncome,
+    previousMonthlyIncome,
+  } = input;
+
+  if (rowDate < drawDate) {
+    return 0;
+  }
+
+  if (stopDate && rowDate < stopDate && monthlyIncome <= 0 && previousMonthlyIncome > 0) {
+    return previousMonthlyIncome * 12;
+  }
+
+  return monthlyIncome * 12;
+}
+
 function insertChartTransitionPoints(
   points: RetirementIncomePoint[],
   settings: PensionSettings,
@@ -5193,7 +5885,13 @@ function insertChartTransitionPoints(
   const transitionDates = [
     addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge),
     addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge),
+    settings.showIsa && settings.isaWithdrawalStrategy === "use_by_age"
+      ? addYearsToIsoDate(settings.dateOfBirth, settings.isaWithdrawalTargetAge)
+      : "",
     settings.showSipp ? addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge) : "",
+    settings.showSipp && settings.sippWithdrawalStrategy === "use_by_age"
+      ? addYearsToIsoDate(settings.dateOfBirth, settings.sippWithdrawalTargetAge)
+      : "",
     addYearsToIsoDate(settings.dateOfBirth, settings.alphaPensionDrawAge),
     settings.showStatePension ? settings.statePensionDrawDate : "",
     settings.partialRetirementEnabled

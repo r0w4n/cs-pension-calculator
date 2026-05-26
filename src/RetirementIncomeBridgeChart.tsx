@@ -18,6 +18,7 @@ export type RetirementIncomePoint = {
   partialRetirementIncomeAnnual: number;
   statePensionIncomeAnnual: number;
   totalIncomeAnnual: number;
+  assessedIncomeAnnual: number;
   shortfallAnnual: number;
   isaBalance?: number;
   sippBalance?: number;
@@ -259,7 +260,7 @@ export function RetirementIncomeBridgeChart({
         targetIncomeAnnual: nextTargetIncomeAnnual,
         shortfallAnnual:
           point.age >= retirementAge
-            ? Math.max(0, nextTargetIncomeAnnual - point.totalIncomeAnnual)
+            ? Math.max(0, nextTargetIncomeAnnual - point.assessedIncomeAnnual)
             : 0,
       };
     });
@@ -364,7 +365,7 @@ export function RetirementIncomeBridgeChart({
     .area<RetirementIncomePoint>()
     .defined((point) => point.shortfallAnnual > 0)
     .x((point) => xScale(point.age))
-    .y0((point) => yScale(point.totalIncomeAnnual / divisor))
+    .y0((point) => yScale(point.assessedIncomeAnnual / divisor))
     .y1((point) => yScale(point.targetIncomeAnnual / divisor))
     .curve(d3.curveStepAfter);
   const targetLine = d3

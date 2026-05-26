@@ -1667,7 +1667,7 @@ describe("App settings form", () => {
     });
 
     expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Monthly ISA pension" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "ISA" })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         isaCurrentPot: 20000,
@@ -1717,7 +1717,7 @@ describe("App settings form", () => {
       screen.queryByRole("columnheader", { name: "Monthly SIPP pension" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("columnheader", { name: "Monthly ISA pension" }),
+      screen.queryByRole("columnheader", { name: "ISA" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Starts Drawing State Pension")).not.toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(

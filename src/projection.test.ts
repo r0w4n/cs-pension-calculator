@@ -43,9 +43,116 @@ import {
   resolveAlphaAbsDate,
   type PensionSettings,
 } from "./settings";
+import { createRetirementIncomeSeries } from "./App";
 
 function findRowByDate(rows: ReturnType<typeof createProjectionTable>, date: string) {
   return rows.find((row) => row.date === date);
+}
+
+const bridgeBoundaryScenario1: PensionSettings = {
+  ...defaultSettings,
+  dateOfBirth: "1977-04-10",
+  lifeExpectancy: 90,
+  requirementAge: 55,
+  showAlpha: true,
+  projectionBasis: "real",
+  inflationRateAnnual: 2.5,
+  showNuvos: false,
+  showStatePension: true,
+  showSipp: true,
+  showIsa: true,
+  taxationEnabled: false,
+  partialRetirementEnabled: false,
+  partialRetirementStartAge: 53,
+  partialRetirementWorkPercent: 76,
+  fullSalary: 42000,
+  currentStatePension: 12547.6,
+  desiredRetirementIncome: 31700,
+  statePensionDrawDate: "2044-07-10",
+  statePensionApplyFutureGrowth: false,
+  statePensionCpiPercent: 0,
+  statePensionWageGrowthPercent: 0,
+  applyPensionIncreases: true,
+  assumedCpiPercent: 0,
+  alphaPensionAbsDate: "2025",
+  alphaAddedPensionMonthly: 0,
+  alphaAddedPensionFactorType: "self",
+  alphaPensionLeaveAge: 55,
+  accruedPensionAtLastAbs: 16000,
+  pensionableEarnings: 70000,
+  alphaPensionDrawAge: 60,
+  alphaEpaEnabled: false,
+  alphaEpaYearsBeforeNpa: 3,
+  alphaEpaStartDate: "2026-04-01",
+  alphaEpaEndDate: "2047-03-31",
+  alphaAddedPensionLumpSums: [],
+  nuvosPensionAbsDate: "2025",
+  nuvosAccruedPensionAtLastAbs: 0,
+  nuvosPensionableEarnings: 42000,
+  nuvosPensionLeaveAge: 65,
+  nuvosPensionDrawAge: 65,
+  nuvosApplyPensionIncreases: false,
+  nuvosAssumedCpiPercent: 2,
+  sippCurrentPot: 35000,
+  sippMonthlyContribution: 350,
+  sippDrawAge: 60,
+  sippLumpSums: [],
+  sippApplyRealInterest: true,
+  sippRealInterestPercent: 5,
+  sippTaxReliefRate: "20",
+  sippWithdrawalStrategy: "use_by_age",
+  sippWithdrawalPercent: 4,
+  sippWithdrawalTargetAge: 67.25,
+  isaCurrentPot: 35000,
+  isaMonthlyContribution: 1550,
+  isaDrawAge: 55,
+  isaLumpSums: [],
+  isaApplyRealInterest: true,
+  isaRealInterestPercent: 5,
+  isaWithdrawalStrategy: "use_by_age",
+  isaWithdrawalPercent: 4,
+  isaWithdrawalTargetAge: 60,
+  taxPersonalAllowance: 12570,
+  taxPersonalAllowanceTaperThreshold: 100000,
+  taxBasicRateLimit: 37700,
+  taxAdditionalRateThreshold: 125140,
+  taxBasicRatePercent: 20,
+  taxHigherRatePercent: 40,
+  taxAdditionalRatePercent: 45,
+  taxSippTaxFreeWithdrawalPercent: 5.2,
+};
+
+const bridgeBoundaryScenario2: PensionSettings = {
+  ...bridgeBoundaryScenario1,
+  alphaPensionDrawAge: 60.25,
+  sippDrawAge: 60.25,
+  isaWithdrawalTargetAge: 60.25,
+};
+
+function findPotDepletedRow(
+  rows: ReturnType<typeof createProjectionTable>,
+  potKey: "isaPot" | "sippPot",
+  drawAge: number,
+) {
+  return rows.find(
+    (row) => row.age + row.ageMonths / 12 >= drawAge && row[potKey] <= 0,
+  );
+}
+
+function expectBridgeToRemainActiveUntilTarget(input: {
+  series: ReturnType<typeof createRetirementIncomeSeries>;
+  preTargetDate: string;
+  targetDate: string;
+  incomeKey: "isaIncomeAnnual" | "sippIncomeAnnual";
+}) {
+  const { series, preTargetDate, targetDate, incomeKey } = input;
+  const preTargetPoint = series.find((point) => point.date === preTargetDate);
+  const targetPoint = series.find((point) => point.date === targetDate);
+
+  expect(preTargetPoint).toBeDefined();
+  expect(preTargetPoint?.[incomeKey]).toBeGreaterThan(0);
+  expect(targetPoint).toBeDefined();
+  expect(targetPoint?.[incomeKey]).toBe(0);
 }
 
 describe("projection calculations", () => {
@@ -1180,11 +1287,11 @@ describe("projection calculations", () => {
     const rows = createProjectionTable(settings);
 
     expect(findRowByDate(rows, "2026-01-01")?.monthlySippPension).toBeCloseTo(
-      1000,
+      60000 / 61,
       6,
     );
     expect(findRowByDate(rows, "2026-01-01")?.monthlyIsaPension).toBeCloseTo(
-      500,
+      30000 / 61,
       6,
     );
     expect(findRowByDate(rows, "2031-01-01")?.sippPot).toBeCloseTo(0, 6);
@@ -1233,6 +1340,100 @@ describe("projection calculations", () => {
     );
     expect(findRowByDate(rows, "2031-01-01")?.sippPot).toBeCloseTo(0, 6);
     expect(findRowByDate(rows, "2031-01-01")?.isaPot).toBeCloseTo(0, 6);
+  });
+
+  it("keeps scenario-style ISA bridge income active until an exact use-by birthday", () => {
+    const rows = createProjectionTable(bridgeBoundaryScenario1);
+    const series = createRetirementIncomeSeries(rows, bridgeBoundaryScenario1);
+    const preTargetRow = findRowByDate(rows, "2037-04-01");
+    const depletionRow = findPotDepletedRow(
+      rows,
+      "isaPot",
+      bridgeBoundaryScenario1.isaDrawAge,
+    );
+
+    expect(depletionRow?.date).toBe("2037-03-01");
+    expect(
+      calculateIsaPotAtDate({
+        settings: bridgeBoundaryScenario1,
+        rowDate: "2037-04-10",
+        drawDate: "2032-04-10",
+      }),
+    ).toBeCloseTo(0, 6);
+    expect(preTargetRow?.monthlyIsaPension).toBe(0);
+    expectBridgeToRemainActiveUntilTarget({
+      series,
+      preTargetDate: "2037-04-01",
+      targetDate: "2037-04-10",
+      incomeKey: "isaIncomeAnnual",
+    });
+  });
+
+  it("keeps scenario-style ISA bridge income active until an exact quarterly target age", () => {
+    const rows = createProjectionTable(bridgeBoundaryScenario2);
+    const series = createRetirementIncomeSeries(rows, bridgeBoundaryScenario2);
+    const preTargetRow = findRowByDate(rows, "2037-07-01");
+    const depletionRow = findPotDepletedRow(
+      rows,
+      "isaPot",
+      bridgeBoundaryScenario2.isaDrawAge,
+    );
+
+    expect(depletionRow?.date).toBe("2037-07-01");
+    expect(
+      calculateIsaPotAtDate({
+        settings: bridgeBoundaryScenario2,
+        rowDate: "2037-07-10",
+        drawDate: "2032-04-10",
+      }),
+    ).toBeCloseTo(0, 6);
+    expect(preTargetRow?.monthlyIsaPension).toBeGreaterThan(0);
+    expectBridgeToRemainActiveUntilTarget({
+      series,
+      preTargetDate: "2037-07-01",
+      targetDate: "2037-07-10",
+      incomeKey: "isaIncomeAnnual",
+    });
+  });
+
+  it("keeps scenario-style SIPP bridge income active until an exact use-by birthday", () => {
+    const rows = createProjectionTable(bridgeBoundaryScenario1);
+    const series = createRetirementIncomeSeries(rows, bridgeBoundaryScenario1);
+    const preTargetRow = findRowByDate(rows, "2044-07-01");
+    const depletionRow = findPotDepletedRow(
+      rows,
+      "sippPot",
+      bridgeBoundaryScenario1.sippDrawAge,
+    );
+
+    expect(depletionRow?.date).toBe("2044-07-01");
+    expect(preTargetRow?.monthlySippPension).toBeCloseTo(0, 6);
+    expectBridgeToRemainActiveUntilTarget({
+      series,
+      preTargetDate: "2044-07-01",
+      targetDate: "2044-07-10",
+      incomeKey: "sippIncomeAnnual",
+    });
+  });
+
+  it("keeps scenario-style SIPP bridge income active until an exact quarterly target age", () => {
+    const rows = createProjectionTable(bridgeBoundaryScenario2);
+    const series = createRetirementIncomeSeries(rows, bridgeBoundaryScenario2);
+    const preTargetRow = findRowByDate(rows, "2044-07-01");
+    const depletionRow = findPotDepletedRow(
+      rows,
+      "sippPot",
+      bridgeBoundaryScenario2.sippDrawAge,
+    );
+
+    expect(depletionRow?.date).toBe("2044-07-01");
+    expect(preTargetRow?.monthlySippPension).toBeCloseTo(0, 6);
+    expectBridgeToRemainActiveUntilTarget({
+      series,
+      preTargetDate: "2044-07-01",
+      targetDate: "2044-07-10",
+      incomeKey: "sippIncomeAnnual",
+    });
   });
 
   it("does not add SIPP or ISA contributions on the draw date", () => {
