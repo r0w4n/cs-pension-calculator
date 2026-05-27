@@ -473,6 +473,10 @@ function App() {
   const savedFeedbackTimer = useRef<ReturnType<typeof window.setTimeout> | null>(
     null,
   );
+  const [comparisonResultCache] = useState<ComparisonResultCache>(() => new Map());
+  const [bridgeAnswerResultCache] = useState<BridgeAnswerResultCache>(
+    () => new Map(),
+  );
   const activeModeRef = useRef<HTMLDivElement | null>(null);
   const shouldFocusActiveMode = useRef(false);
   const scrollActiveModeIntoView = useCallback(() => {
@@ -1044,6 +1048,8 @@ function App() {
               onChange={updateSetting}
               onChangeChartParameters={updateBridgeChartParameters}
               comparisonScenarios={comparisonScenarios}
+              comparisonResultCache={comparisonResultCache}
+              bridgeAnswerResultCache={bridgeAnswerResultCache}
               onScenariosChange={setComparisonScenarios}
               onLoadScenario={loadComparisonScenario}
               onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
@@ -1078,6 +1084,8 @@ function App() {
               onChange={updateSetting}
               onChangeChartParameters={updateBridgeChartParameters}
               comparisonScenarios={comparisonScenarios}
+              comparisonResultCache={comparisonResultCache}
+              bridgeAnswerResultCache={bridgeAnswerResultCache}
               onScenariosChange={setComparisonScenarios}
               onLoadScenario={loadComparisonScenario}
               onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
@@ -1289,6 +1297,7 @@ function App() {
             settings={settings}
             validationIssues={validationIssues}
             scenarios={comparisonScenarios}
+            comparisonResultCache={comparisonResultCache}
             onScenariosChange={setComparisonScenarios}
             onLoadScenario={loadComparisonScenario}
           />
@@ -1439,6 +1448,24 @@ type ComparisonResult = {
   currentMatchesSaved: boolean;
 };
 
+type CachedComparisonResult = Omit<
+  ComparisonResult,
+  "scenario" | "currentMatchesSaved"
+>;
+
+type ComparisonResultCache = Map<string, CachedComparisonResult>;
+
+type BridgeAnswerResult = {
+  bridgeSettings: PensionSettings;
+  bridgeChartRows: ProjectionRow[];
+  bridgeChartData: RetirementIncomePoint[];
+  bridgeChartParameters: RetirementIncomeBridgeParameters;
+  bridgeChartLimits: RetirementIncomeBridgeLimits;
+  derivedInflationAssumptions: ReturnType<typeof deriveInflationAssumptions>;
+};
+
+type BridgeAnswerResultCache = Map<string, BridgeAnswerResult>;
+
 type ComparisonTableRow = {
   key: string;
   section: string;
@@ -1470,6 +1497,7 @@ function ComparisonPanel({
   settings,
   validationIssues,
   scenarios,
+  comparisonResultCache,
   onScenariosChange,
   onLoadScenario,
   retirementIncomeDisplay,
@@ -1485,6 +1513,7 @@ function ComparisonPanel({
   settings: PensionSettings;
   validationIssues: PensionValidationIssue[];
   scenarios: ComparisonScenario[];
+  comparisonResultCache?: ComparisonResultCache;
   onScenariosChange: (scenarios: ComparisonScenario[]) => void;
   onLoadScenario: (settings: PensionSettings) => void;
   retirementIncomeDisplay?: RetirementIncomeDisplay;
@@ -1516,16 +1545,34 @@ function ComparisonPanel({
   const currentResult = useMemo(
     () =>
       currentScenarioIsValid
-        ? createComparisonResult(currentScenario, currentSettingsSignature)
+        ? createComparisonResult(
+            currentScenario,
+            currentSettingsSignature,
+            comparisonResultCache,
+          )
         : null,
-    [currentScenario, currentScenarioIsValid, currentSettingsSignature],
+    [
+      comparisonResultCache,
+      currentScenario,
+      currentScenarioIsValid,
+      currentSettingsSignature,
+    ],
+  );
+  const savedBaseResults = useMemo(
+    () =>
+      scenarios.map((scenario) =>
+        createComparisonResult(scenario, "", comparisonResultCache),
+      ),
+    [comparisonResultCache, scenarios],
   );
   const savedResults = useMemo(
     () =>
-      scenarios.map((scenario) =>
-        createComparisonResult(scenario, currentSettingsSignature),
-      ),
-    [currentSettingsSignature, scenarios],
+      savedBaseResults.map((result) => ({
+        ...result,
+        currentMatchesSaved:
+          getSettingsSignature(result.scenario.settings) === currentSettingsSignature,
+      })),
+    [currentSettingsSignature, savedBaseResults],
   );
   const matchingSavedResult = savedResults.find((result) => result.currentMatchesSaved) ?? null;
   const results = matchingSavedResult
@@ -2664,10 +2711,49 @@ function createComparisonSection(
   }));
 }
 
+function createBridgeAnswerResult(
+  settings: PensionSettings,
+  cache: BridgeAnswerResultCache,
+): BridgeAnswerResult {
+  const settingsSignature = getSettingsSignature(settings);
+  const cachedResult = cache.get(settingsSignature);
+
+  if (cachedResult) {
+    return cachedResult;
+  }
+
+  const bridgeSettings = prepareBridgeProjectionSettings(settings);
+  const bridgeChartRows = createProjectionTable(bridgeSettings);
+  const result = {
+    bridgeSettings,
+    bridgeChartRows,
+    bridgeChartData: createRetirementIncomeSeries(bridgeChartRows, bridgeSettings),
+    bridgeChartParameters: createBridgeChartParameters(bridgeSettings),
+    bridgeChartLimits: createBridgeChartLimits(bridgeSettings),
+    derivedInflationAssumptions: deriveInflationAssumptions(settings),
+  };
+
+  cache.set(settingsSignature, result);
+
+  return result;
+}
+
 function createComparisonResult(
   scenario: ComparisonScenario,
   currentSettingsSignature: string,
+  cache?: ComparisonResultCache,
 ): ComparisonResult {
+  const settingsSignature = getSettingsSignature(scenario.settings);
+  const cachedResult = cache?.get(settingsSignature);
+
+  if (cachedResult) {
+    return {
+      ...cachedResult,
+      scenario,
+      currentMatchesSaved: settingsSignature === currentSettingsSignature,
+    };
+  }
+
   const rows = createProjectionTable(scenario.settings);
   const summary = generatePensionSummary(rows, scenario.settings);
   const bridgeSettings = prepareBridgeProjectionSettings(scenario.settings);
@@ -2692,9 +2778,7 @@ function createComparisonResult(
     scenario.settings.dateOfBirth,
     scenario.settings.statePensionDrawDate,
   );
-
-  return {
-    scenario,
+  const result = {
     rows,
     summary,
     bridgeAnalysis,
@@ -2729,8 +2813,14 @@ function createComparisonResult(
       scenario.settings.lifeExpectancy,
     ),
     targetMissMonths: countTargetMissMonths(rows, scenario.settings),
-    currentMatchesSaved:
-      getSettingsSignature(scenario.settings) === currentSettingsSignature,
+  };
+
+  cache?.set(settingsSignature, result);
+
+  return {
+    ...result,
+    scenario,
+    currentMatchesSaved: settingsSignature === currentSettingsSignature,
   };
 }
 
@@ -3198,6 +3288,8 @@ type JourneyFlowProps = {
     patch: Partial<RetirementIncomeBridgeParameters>,
   ) => void;
   comparisonScenarios: ComparisonScenario[];
+  comparisonResultCache: ComparisonResultCache;
+  bridgeAnswerResultCache: BridgeAnswerResultCache;
   onScenariosChange: (scenarios: ComparisonScenario[]) => void;
   onLoadScenario: (scenarioSettings: PensionSettings) => void;
   onRetirementIncomeDisplayChange: (display: RetirementIncomeDisplay) => void;
@@ -3227,6 +3319,8 @@ function JourneyFlow({
   onChange,
   onChangeChartParameters,
   comparisonScenarios,
+  comparisonResultCache,
+  bridgeAnswerResultCache,
   onScenariosChange,
   onLoadScenario,
   onRetirementIncomeDisplayChange,
@@ -3399,6 +3493,8 @@ function JourneyFlow({
             onChange={onChange}
             onChangeChartParameters={onChangeChartParameters}
             comparisonScenarios={comparisonScenarios}
+            comparisonResultCache={comparisonResultCache}
+            bridgeAnswerResultCache={bridgeAnswerResultCache}
             onScenariosChange={onScenariosChange}
             onLoadScenario={onLoadScenario}
             onRetirementIncomeDisplayChange={onRetirementIncomeDisplayChange}
@@ -3456,6 +3552,8 @@ function JourneyStepContent({
   onChange,
   onChangeChartParameters,
   comparisonScenarios,
+  comparisonResultCache,
+  bridgeAnswerResultCache,
   onScenariosChange,
   onLoadScenario,
   onRetirementIncomeDisplayChange,
@@ -3554,6 +3652,7 @@ function JourneyStepContent({
           settings={settings}
           validationIssues={validationIssues}
           scenarios={comparisonScenarios}
+          comparisonResultCache={comparisonResultCache}
           onScenariosChange={onScenariosChange}
           onLoadScenario={onLoadScenario}
           retirementIncomeDisplay={retirementIncomeDisplay}
@@ -3578,6 +3677,8 @@ function JourneyStepContent({
         validationIssues={validationIssues}
         onChangeChartParameters={onChangeChartParameters}
         comparisonScenarios={comparisonScenarios}
+        comparisonResultCache={comparisonResultCache}
+        bridgeAnswerResultCache={bridgeAnswerResultCache}
         onScenariosChange={onScenariosChange}
         onLoadScenario={onLoadScenario}
         showLimitations={showLimitations}
@@ -3668,6 +3769,8 @@ function BridgeAnswer({
   validationIssues,
   onChangeChartParameters,
   comparisonScenarios,
+  comparisonResultCache,
+  bridgeAnswerResultCache,
   onScenariosChange,
   onLoadScenario,
   showLimitations,
@@ -3679,30 +3782,91 @@ function BridgeAnswer({
     patch: Partial<RetirementIncomeBridgeParameters>,
   ) => void;
   comparisonScenarios: ComparisonScenario[];
+  comparisonResultCache: ComparisonResultCache;
+  bridgeAnswerResultCache: BridgeAnswerResultCache;
   onScenariosChange: (scenarios: ComparisonScenario[]) => void;
   onLoadScenario: (scenarioSettings: PensionSettings) => void;
   showLimitations: boolean;
   onToggleLimitations: () => void;
 }) {
-  const bridgeSettings = useMemo(
-    () => prepareBridgeProjectionSettings(settings),
-    [settings],
+  const [isReadyToCalculate, setIsReadyToCalculate] = useState(false);
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      setIsReadyToCalculate(true);
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
+
+  if (!isReadyToCalculate) {
+    return (
+      <div className="journey-answer">
+        {validationIssues.length > 0 ? (
+          <ValidationIssuesSection validationIssues={validationIssues} />
+        ) : null}
+
+        <section className="summary-section summary-section--feature" aria-live="polite">
+          <div className="summary-section-header">
+            <h4>Preparing your result</h4>
+            <p className="section-copy">
+              We are lining up the bridge calculation and comparison view.
+            </p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <BridgeAnswerResults
+      settings={settings}
+      validationIssues={validationIssues}
+      onChangeChartParameters={onChangeChartParameters}
+      comparisonScenarios={comparisonScenarios}
+      comparisonResultCache={comparisonResultCache}
+      bridgeAnswerResultCache={bridgeAnswerResultCache}
+      onScenariosChange={onScenariosChange}
+      onLoadScenario={onLoadScenario}
+      showLimitations={showLimitations}
+      onToggleLimitations={onToggleLimitations}
+    />
   );
-  const bridgeChartRows = useMemo(
-    () => createProjectionTable(bridgeSettings),
-    [bridgeSettings],
-  );
-  const bridgeChartData = useMemo(
-    () => createRetirementIncomeSeries(bridgeChartRows, bridgeSettings),
-    [bridgeChartRows, bridgeSettings],
-  );
-  const bridgeChartParameters = useMemo(
-    () => createBridgeChartParameters(bridgeSettings),
-    [bridgeSettings],
-  );
-  const bridgeChartLimits = useMemo(
-    () => createBridgeChartLimits(bridgeSettings),
-    [bridgeSettings],
+}
+
+function BridgeAnswerResults({
+  settings,
+  validationIssues,
+  onChangeChartParameters,
+  comparisonScenarios,
+  comparisonResultCache,
+  bridgeAnswerResultCache,
+  onScenariosChange,
+  onLoadScenario,
+  showLimitations,
+  onToggleLimitations,
+}: {
+  settings: PensionSettings;
+  validationIssues: PensionValidationIssue[];
+  onChangeChartParameters: (
+    patch: Partial<RetirementIncomeBridgeParameters>,
+  ) => void;
+  comparisonScenarios: ComparisonScenario[];
+  comparisonResultCache: ComparisonResultCache;
+  bridgeAnswerResultCache: BridgeAnswerResultCache;
+  onScenariosChange: (scenarios: ComparisonScenario[]) => void;
+  onLoadScenario: (scenarioSettings: PensionSettings) => void;
+  showLimitations: boolean;
+  onToggleLimitations: () => void;
+}) {
+  const {
+    bridgeChartData,
+    bridgeChartParameters,
+    bridgeChartLimits,
+    derivedInflationAssumptions,
+  } = useMemo(
+    () => createBridgeAnswerResult(settings, bridgeAnswerResultCache),
+    [bridgeAnswerResultCache, settings],
   );
 
   return (
@@ -3715,12 +3879,13 @@ function BridgeAnswer({
         settings={settings}
         validationIssues={validationIssues}
         scenarios={comparisonScenarios}
+        comparisonResultCache={comparisonResultCache}
         onScenariosChange={onScenariosChange}
         onLoadScenario={onLoadScenario}
         retirementIncomeDisplay="annual"
         showLimitations={showLimitations}
         onToggleLimitations={onToggleLimitations}
-        derivedInflationAssumptions={deriveInflationAssumptions(settings)}
+        derivedInflationAssumptions={derivedInflationAssumptions}
         retirementIncomeSeries={bridgeChartData}
         bridgeChartParameters={bridgeChartParameters}
         bridgeChartLimits={bridgeChartLimits}

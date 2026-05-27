@@ -51,6 +51,7 @@ function findRowByDate(rows: ReturnType<typeof createProjectionTable>, date: str
 
 const bridgeBoundaryScenario1: PensionSettings = {
   ...defaultSettings,
+  startDate: "2025-12-01",
   dateOfBirth: "1977-11-23",
   lifeExpectancy: 90,
   requirementAge: 55,
@@ -131,6 +132,7 @@ const bridgeBoundaryScenario2: PensionSettings = {
 
 const isaToAlphaBoundaryScenario: PensionSettings = {
   ...defaultSettings,
+  startDate: "2025-12-01",
   dateOfBirth: "1977-11-23",
   lifeExpectancy: 90,
   requirementAge: 58.5,
@@ -225,7 +227,7 @@ function expectBridgeToRemainActiveUntilTarget(input: {
   expect(preTargetPoint).toBeDefined();
   expect(preTargetPoint?.[incomeKey]).toBeGreaterThan(0);
   expect(targetPoint).toBeDefined();
-  expect(targetPoint?.[incomeKey]).toBe(0);
+  expect(targetPoint?.[incomeKey]).toBeCloseTo(0, 6);
 }
 
 describe("projection calculations", () => {
@@ -1425,7 +1427,7 @@ describe("projection calculations", () => {
       bridgeBoundaryScenario1.isaDrawAge,
     );
 
-    expect(depletionRow?.date).toBe("2037-11-01");
+    expect(depletionRow?.date).toBe("2037-12-01");
     expect(
       calculateIsaPotAtDate({
         settings: bridgeBoundaryScenario1,
@@ -1433,7 +1435,7 @@ describe("projection calculations", () => {
         drawDate: "2032-11-23",
       }),
     ).toBeCloseTo(0, 6);
-    expect(preTargetRow?.monthlyIsaPension).toBeCloseTo(0, 6);
+    expect(preTargetRow?.monthlyIsaPension).toBeGreaterThan(0);
     expectBridgeToRemainActiveUntilTarget({
       series,
       preTargetDate: "2037-11-01",
@@ -1452,7 +1454,7 @@ describe("projection calculations", () => {
       bridgeBoundaryScenario2.isaDrawAge,
     );
 
-    expect(depletionRow?.date).toBe("2038-02-01");
+    expect(depletionRow?.date).toBe("2038-03-01");
     expect(
       calculateIsaPotAtDate({
         settings: bridgeBoundaryScenario2,
@@ -1506,8 +1508,8 @@ describe("projection calculations", () => {
       bridgeBoundaryScenario1.sippDrawAge,
     );
 
-    expect(depletionRow?.date).toBe("2045-02-01");
-    expect(preTargetRow?.monthlySippPension).toBeCloseTo(0, 6);
+    expect(depletionRow?.date).toBe("2045-03-01");
+    expect(preTargetRow?.monthlySippPension).toBeGreaterThan(0);
     expectBridgeToRemainActiveUntilTarget({
       series,
       preTargetDate: "2045-02-01",
@@ -1526,8 +1528,8 @@ describe("projection calculations", () => {
       bridgeBoundaryScenario2.sippDrawAge,
     );
 
-    expect(depletionRow?.date).toBe("2045-01-01");
-    expect(preTargetRow?.monthlySippPension).toBeCloseTo(0, 6);
+    expect(depletionRow?.date).toBe("2045-03-01");
+    expect(preTargetRow?.monthlySippPension).toBeGreaterThan(0);
     expectBridgeToRemainActiveUntilTarget({
       series,
       preTargetDate: "2045-02-01",

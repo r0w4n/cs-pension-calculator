@@ -504,12 +504,12 @@ describe("App settings form", () => {
     );
   });
 
-  it("finishes the simple journey on the shared comparison result interface", () => {
+  it("finishes the simple journey on the shared comparison result interface", async () => {
     renderAcknowledgedApp({ mode: "simple" });
 
     advanceJourneyToResult();
 
-    expect(screen.getByRole("heading", { name: "Review this result" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review this result" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Detailed breakdown" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Current model" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
@@ -522,12 +522,12 @@ describe("App settings form", () => {
     expect(screen.queryByRole("heading", { name: "Action required" })).not.toBeInTheDocument();
   });
 
-  it("finishes the bridge journey on the shared comparison result interface", () => {
+  it("finishes the bridge journey on the shared comparison result interface", async () => {
     renderAcknowledgedApp({ mode: "bridge" });
 
     advanceJourneyToResult();
 
-    expect(screen.getByRole("heading", { name: "Review this result" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review this result" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Detailed breakdown" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Current model" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
