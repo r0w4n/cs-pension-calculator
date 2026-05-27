@@ -127,6 +127,12 @@ const OPTIONAL_SECTION_TOGGLES = [
 ] as const;
 
 type OptionalSectionToggleKey = (typeof OPTIONAL_SECTION_TOGGLES)[number]["key"];
+const OPTIONAL_SECTION_TOGGLE_KEY_SET = new Set<OptionalSectionToggleKey>(
+  OPTIONAL_SECTION_TOGGLES.map((toggle) => toggle.key),
+);
+function isOptionalSectionToggleKey(key: SettingsKey): key is OptionalSectionToggleKey {
+  return OPTIONAL_SECTION_TOGGLE_KEY_SET.has(key as OptionalSectionToggleKey);
+}
 type JourneyFieldLabels = Partial<Record<FieldDefinition["id"], string>>;
 
 type AppMode = "bridge" | "simple" | "expert";
@@ -493,6 +499,7 @@ function App() {
   }, []);
   const useDropdownDates = useMobileDateDropdowns();
   const deferredSettings = useDeferredValue(settings);
+  const visibleSettings = settings;
   const validationIssues = useMemo(
     () => validateSettings(deferredSettings),
     [deferredSettings],
@@ -529,10 +536,10 @@ function App() {
   );
   const retirementIncomeTitle =
     retirementIncomeDisplay === "monthly"
-      ? settings.taxationEnabled
+      ? visibleSettings.taxationEnabled
         ? "Monthly take-home retirement income"
         : "Monthly retirement income before tax"
-      : settings.taxationEnabled
+      : visibleSettings.taxationEnabled
         ? "Annual take-home retirement income"
         : "Annual retirement income before tax";
   const retirementIncomeItems =
@@ -745,7 +752,7 @@ function App() {
       const retirementAge = clampNumber(
         patch.retirementAge,
         currentPlanningAge,
-        Math.min(70, statePensionAge),
+        Math.min(70, statePensionAge, next.alphaPensionDrawAge),
       );
       next.requirementAge = normalizeSetting("requirementAge", retirementAge);
       next.isaDrawAge = normalizeSetting("isaDrawAge", retirementAge);
@@ -840,7 +847,11 @@ function App() {
     if (patch.alphaStartAge !== undefined) {
       const alphaStartAge = clampNumber(
         patch.alphaStartAge,
-        Math.max(next.alphaPensionLeaveAge, minimumAlphaAccessAge),
+        Math.max(
+          next.alphaPensionLeaveAge,
+          minimumAlphaAccessAge,
+          next.requirementAge,
+        ),
         Math.min(70, statePensionAge),
       );
       next.alphaPensionDrawAge = normalizeAlphaPensionDrawAge(
@@ -912,6 +923,19 @@ function App() {
   function updateSetting<K extends SettingsKey>(key: K, value: PensionSettings[K]) {
     showSavedLabel();
     setChartUndoStack([]);
+
+    if (isOptionalSectionToggleKey(key)) {
+      const nextValue = value as boolean;
+
+      startTransition(() => {
+        setSettings((current) => ({
+          ...current,
+          [key]: nextValue,
+        }));
+      });
+
+      return;
+    }
 
     if (key === "requirementAge") {
       setSettings((current) =>
@@ -1047,7 +1071,7 @@ function App() {
             <JourneyFlow
               key="early-retirement-bridge"
               journey={JOURNEY_DEFINITIONS[0]}
-              settings={settings}
+              settings={visibleSettings}
               validationIssues={validationIssues}
               pensionSummary={pensionSummary}
               projectionRows={projectionRows}
@@ -1083,7 +1107,7 @@ function App() {
             <JourneyFlow
               key="simple-early-retirement"
               journey={JOURNEY_DEFINITIONS[1]}
-              settings={settings}
+              settings={visibleSettings}
               validationIssues={validationIssues}
               pensionSummary={pensionSummary}
               projectionRows={projectionRows}
@@ -1168,13 +1192,13 @@ function App() {
                     </div>
 
                     <OptionalSectionToggleGrid
-                      settings={settings}
+                      settings={visibleSettings}
                       onChange={updateSetting}
                     />
                   </section>
 
             {fieldGroups
-              .filter((group) => isSettingsGroupVisible(group.id, settings))
+              .filter((group) => isSettingsGroupVisible(group.id, visibleSettings))
               .map((group) => (
                 <section className="settings-section" key={group.id}>
                   <div className="section-heading">
@@ -1290,6 +1314,7 @@ function App() {
               alphaLabel="Alpha pension"
               limits={bridgeChartLimits}
               statePensionEditable
+              validationIssues={validationIssues}
               onChangeParameters={updateBridgeChartParameters}
               {...bridgeChartParameters}
             />
@@ -1760,11 +1785,12 @@ function ComparisonPanel({
         </p>
       ) : null}
 
-      <DeferredBelowFold estimatedHeight={420}>
+      <DeferredBelowFold estimatedHeight={420} forceRender={validationIssues.length > 0}>
         <ComparisonBridgeChart
           retirementIncomeSeries={retirementIncomeSeries}
           bridgeChartParameters={bridgeChartParameters}
           bridgeChartLimits={bridgeChartLimits}
+          validationIssues={validationIssues}
           onChangeChartParameters={onChangeChartParameters}
         />
       </DeferredBelowFold>
@@ -1809,14 +1835,20 @@ function ComparisonPanel({
 function DeferredBelowFold({
   children,
   estimatedHeight,
+  forceRender = false,
 }: {
   children: ReactNode;
   estimatedHeight: number;
+  forceRender?: boolean;
 }) {
   const [shouldRender, setShouldRender] = useState(false);
   const placeholderRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (forceRender) {
+      return undefined;
+    }
+
     if (shouldRender) {
       return undefined;
     }
@@ -1843,7 +1875,11 @@ function DeferredBelowFold({
     observer.observe(placeholder);
 
     return () => observer.disconnect();
-  }, [shouldRender]);
+  }, [forceRender, shouldRender]);
+
+  if (forceRender) {
+    return children;
+  }
 
   if (shouldRender) {
     return children;
@@ -2000,11 +2036,13 @@ function ComparisonBridgeChart({
   retirementIncomeSeries,
   bridgeChartParameters,
   bridgeChartLimits,
+  validationIssues,
   onChangeChartParameters,
 }: {
   retirementIncomeSeries?: RetirementIncomePoint[];
   bridgeChartParameters?: RetirementIncomeBridgeParameters;
   bridgeChartLimits?: RetirementIncomeBridgeLimits;
+  validationIssues?: PensionValidationIssue[];
   onChangeChartParameters?: (
     patch: Partial<RetirementIncomeBridgeParameters>,
   ) => void;
@@ -2024,6 +2062,7 @@ function ComparisonBridgeChart({
       alphaLabel="Alpha pension"
       limits={bridgeChartLimits}
       statePensionEditable
+      validationIssues={validationIssues}
       onChangeParameters={onChangeChartParameters}
       {...bridgeChartParameters}
     />
@@ -3743,6 +3782,7 @@ function JourneyStepContent({
           alphaLabel="Alpha pension"
           limits={bridgeChartLimits}
           statePensionEditable
+          validationIssues={validationIssues}
           onChangeParameters={onChangeChartParameters}
           {...bridgeChartParameters}
         />
@@ -3848,12 +3888,7 @@ function OptionalSectionToggleGrid({
               aria-label={toggle.label}
               type="checkbox"
               checked={settings[toggle.key]}
-              onChange={(event) =>
-                onChange(
-                  toggle.key,
-                  event.target.checked,
-                )
-              }
+              onChange={(event) => onChange(toggle.key, event.target.checked)}
             />
             <span>{toggle.description}</span>
           </span>
@@ -3898,13 +3933,12 @@ function BridgeAnswer({
     return () => window.cancelAnimationFrame(frameId);
   }, []);
 
-  if (!isReadyToCalculate) {
-    return (
-      <div className="journey-answer">
-        {validationIssues.length > 0 ? (
-          <ValidationIssuesSection validationIssues={validationIssues} />
-        ) : null}
-
+  return (
+    <div className="journey-answer">
+      {validationIssues.length > 0 ? (
+        <ValidationIssuesSection validationIssues={validationIssues} />
+      ) : null}
+      {!isReadyToCalculate ? (
         <section className="summary-section summary-section--feature" aria-live="polite">
           <div className="summary-section-header">
             <h4>Preparing your result</h4>
@@ -3913,23 +3947,21 @@ function BridgeAnswer({
             </p>
           </div>
         </section>
-      </div>
-    );
-  }
+      ) : null}
 
-  return (
-    <BridgeAnswerResults
-      settings={settings}
-      validationIssues={validationIssues}
-      onChangeChartParameters={onChangeChartParameters}
-      comparisonScenarios={comparisonScenarios}
-      comparisonResultCache={comparisonResultCache}
-      bridgeAnswerResultCache={bridgeAnswerResultCache}
-      onScenariosChange={onScenariosChange}
-      onLoadScenario={onLoadScenario}
-      showLimitations={showLimitations}
-      onToggleLimitations={onToggleLimitations}
-    />
+      <BridgeAnswerResults
+        settings={settings}
+        validationIssues={validationIssues}
+        onChangeChartParameters={onChangeChartParameters}
+        comparisonScenarios={comparisonScenarios}
+        comparisonResultCache={comparisonResultCache}
+        bridgeAnswerResultCache={bridgeAnswerResultCache}
+        onScenariosChange={onScenariosChange}
+        onLoadScenario={onLoadScenario}
+        showLimitations={showLimitations}
+        onToggleLimitations={onToggleLimitations}
+      />
+    </div>
   );
 }
 
@@ -5886,7 +5918,17 @@ const projectionTableColumns: ProjectionTableColumn[] = [
 ] as const;
 
 function ProjectionTableSection({ rows, settings }: ProjectionTableProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [shouldRenderTable, setShouldRenderTable] = useState(false);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      startTransition(() => {
+        setShouldRenderTable(true);
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   return (
     <section className="panel">
@@ -5894,26 +5936,18 @@ function ProjectionTableSection({ rows, settings }: ProjectionTableProps) {
         <h2>Monthly pension projection table</h2>
         <p className="section-copy">
           The table is generated from the projection layer so each row stays
-          traceable back to the modeller inputs and factor tables. It is kept
-          collapsed until you need it because the full table can create a large
-          amount of browser work.
+          traceable back to the modeller inputs and factor tables. It renders
+          after the main results so the initial interaction stays responsive.
         </p>
       </div>
 
-      <button
-        type="button"
-        className="secondary-button"
-        aria-expanded={isExpanded}
-        onClick={() => {
-          startTransition(() => {
-            setIsExpanded((current) => !current);
-          });
-        }}
-      >
-        {isExpanded ? "Hide monthly projection table" : "Show monthly projection table"}
-      </button>
-
-      {isExpanded ? <ProjectionTable rows={rows} settings={settings} /> : null}
+      {shouldRenderTable ? (
+        <ProjectionTable rows={rows} settings={settings} />
+      ) : (
+        <p className="table-status" aria-live="polite">
+          Preparing projection table...
+        </p>
+      )}
     </section>
   );
 }
@@ -6568,7 +6602,11 @@ function createBridgeChartLimits(settings: PensionSettings): RetirementIncomeBri
     alphaMonthlyAddedPension: { min: 0, max: 1000, step: 25 },
     isaMonthlyContribution: { min: 0, max: 5000, step: 25 },
     sippMonthlyContribution: { min: 0, max: 5000, step: 25 },
-    retirementAge: { min: currentPlanningAge, max: ageUpperLimit, step: 0.25 },
+    retirementAge: {
+      min: currentPlanningAge,
+      max: Math.max(currentPlanningAge, Math.min(ageUpperLimit, settings.alphaPensionDrawAge)),
+      step: 0.25,
+    },
     alphaLeaveAge: { min: currentPlanningAge, max: ageUpperLimit, step: 0.25 },
     sippAccessAge: {
       min: Math.max(settings.requirementAge, minimumSippAccessAge),
@@ -6586,7 +6624,12 @@ function createBridgeChartLimits(settings: PensionSettings): RetirementIncomeBri
       step: 0.25,
     },
     alphaStartAge: {
-      min: Math.max(settings.alphaPensionLeaveAge, minimumAlphaAccessAge),
+      min: Math.max(
+        currentPlanningAge,
+        settings.requirementAge,
+        settings.alphaPensionLeaveAge,
+        minimumAlphaAccessAge,
+      ),
       max: ageUpperLimit,
       step: 0.25,
     },

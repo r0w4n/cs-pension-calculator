@@ -415,6 +415,23 @@ describe("settings unit tests", () => {
           message:
             "Partial retirement start age must be before the retirement start age.",
         }),
+        ]),
+    );
+  });
+
+  it("requires retirement age to be on or before the Alpha draw age", () => {
+    const issues = validateSettings({
+      ...defaultSettings,
+      requirementAge: 61,
+      alphaPensionDrawAge: 60,
+    });
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "requirementAge",
+          message: "Retirement age must be on or before the Alpha pension draw age.",
+        }),
       ]),
     );
   });

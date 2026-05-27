@@ -536,7 +536,7 @@ export const fieldGroups: FieldGroup[] = [
   {
     id: "nuvos",
     eyebrow: "nuvos Pension",
-    title: "nuvos pension details",
+    title: "Your nuvos pension",
     description:
       "nuvos is also a career-average defined benefit scheme, modelled separately because it has its own accrual, statement value, and pension age assumptions.",
     fields: [

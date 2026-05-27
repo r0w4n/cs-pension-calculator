@@ -555,12 +555,30 @@ export function isValidIsoDate(value: string) {
   return day >= 1 && day <= maxDay;
 }
 
-export function validateSettings(settings: PensionSettings): PensionValidationIssue[] {
-  const issues: PensionValidationIssue[] = [];
-  const lifeExpectancyDate = addYearsToIsoDate(
-    settings.dateOfBirth,
-    settings.lifeExpectancy,
-  );
+type ValidationContext = {
+  settings: PensionSettings;
+  lifeExpectancyDate: string;
+  alphaDrawDate: string;
+  alphaLeaveDate: string;
+  alphaAccrualStopDate: string;
+  alphaAbsDate: string;
+  alphaEpaAgeDate: string;
+  latestAlphaAddedPensionPurchaseDate: string;
+  nuvosDrawDate: string;
+  nuvosLeaveDate: string;
+  nuvosAbsDate: string;
+  sippDrawDate: string;
+  isaDrawDate: string;
+  retirementDate: string;
+  sippContributionStopDate: string;
+  isaContributionStopDate: string;
+  sippWithdrawalTargetDate: string;
+  isaWithdrawalTargetDate: string;
+  partialRetirementStartDate: string;
+  defaultStatePensionDrawDate: string;
+};
+
+function createValidationContext(settings: PensionSettings): ValidationContext {
   const alphaDrawDate = addYearsToIsoDate(
     settings.dateOfBirth,
     settings.alphaPensionDrawAge,
@@ -568,13 +586,6 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
   const alphaLeaveDate = addYearsToIsoDate(
     settings.dateOfBirth,
     settings.alphaPensionLeaveAge,
-  );
-  const alphaAccrualStopDate =
-    alphaDrawDate <= alphaLeaveDate ? alphaDrawDate : alphaLeaveDate;
-  const alphaAbsDate = resolveAlphaAbsDate(settings.alphaPensionAbsDate);
-  const alphaEpaAgeDate = getAlphaEpaDate(settings);
-  const latestAlphaAddedPensionPurchaseDate = getLatestAlphaAddedPensionPurchaseDate(
-    settings.dateOfBirth,
   );
   const nuvosDrawDate = addYearsToIsoDate(
     settings.dateOfBirth,
@@ -584,26 +595,70 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     settings.dateOfBirth,
     settings.nuvosPensionLeaveAge,
   );
-  const nuvosAbsDate = resolveAlphaAbsDate(settings.nuvosPensionAbsDate);
   const sippDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge);
   const isaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge);
   const retirementDate = addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge);
-  const sippContributionStopDate =
-    sippDrawDate <= retirementDate ? sippDrawDate : retirementDate;
-  const isaContributionStopDate =
-    isaDrawDate <= retirementDate ? isaDrawDate : retirementDate;
-  const sippWithdrawalTargetDate = addYearsToIsoDate(
-    settings.dateOfBirth,
-    settings.sippWithdrawalTargetAge,
-  );
-  const isaWithdrawalTargetDate = addYearsToIsoDate(
-    settings.dateOfBirth,
-    settings.isaWithdrawalTargetAge,
-  );
-  const partialRetirementStartDate = getPartialRetirementStartDate(settings);
-  const defaultStatePensionDrawDate = calculateStatePensionDrawDate(
-    settings.dateOfBirth,
-  );
+
+  return {
+    settings,
+    lifeExpectancyDate: addYearsToIsoDate(
+      settings.dateOfBirth,
+      settings.lifeExpectancy,
+    ),
+    alphaDrawDate,
+    alphaLeaveDate,
+    alphaAccrualStopDate:
+      alphaDrawDate <= alphaLeaveDate ? alphaDrawDate : alphaLeaveDate,
+    alphaAbsDate: resolveAlphaAbsDate(settings.alphaPensionAbsDate),
+    alphaEpaAgeDate: getAlphaEpaDate(settings),
+    latestAlphaAddedPensionPurchaseDate: getLatestAlphaAddedPensionPurchaseDate(
+      settings.dateOfBirth,
+    ),
+    nuvosDrawDate,
+    nuvosLeaveDate,
+    nuvosAbsDate: resolveAlphaAbsDate(settings.nuvosPensionAbsDate),
+    sippDrawDate,
+    isaDrawDate,
+    retirementDate,
+    sippContributionStopDate:
+      sippDrawDate <= retirementDate ? sippDrawDate : retirementDate,
+    isaContributionStopDate:
+      isaDrawDate <= retirementDate ? isaDrawDate : retirementDate,
+    sippWithdrawalTargetDate: addYearsToIsoDate(
+      settings.dateOfBirth,
+      settings.sippWithdrawalTargetAge,
+    ),
+    isaWithdrawalTargetDate: addYearsToIsoDate(
+      settings.dateOfBirth,
+      settings.isaWithdrawalTargetAge,
+    ),
+    partialRetirementStartDate: getPartialRetirementStartDate(settings),
+    defaultStatePensionDrawDate: calculateStatePensionDrawDate(
+      settings.dateOfBirth,
+    ),
+  };
+}
+
+export function validateSettings(settings: PensionSettings): PensionValidationIssue[] {
+  const context = createValidationContext(settings);
+
+  return [
+    ...validateCoreDates(context),
+    ...validateAlphaRules(context),
+    ...validateNuvosRules(context),
+    ...validateSippRules(context),
+    ...validateIsaRules(context),
+    ...validatePartialRetirementRules(context),
+    ...validateLumpSumRules(context),
+  ];
+}
+
+function validateCoreDates({
+  settings,
+  lifeExpectancyDate,
+  defaultStatePensionDrawDate,
+}: ValidationContext): PensionValidationIssue[] {
+  const issues: PensionValidationIssue[] = [];
 
   if (settings.dateOfBirth >= settings.startDate) {
     issues.push({
@@ -619,24 +674,10 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (settings.showAlpha && alphaDrawDate > lifeExpectancyDate) {
-    issues.push({
-      field: "alphaPensionDrawAge",
-      message: "Alpha pension draw age must be within life expectancy.",
-    });
-  }
-
   if (settings.showStatePension && settings.statePensionDrawDate > lifeExpectancyDate) {
     issues.push({
       field: "lifeExpectancy",
       message: "Life expectancy must be after the State Pension start date.",
-    });
-  }
-
-  if (settings.showNuvos && nuvosDrawDate > lifeExpectancyDate) {
-    issues.push({
-      field: "nuvosPensionDrawAge",
-      message: "nuvos pension draw age must be within life expectancy.",
     });
   }
 
@@ -650,10 +691,32 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (settings.showSipp && sippDrawDate > lifeExpectancyDate) {
+  return issues;
+}
+
+function validateAlphaRules({
+  settings,
+  lifeExpectancyDate,
+  alphaDrawDate,
+  alphaLeaveDate,
+  alphaAccrualStopDate,
+  alphaAbsDate,
+  alphaEpaAgeDate,
+  latestAlphaAddedPensionPurchaseDate,
+}: ValidationContext): PensionValidationIssue[] {
+  const issues: PensionValidationIssue[] = [];
+
+  if (settings.showAlpha && alphaDrawDate > lifeExpectancyDate) {
     issues.push({
-      field: "sippDrawAge",
-      message: "SIPP draw start age must be within life expectancy.",
+      field: "alphaPensionDrawAge",
+      message: "Alpha pension draw age must be within life expectancy.",
+    });
+  }
+
+  if (settings.showAlpha && settings.requirementAge > settings.alphaPensionDrawAge) {
+    issues.push({
+      field: "requirementAge",
+      message: "Retirement age must be on or before the Alpha pension draw age.",
     });
   }
 
@@ -668,110 +731,10 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  if (
-    settings.showSipp &&
-    sippDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE &&
-    sippDrawDate < addYearsToIsoDate(settings.dateOfBirth, 57)
-  ) {
-    issues.push({
-      field: "sippDrawAge",
-      message:
-        "SIPP draw start age must be at least 57 for access dates on or after 6 April 2028.",
-    });
-  }
-
-  if (
-    settings.showSipp &&
-    settings.sippWithdrawalStrategy === "use_by_age" &&
-    sippWithdrawalTargetDate <= sippDrawDate
-  ) {
-    issues.push({
-      field: "sippWithdrawalTargetAge",
-      message: "SIPP use-by age must be after the SIPP draw start age.",
-    });
-  }
-
-  if (
-    settings.showSipp &&
-    settings.sippWithdrawalStrategy === "use_by_age" &&
-    sippWithdrawalTargetDate > lifeExpectancyDate
-  ) {
-    issues.push({
-      field: "sippWithdrawalTargetAge",
-      message: "SIPP use-by age must be within life expectancy.",
-    });
-  }
-
-  if (settings.showIsa && isaDrawDate > lifeExpectancyDate) {
-    issues.push({
-      field: "isaDrawAge",
-      message: "ISA draw start age must be within life expectancy.",
-    });
-  }
-
-  if (
-    settings.showIsa &&
-    settings.isaWithdrawalStrategy === "use_by_age" &&
-    isaWithdrawalTargetDate <= isaDrawDate
-  ) {
-    issues.push({
-      field: "isaWithdrawalTargetAge",
-      message: "ISA use-by age must be after the ISA draw start age.",
-    });
-  }
-
-  if (
-    settings.showIsa &&
-    settings.isaWithdrawalStrategy === "use_by_age" &&
-    isaWithdrawalTargetDate > lifeExpectancyDate
-  ) {
-    issues.push({
-      field: "isaWithdrawalTargetAge",
-      message: "ISA use-by age must be within life expectancy.",
-    });
-  }
-
-  if (
-    settings.partialRetirementEnabled &&
-    partialRetirementStartDate <= settings.dateOfBirth
-  ) {
-    issues.push({
-      field: "partialRetirementStartAge",
-      message: "Partial retirement must start after date of birth.",
-    });
-  }
-
-  if (
-    settings.partialRetirementEnabled &&
-    partialRetirementStartDate > lifeExpectancyDate
-  ) {
-    issues.push({
-      field: "partialRetirementStartAge",
-      message: "Partial retirement start must be within life expectancy.",
-    });
-  }
-
   if (settings.showAlpha && alphaLeaveDate > lifeExpectancyDate) {
     issues.push({
       field: "alphaPensionLeaveAge",
       message: "Alpha pensionable service leave age must be within life expectancy.",
-    });
-  }
-
-  if (
-    settings.partialRetirementEnabled &&
-    partialRetirementStartDate >= retirementDate
-  ) {
-    issues.push({
-      field: "partialRetirementStartAge",
-      message: "Partial retirement start age must be before the retirement start age.",
-    });
-  }
-
-  if (settings.showNuvos && nuvosLeaveDate > lifeExpectancyDate) {
-    issues.push({
-      field: "nuvosPensionLeaveAge",
-      message: "nuvos pensionable service leave age must be within life expectancy.",
     });
   }
 
@@ -791,13 +754,6 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
       field: "alphaAddedPensionMonthly",
       message:
         "Monthly added pension purchases must stop before age 68 because the factor table does not include age 68 or later.",
-    });
-  }
-
-  if (settings.showNuvos && nuvosAbsDate > settings.startDate) {
-    issues.push({
-      field: "nuvosPensionAbsDate",
-      message: "nuvos Annual Benefit Statement must be on or before the calculation start date.",
     });
   }
 
@@ -835,10 +791,135 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
+  return issues;
+}
+
+function validateNuvosRules({
+  settings,
+  lifeExpectancyDate,
+  nuvosDrawDate,
+  nuvosLeaveDate,
+  nuvosAbsDate,
+}: ValidationContext): PensionValidationIssue[] {
+  const issues: PensionValidationIssue[] = [];
+
+  if (settings.showNuvos && nuvosDrawDate > lifeExpectancyDate) {
+    issues.push({
+      field: "nuvosPensionDrawAge",
+      message: "nuvos pension draw age must be within life expectancy.",
+    });
+  }
+
+  if (settings.showNuvos && nuvosLeaveDate > lifeExpectancyDate) {
+    issues.push({
+      field: "nuvosPensionLeaveAge",
+      message: "nuvos pensionable service leave age must be within life expectancy.",
+    });
+  }
+
+  if (settings.showNuvos && nuvosAbsDate > settings.startDate) {
+    issues.push({
+      field: "nuvosPensionAbsDate",
+      message: "nuvos Annual Benefit Statement must be on or before the calculation start date.",
+    });
+  }
+
+  return issues;
+}
+
+function validateSippRules({
+  settings,
+  lifeExpectancyDate,
+  sippDrawDate,
+  sippWithdrawalTargetDate,
+}: ValidationContext): PensionValidationIssue[] {
+  const issues: PensionValidationIssue[] = [];
+
+  if (settings.showSipp && sippDrawDate > lifeExpectancyDate) {
+    issues.push({
+      field: "sippDrawAge",
+      message: "SIPP draw start age must be within life expectancy.",
+    });
+  }
+
+  if (
+    settings.showSipp &&
+    sippDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE &&
+    sippDrawDate < addYearsToIsoDate(settings.dateOfBirth, 57)
+  ) {
+    issues.push({
+      field: "sippDrawAge",
+      message:
+        "SIPP draw start age must be at least 57 for access dates on or after 6 April 2028.",
+    });
+  }
+
+  if (
+    settings.showSipp &&
+    settings.sippWithdrawalStrategy === "use_by_age" &&
+    sippWithdrawalTargetDate <= sippDrawDate
+  ) {
+    issues.push({
+      field: "sippWithdrawalTargetAge",
+      message: "SIPP use-by age must be after the SIPP draw start age.",
+    });
+  }
+
+  if (
+    settings.showSipp &&
+    settings.sippWithdrawalStrategy === "use_by_age" &&
+    sippWithdrawalTargetDate > lifeExpectancyDate
+  ) {
+    issues.push({
+      field: "sippWithdrawalTargetAge",
+      message: "SIPP use-by age must be within life expectancy.",
+    });
+  }
+
   if (settings.showSipp && sippDrawDate <= settings.startDate) {
     issues.push({
       field: "sippDrawAge",
       message: "SIPP draw start age must be after the calculation start date.",
+    });
+  }
+
+  return issues;
+}
+
+function validateIsaRules({
+  settings,
+  lifeExpectancyDate,
+  isaDrawDate,
+  isaWithdrawalTargetDate,
+}: ValidationContext): PensionValidationIssue[] {
+  const issues: PensionValidationIssue[] = [];
+
+  if (settings.showIsa && isaDrawDate > lifeExpectancyDate) {
+    issues.push({
+      field: "isaDrawAge",
+      message: "ISA draw start age must be within life expectancy.",
+    });
+  }
+
+  if (
+    settings.showIsa &&
+    settings.isaWithdrawalStrategy === "use_by_age" &&
+    isaWithdrawalTargetDate <= isaDrawDate
+  ) {
+    issues.push({
+      field: "isaWithdrawalTargetAge",
+      message: "ISA use-by age must be after the ISA draw start age.",
+    });
+  }
+
+  if (
+    settings.showIsa &&
+    settings.isaWithdrawalStrategy === "use_by_age" &&
+    isaWithdrawalTargetDate > lifeExpectancyDate
+  ) {
+    issues.push({
+      field: "isaWithdrawalTargetAge",
+      message: "ISA use-by age must be within life expectancy.",
     });
   }
 
@@ -849,20 +930,67 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
     });
   }
 
-  issues.push(
+  return issues;
+}
+
+function validatePartialRetirementRules({
+  settings,
+  lifeExpectancyDate,
+  retirementDate,
+  partialRetirementStartDate,
+}: ValidationContext): PensionValidationIssue[] {
+  const issues: PensionValidationIssue[] = [];
+
+  if (
+    settings.partialRetirementEnabled &&
+    partialRetirementStartDate <= settings.dateOfBirth
+  ) {
+    issues.push({
+      field: "partialRetirementStartAge",
+      message: "Partial retirement must start after date of birth.",
+    });
+  }
+
+  if (
+    settings.partialRetirementEnabled &&
+    partialRetirementStartDate > lifeExpectancyDate
+  ) {
+    issues.push({
+      field: "partialRetirementStartAge",
+      message: "Partial retirement start must be within life expectancy.",
+    });
+  }
+
+  if (
+    settings.partialRetirementEnabled &&
+    partialRetirementStartDate >= retirementDate
+  ) {
+    issues.push({
+      field: "partialRetirementStartAge",
+      message: "Partial retirement start age must be before the retirement start age.",
+    });
+  }
+
+  return issues;
+}
+
+function validateLumpSumRules(context: ValidationContext): PensionValidationIssue[] {
+  const { settings } = context;
+
+  return [
     ...(settings.showAlpha
       ? [
           ...validateLumpSums(settings.alphaAddedPensionLumpSums, {
             field: "alphaAddedPensionLumpSums",
             label: "Alpha lump sum",
-            earliestDate: alphaAbsDate,
-            latestDate: latestAlphaAddedPensionPurchaseDate,
+            earliestDate: context.alphaAbsDate,
+            latestDate: context.latestAlphaAddedPensionPurchaseDate,
             rangeMessage:
               "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
           }),
           ...validateLumpSumScheduleEndsByDate(settings.alphaAddedPensionLumpSums, {
             field: "alphaAddedPensionLumpSums",
-            latestDate: alphaAccrualStopDate,
+            latestDate: context.alphaAccrualStopDate,
             message:
               "Alpha lump sums must be scheduled on or before Alpha pensionable service stops.",
           }),
@@ -873,7 +1001,7 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
           field: "sippLumpSums",
           label: "SIPP lump sum",
           earliestDate: settings.startDate,
-          latestDate: sippContributionStopDate,
+          latestDate: context.sippContributionStopDate,
           rangeMessage:
             "SIPP lump sums must fall between the calculation start date and the earlier of retirement age and SIPP draw start.",
         })
@@ -883,14 +1011,12 @@ export function validateSettings(settings: PensionSettings): PensionValidationIs
           field: "isaLumpSums",
           label: "ISA lump sum",
           earliestDate: settings.startDate,
-          latestDate: isaContributionStopDate,
+          latestDate: context.isaContributionStopDate,
           rangeMessage:
             "ISA lump sums must fall between the calculation start date and the earlier of retirement age and ISA draw start.",
         })
       : []),
-  );
-
-  return issues;
+  ];
 }
 
 function validateLumpSums(

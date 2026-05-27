@@ -662,6 +662,10 @@ h3 {
   box-shadow: var(--shadow-soft);
 }
 
+.bridge-chart-panel--invalid {
+  border-color: rgba(191, 44, 44, 0.22);
+}
+
 .bridge-chart-heading {
   display: flex;
   flex-wrap: wrap;
@@ -690,6 +694,33 @@ h3 {
   min-width: 0;
   width: 100%;
   overflow: hidden;
+}
+
+.bridge-validation-banner {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid rgba(191, 44, 44, 0.24);
+  border-radius: 0.9rem;
+  padding: 0.85rem 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 245, 245, 0.96), rgba(255, 252, 250, 0.96));
+  color: #7f1d1d;
+}
+
+.bridge-validation-banner strong {
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body);
+}
+
+.bridge-validation-banner ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #991b1b;
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body);
+}
+
+.bridge-validation-banner li + li {
+  margin-top: 0.25rem;
 }
 
 .bridge-mobile-summary,
@@ -759,6 +790,20 @@ h3 {
 .bridge-milestone--editable {
   cursor: ew-resize;
   outline: none;
+}
+
+.bridge-milestone--invalid line {
+  stroke: #dc2626;
+  stroke-width: 2.5;
+}
+
+.bridge-milestone--invalid .bridge-milestone-handle {
+  fill: #dc2626;
+  stroke: rgba(255, 255, 255, 0.96);
+}
+
+.bridge-milestone--invalid .bridge-milestone-handle-label {
+  fill: #ffffff;
 }
 
 .bridge-milestone:focus-visible line,

@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import * as d3 from "d3";
+import type { PensionValidationIssue } from "./settings";
 
 export type RetirementIncomePoint = {
   date: string;
@@ -60,6 +61,7 @@ export type RetirementIncomeBridgeChartProps = RetirementIncomeBridgeParameters 
   alphaLabel?: string;
   limits: RetirementIncomeBridgeLimits;
   statePensionEditable?: boolean;
+  validationIssues?: PensionValidationIssue[];
   onChangeParameters: (patch: Partial<RetirementIncomeBridgeParameters>) => void;
 };
 
@@ -208,6 +210,7 @@ export function RetirementIncomeBridgeChart({
   alphaLabel = "Alpha pension",
   limits,
   statePensionEditable = false,
+  validationIssues = [],
   onChangeParameters,
 }: RetirementIncomeBridgeChartProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -376,6 +379,12 @@ export function RetirementIncomeBridgeChart({
     .curve(d3.curveStepAfter);
   const yTicks = yScale.ticks(5);
   const xTicks = xScale.ticks(width < 640 ? 5 : 8);
+  const invalidMarkerKeys = useMemo(
+    () => getInvalidMarkerKeys(validationIssues),
+    [validationIssues],
+  );
+  const hasValidationIssues = validationIssues.length > 0;
+  const projectionReady = data.length > 0;
   const milestoneMarkers: MilestoneMarker[] = useMemo(
     () =>
       [
@@ -660,18 +669,12 @@ export function RetirementIncomeBridgeChart({
     );
   };
 
-  if (data.length === 0) {
-    return (
-      <section className="bridge-chart-panel" aria-live="polite">
-        <p className="section-copy">
-          The chart will appear once the current assumptions produce a valid projection.
-        </p>
-      </section>
-    );
-  }
-
   return (
-    <section className="bridge-chart-panel" aria-labelledby={chartTitleId}>
+    <section
+      className={`bridge-chart-panel${hasValidationIssues ? " bridge-chart-panel--invalid" : ""}`}
+      aria-labelledby={chartTitleId}
+      aria-live="polite"
+    >
       <div className="bridge-chart-heading">
         <h3 id={chartTitleId} className="bridge-chart-title">
           Retirement income bridge
@@ -710,6 +713,21 @@ export function RetirementIncomeBridgeChart({
         </div>
       </div>
 
+      {!projectionReady || hasValidationIssues ? (
+        <div className="bridge-validation-banner" role="alert">
+          <strong>
+            {projectionReady
+              ? "The chart is showing the current assumptions, but some settings need attention."
+              : "The chart is showing the current assumptions, but they do not produce a valid projection."}
+          </strong>
+          <ul>
+            {validationIssues.slice(0, 4).map((issue) => (
+              <li key={`${issue.field}-${issue.itemId ?? issue.message}`}>{issue.message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="bridge-mobile-summary" aria-label="Chart summary">
         {mobileBridgeSummary.map((item) => (
           <div key={item.label}>
@@ -726,7 +744,8 @@ export function RetirementIncomeBridgeChart({
           height={dimensions.height}
           viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
           role="img"
-          aria-labelledby={`${chartTitleId} ${chartDescriptionId}`}
+          aria-labelledby={chartTitleId}
+          aria-describedby={chartDescriptionId}
           tabIndex={0}
         >
           <desc id={chartDescriptionId}>
@@ -838,6 +857,9 @@ export function RetirementIncomeBridgeChart({
                     [
                       "bridge-milestone",
                       marker.editable ? "bridge-milestone--editable" : "",
+                      invalidMarkerKeys.has(marker.key)
+                        ? "bridge-milestone--invalid"
+                        : "",
                       marker.key === effectiveSelectedMobileMarkerKey
                         ? "bridge-milestone--selected"
                         : "",
@@ -1206,6 +1228,50 @@ function getTargetIncomeControlLimit(
     max: limit.max / 12,
     step: limit.step / 12,
   };
+}
+
+function getInvalidMarkerKeys(validationIssues: PensionValidationIssue[]) {
+  const markerKeys = new Set<MilestoneKey>();
+
+  for (const issue of validationIssues) {
+    if (issue.field === "requirementAge") {
+      markerKeys.add("retirementAge");
+    }
+
+    if (issue.field === "alphaPensionLeaveAge") {
+      markerKeys.add("alphaLeaveAge");
+    }
+
+    if (issue.field === "alphaPensionDrawAge") {
+      markerKeys.add("alphaStartAge");
+    }
+
+    if (issue.field === "sippDrawAge") {
+      markerKeys.add("sippAccessAge");
+    }
+
+    if (issue.field === "sippWithdrawalTargetAge") {
+      markerKeys.add("sippUseByAge");
+    }
+
+    if (issue.field === "isaDrawAge") {
+      markerKeys.add("isaAccessAge");
+    }
+
+    if (issue.field === "isaWithdrawalTargetAge") {
+      markerKeys.add("isaUseByAge");
+    }
+
+    if (issue.field === "partialRetirementStartAge") {
+      markerKeys.add("partialRetirementStartAge");
+    }
+
+    if (issue.field === "statePensionDrawDate") {
+      markerKeys.add("statePensionAge");
+    }
+  }
+
+  return markerKeys;
 }
 
 function getMarkerHandleLabel(marker: MilestoneMarker) {

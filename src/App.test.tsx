@@ -510,7 +510,7 @@ describe("App settings form", () => {
     advanceJourneyToResult();
 
     expect(await screen.findByRole("heading", { name: "Review this result" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Detailed breakdown" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Detailed breakdown" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Current model" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Plan status" })).toBeInTheDocument();
@@ -528,7 +528,7 @@ describe("App settings form", () => {
     advanceJourneyToResult();
 
     expect(await screen.findByRole("heading", { name: "Review this result" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Detailed breakdown" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Detailed breakdown" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Current model" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Action required" })).not.toBeInTheDocument();
@@ -644,8 +644,6 @@ describe("App settings form", () => {
         name: "Total monthly income before tax",
       }),
     ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
 
     expect(
       await screen.findByRole("columnheader", {
@@ -1258,6 +1256,42 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("ISA stop, age 75")).toBeInTheDocument();
   });
 
+  it("keeps the retirement marker from crossing the Alpha start marker", () => {
+    renderAcknowledgedApp();
+
+    fireEvent.keyDown(screen.getByLabelText("Retire, age 60"), {
+      key: "ArrowRight",
+    });
+
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+      expect.objectContaining({
+        requirementAge: 60,
+      }),
+    );
+  });
+
+  it("renders the bridge chart with an inline warning when the projection is invalid", async () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        requirementAge: 61,
+        alphaPensionDrawAge: 60,
+      }),
+    );
+
+    renderAcknowledgedApp({ mode: "bridge" });
+    advanceJourneyToResult();
+
+    expect(
+      await screen.findByRole("img", { name: "Retirement income bridge" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The chart is showing the current assumptions, but they do not produce a valid projection.",
+    );
+    expect(document.querySelector(".bridge-chart-panel--invalid")).not.toBeNull();
+  });
+
   it("keeps the target income line across the build-up period without creating early shortfall", () => {
     const series = createRetirementIncomeSeries(projectionFixtures.baseRows, {
       ...defaultSettings,
@@ -1674,7 +1708,6 @@ describe("App settings form", () => {
     });
 
     expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
     expect(await screen.findByRole("columnheader", { name: "ISA" })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
@@ -1778,7 +1811,7 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Planned Alpha Pension Draw Age")).toHaveValue("70");
   });
 
-  it("shows validation guidance and pauses the projection when stored settings are inconsistent", () => {
+  it("shows validation guidance and pauses the projection when stored settings are inconsistent", async () => {
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
@@ -1792,9 +1825,8 @@ describe("App settings form", () => {
     renderAcknowledgedApp();
 
     expect(screen.getByRole("heading", { name: "Check these assumptions" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
     expect(
-      screen.getByText("No projection rows are available for the current settings."),
+      await screen.findByText("No projection rows are available for the current settings."),
     ).toBeInTheDocument();
   });
 
@@ -1808,7 +1840,7 @@ describe("App settings form", () => {
 
     expect(
       await screen.findAllByText("Date of birth must be before the calculation start date."),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(screen.getByLabelText("Your Date of Birth")).toHaveAttribute(
       "aria-invalid",
       "true",
@@ -1832,7 +1864,7 @@ describe("App settings form", () => {
       await screen.findAllByText(
         "Last Annual Benefits Statement must be on or before the calculation start date.",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(screen.getByLabelText("Last Annual Benefits Statement")).toHaveAttribute(
       "aria-invalid",
       "true",
@@ -1854,14 +1886,14 @@ describe("App settings form", () => {
       await screen.findAllByText(
         "Alpha lump sum repeat-until date must be on or after its start date.",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(screen.getByLabelText("Lump sum start date 1")).toHaveAttribute(
       "aria-invalid",
       "true",
     );
   });
 
-  it("renders projection rows for the shared EPA settings", () => {
+  it("renders projection rows for the shared EPA settings", async () => {
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
@@ -1897,11 +1929,10 @@ describe("App settings form", () => {
     expect(
       screen.queryByText("No projection rows are available for the current settings."),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
-    expect(screen.getByText(/Showing \d+ of \d+ rows/)).toBeInTheDocument();
+    expect(await screen.findByText(/Showing \d+ of \d+ rows/)).toBeInTheDocument();
   });
 
-  it("shows milestone rows by default and can expand to all rows", () => {
+  it("shows milestone rows by default and can expand to all rows", async () => {
     const rows = createProjectionTable({
       ...defaultSettings,
       startDate: getTodayIsoDate(),
@@ -1911,10 +1942,8 @@ describe("App settings form", () => {
 
     renderAcknowledgedApp();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
-
     expect(
-      screen.getByText(
+      await screen.findByText(
         `Showing ${milestoneRows.length} of ${rows.length} rows (${milestoneRows.length} milestones).`,
       ),
     ).toBeInTheDocument();
