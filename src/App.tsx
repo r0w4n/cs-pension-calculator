@@ -128,7 +128,7 @@ const OPTIONAL_SECTION_TOGGLES = [
 type OptionalSectionToggleKey = (typeof OPTIONAL_SECTION_TOGGLES)[number]["key"];
 type JourneyFieldLabels = Partial<Record<FieldDefinition["id"], string>>;
 
-type AppMode = "journey" | "bridge" | "simple" | "expert";
+type AppMode = "bridge" | "simple" | "expert";
 
 type JourneyStepDefinition =
   | {
@@ -158,177 +158,7 @@ type JourneyDefinition = {
   steps: readonly JourneyStepDefinition[];
 };
 
-const GUIDED_JOURNEYS = [
-  {
-    id: "retirement-date",
-    title: "When would you like to retire?",
-    description:
-      "Start with a planned retirement age, choose the sections that matter, then collect the details needed to estimate your retirement income.",
-    steps: [
-      {
-        id: "include",
-        eyebrow: "Step 1",
-        title: "What should we include?",
-        description:
-          "Choose the parts of your retirement picture you want to model. Turn sections on when that income source belongs in the scenario. Settings you have entered are kept if you hide a section and come back later.",
-        kind: "optional-sections",
-      },
-      {
-        id: "basics",
-        eyebrow: "Step 2",
-        title: "Your planning basics",
-        description:
-          "Set the personal dates and income target that anchor the projection.",
-        kind: "fields",
-        fieldIds: [
-          "dateOfBirth",
-          "lifeExpectancy",
-          "requirementAge",
-          "desiredRetirementIncome",
-        ],
-      },
-      {
-        id: "inflation",
-        eyebrow: "Step 3",
-        title: "Inflation and projection basis",
-        description:
-          "Choose the basis used to compare future values with today’s spending power.",
-        kind: "fields",
-        fieldIds: ["projectionBasis", "inflationRateAnnual"],
-      },
-      {
-        id: "alpha",
-        eyebrow: "Step 4",
-        title: "Your Alpha pension plan",
-        description:
-          "Enter your Alpha statement values, pensionable earnings, and draw/leave ages.",
-        kind: "fields",
-        fieldIds: [
-          "alphaPensionDrawAge",
-          "alphaPensionLeaveAge",
-          "alphaPensionAbsDate",
-          "accruedPensionAtLastAbs",
-          "pensionableEarnings",
-          "alphaAddedPensionMonthly",
-          "alphaAddedPensionFactorType",
-          "applyPensionIncreases",
-        ],
-        visible: (settings) => settings.showAlpha,
-      },
-      {
-        id: "state",
-        eyebrow: "Optional",
-        title: "State Pension",
-        description:
-          "Add your forecast, start date, and any future uprating assumption.",
-        kind: "fields",
-        fieldIds: [
-          "currentStatePension",
-          "statePensionDrawDate",
-          "statePensionApplyFutureGrowth",
-          "statePensionWageGrowthPercent",
-        ],
-        visible: (settings) => settings.showStatePension,
-      },
-      {
-        id: "nuvos",
-        eyebrow: "Optional",
-        title: "nuvos pension",
-        description:
-          "Add any nuvos statement value, earnings, and draw timing you want to model.",
-        kind: "fields",
-        fieldIds: [
-          "nuvosPensionDrawAge",
-          "nuvosPensionLeaveAge",
-          "nuvosPensionAbsDate",
-          "nuvosAccruedPensionAtLastAbs",
-          "nuvosPensionableEarnings",
-          "nuvosApplyPensionIncreases",
-        ],
-        visible: (settings) => settings.showNuvos,
-      },
-      {
-        id: "sipp",
-        eyebrow: "Optional",
-        title: "SIPP drawdown",
-        description:
-          "Add personal pension balances, contributions, tax relief, growth, and drawdown rules.",
-        kind: "fields",
-        fieldIds: [
-          "sippCurrentPot",
-          "sippMonthlyContribution",
-          "sippDrawAge",
-          "sippTaxReliefRate",
-          "sippApplyRealInterest",
-          "sippRealInterestPercent",
-          "sippWithdrawalStrategy",
-          "sippWithdrawalPercent",
-          "sippWithdrawalTargetAge",
-        ],
-        visible: (settings) => settings.showSipp,
-      },
-      {
-        id: "isa",
-        eyebrow: "Optional",
-        title: "ISA income",
-        description:
-          "Add ISA savings, contributions, growth, and drawdown rules for flexible bridge money.",
-        kind: "fields",
-        fieldIds: [
-          "isaCurrentPot",
-          "isaMonthlyContribution",
-          "isaDrawAge",
-          "isaApplyRealInterest",
-          "isaRealInterestPercent",
-          "isaWithdrawalStrategy",
-          "isaWithdrawalPercent",
-          "isaWithdrawalTargetAge",
-        ],
-        visible: (settings) => settings.showIsa,
-      },
-      {
-        id: "partial-retirement",
-        eyebrow: "Optional",
-        title: "Partial retirement",
-        description:
-          "Model a reduced work pattern and lower regular accruals or savings from that point.",
-        kind: "fields",
-        fieldIds: [
-          "partialRetirementStartAge",
-          "fullSalary",
-          "partialRetirementWorkPercent",
-        ],
-        visible: (settings) => settings.partialRetirementEnabled,
-      },
-      {
-        id: "tax",
-        eyebrow: "Optional",
-        title: "Tax assumptions",
-        description:
-          "Use standard Income Tax assumptions to estimate take-home retirement income.",
-        kind: "fields",
-        fieldIds: [
-          "taxPersonalAllowance",
-          "taxPersonalAllowanceTaperThreshold",
-          "taxBasicRateLimit",
-          "taxAdditionalRateThreshold",
-          "taxBasicRatePercent",
-          "taxHigherRatePercent",
-          "taxAdditionalRatePercent",
-          "taxSippTaxFreeWithdrawalPercent",
-        ],
-        visible: (settings) => settings.taxationEnabled,
-      },
-      {
-        id: "answer",
-        eyebrow: "Result",
-        title: "Your retirement income answer",
-        description:
-          "Review the scenario answer from the assumptions you have just walked through.",
-        kind: "answer",
-      },
-    ],
-  },
+const JOURNEY_DEFINITIONS = [
   {
     id: "early-retirement-bridge",
     title: "Work out what I need to retire early",
@@ -1191,45 +1021,11 @@ function App() {
           <ModeSelectionPanel selectedMode={appMode} onSelectMode={selectAppMode} />
         </section>
 
-        {appMode === "journey" ? (
-          <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
-            <GuidedJourney
-              key="retirement-date"
-              journey={GUIDED_JOURNEYS[0]}
-              settings={settings}
-              validationIssues={validationIssues}
-              pensionSummary={pensionSummary}
-              projectionRows={projectionRows}
-              retirementIncomeSeries={retirementIncomeSeries}
-              bridgeChartParameters={bridgeChartParameters}
-              bridgeChartLimits={bridgeChartLimits}
-              derivedInflationAssumptions={derivedInflationAssumptions}
-              retirementIncomeDisplay={retirementIncomeDisplay}
-              retirementIncomeItems={retirementIncomeItems}
-              retirementIncomeTitle={retirementIncomeTitle}
-              retirementIncomeTotal={retirementIncomeTotal}
-              retirementIncomeTargetTitle={retirementIncomeTargetTitle}
-              retirementIncomeTarget={retirementIncomeTarget}
-              useDropdownDates={useDropdownDates}
-              onChange={updateSetting}
-              onChangeChartParameters={updateBridgeChartParameters}
-              comparisonScenarios={comparisonScenarios}
-              onScenariosChange={setComparisonScenarios}
-              onLoadScenario={loadComparisonScenario}
-              onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
-              showLimitations={showLimitations}
-              onToggleLimitations={() => setShowLimitations((current) => !current)}
-              showGuidanceNotes={showGuidanceNotes}
-              onShowGuidanceNotesChange={setShowGuidanceNotes}
-            />
-          </div>
-        ) : null}
-
         {appMode === "bridge" ? (
           <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
-            <GuidedJourney
+            <JourneyFlow
               key="early-retirement-bridge"
-              journey={GUIDED_JOURNEYS[1]}
+              journey={JOURNEY_DEFINITIONS[0]}
               settings={settings}
               validationIssues={validationIssues}
               pensionSummary={pensionSummary}
@@ -1261,9 +1057,9 @@ function App() {
 
         {appMode === "simple" ? (
           <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
-            <GuidedJourney
+            <JourneyFlow
               key="simple-early-retirement"
-              journey={GUIDED_JOURNEYS[2]}
+              journey={JOURNEY_DEFINITIONS[1]}
               settings={settings}
               validationIssues={validationIssues}
               pensionSummary={pensionSummary}
@@ -1524,7 +1320,7 @@ function App() {
     }
   }
 
-  function selectAppMode(mode: AppMode) {
+function selectAppMode(mode: AppMode) {
     if (mode === "bridge") {
       setSettings((current) => applyBridgeJourneyDefaults(current));
       setChartUndoStack([]);
@@ -1575,20 +1371,6 @@ function ModeSelectionPanel({
           <span>
             Follow a shorter flow with State Pension assumptions handled for you
             and the chart at the end.
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className={getModeCardClassName(selectedMode === "journey")}
-          aria-pressed={selectedMode === "journey"}
-          onClick={() => onSelectMode("journey")}
-        >
-          <span className="card-label">Guided journey</span>
-          <strong>Take me through a journey</strong>
-          <span>
-            Answer a smaller set of questions in order, with optional sections
-            included only when you choose them.
           </span>
         </button>
 
@@ -2840,7 +2622,7 @@ function GuidanceNotesToggle({
   );
 }
 
-type GuidedJourneyProps = {
+type JourneyFlowProps = {
   journey: JourneyDefinition;
   settings: PensionSettings;
   validationIssues: PensionValidationIssue[];
@@ -2871,7 +2653,7 @@ type GuidedJourneyProps = {
   onShowGuidanceNotesChange: (checked: boolean) => void;
 };
 
-function GuidedJourney({
+function JourneyFlow({
   journey,
   settings,
   validationIssues,
@@ -2898,7 +2680,7 @@ function GuidedJourney({
   onToggleLimitations,
   showGuidanceNotes,
   onShowGuidanceNotesChange,
-}: GuidedJourneyProps) {
+}: JourneyFlowProps) {
   const visibleSteps = journey.steps.filter(
     (step) => !step.visible || step.visible(settings),
   );
@@ -2936,7 +2718,7 @@ function GuidedJourney({
     <section className="panel journey-panel" aria-labelledby="journey-title">
       <div className="journey-heading">
         <div>
-          <p className="eyebrow">Guided journey</p>
+          <p className="eyebrow">Journey</p>
           <h2 id="journey-title">{journey.title}</h2>
           <p className="section-copy">{journey.description}</p>
         </div>
@@ -3095,7 +2877,7 @@ function GuidedJourney({
 }
 
 type JourneyStepContentProps = Omit<
-  GuidedJourneyProps,
+  JourneyFlowProps,
   "journey" | "showGuidanceNotes" | "onShowGuidanceNotesChange"
 > & {
   step: JourneyStepDefinition;
@@ -6547,11 +6329,12 @@ function loadAcknowledgementState() {
 function loadStoredAppMode(): AppMode | null {
   const storedMode = readStorageItem(APP_MODE_STORAGE_KEY);
 
-  return storedMode === "journey" ||
-    storedMode === "bridge" ||
+  return storedMode === "bridge" ||
     storedMode === "simple" ||
     storedMode === "expert"
     ? storedMode
+    : storedMode === "journey"
+      ? "simple"
     : null;
 }
 

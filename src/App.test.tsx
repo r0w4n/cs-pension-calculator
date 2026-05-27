@@ -253,8 +253,6 @@ import {
   getTodayIsoDate,
 } from "./settings";
 
-const GUIDANCE_NOTES_STORAGE_KEY = "cs-pension-modeller.guidanceNotes";
-
 function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
   return {
     dateOfBirth: defaultSettings.dateOfBirth,
@@ -333,7 +331,7 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
 }
 
 function renderAcknowledgedApp(
-  options: { mode?: "expert" | "journey" | "bridge" | "simple" | null } = {},
+  options: { mode?: "expert" | "bridge" | "simple" | null } = {},
 ) {
   const { mode = "expert" } = options;
 
@@ -349,12 +347,6 @@ function renderAcknowledgedApp(
       screen.getByRole("button", {
         name: /Show all settings and unlock full control/i,
       }),
-    );
-  }
-
-  if (mode === "journey") {
-    fireEvent.click(
-      screen.getByRole("button", { name: /Take me through a journey/i }),
     );
   }
 
@@ -445,77 +437,10 @@ describe("App settings form", () => {
     ).toBeInTheDocument();
   });
 
-  it("supports a guided retirement date journey with an answer step", () => {
-    renderAcknowledgedApp({ mode: "journey" });
+  it("does not show the retired third mode option", () => {
+    renderAcknowledgedApp({ mode: null });
 
-    expect(
-      screen.getByRole("heading", { name: "When would you like to retire?" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "What should we include?" })).toBeInTheDocument();
-    expect(screen.getByLabelText("State Pension")).toBeChecked();
-    expect(
-      screen.queryByRole("heading", { name: "Scenario comparison" }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByRole("heading", { name: "Your planning basics" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(
-      screen.getByRole("heading", { name: "Inflation and projection basis" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByRole("heading", { name: "Your Alpha pension plan" })).toBeInTheDocument();
-    expect(
-      screen.getByText(/career-average defined benefit pension, not a savings pot/),
-    ).toBeInTheDocument();
-    expect(document.body).toHaveTextContent(
-      /does not make the pension accrue at 5% or 7%/,
-    );
-    expect(document.body).toHaveTextContent(
-      /does not multiply your pension by your employee contribution rate/,
-    );
-    expect(screen.getByRole("link", { name: "Contribution rates" })).toHaveAttribute(
-      "href",
-      "https://www.civilservicepensionscheme.org.uk/memberhub/joining-the-pension-scheme/contribution-rates/",
-    );
-
-    fireEvent.click(screen.getByLabelText("Show guidance notes"));
-
-    expect(
-      screen.queryByText(/career-average defined benefit pension, not a savings pot/),
-    ).not.toBeInTheDocument();
-    expect(window.localStorage.getItem(GUIDANCE_NOTES_STORAGE_KEY)).toBe("false");
-
-    fireEvent.change(screen.getByLabelText("Planned Alpha Pension Draw Age exact value"), {
-      target: { value: "62" },
-    });
-    fireEvent.blur(screen.getByLabelText("Planned Alpha Pension Draw Age exact value"));
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /Your retirement income answer/i }),
-    );
-
-    expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Retirement income bridge" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Compare saved scenarios" }),
-    ).toBeInTheDocument();
-    const answerText = document.body.textContent ?? "";
-    expect(answerText.indexOf("Retirement income bridge")).toBeGreaterThan(
-      answerText.indexOf("Pension Summary"),
-    );
-    expect(screen.getByLabelText("Monthly retirement income before tax")).toHaveTextContent(
-      "£2,950.00",
-    );
-    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
-      expect.objectContaining({
-        alphaPensionDrawAge: 62,
-      }),
-    );
+    expect(document.querySelectorAll(".mode-card")).toHaveLength(3);
   });
 
   it("uses the simplified early retirement journey by default", () => {
