@@ -1,5 +1,6 @@
 import {
   createContext,
+  startTransition,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -1308,17 +1309,7 @@ function App() {
         ) : null}
 
         {appMode === "expert" ? (
-          <section className="panel">
-            <div className="panel-heading">
-              <h2>Monthly pension projection table</h2>
-              <p className="section-copy">
-                The table is generated from the projection layer so each row stays
-                traceable back to the modeller inputs and factor tables.
-              </p>
-            </div>
-
-            <ProjectionTable rows={projectionRows} settings={settings} />
-          </section>
+          <ProjectionTableSection rows={projectionRows} settings={settings} />
         ) : null}
       </main>
     </GuidanceNotesContext.Provider>
@@ -1769,39 +1760,101 @@ function ComparisonPanel({
         </p>
       ) : null}
 
-      <ComparisonBridgeChart
-        retirementIncomeSeries={retirementIncomeSeries}
-        bridgeChartParameters={bridgeChartParameters}
-        bridgeChartLimits={bridgeChartLimits}
-        onChangeChartParameters={onChangeChartParameters}
-      />
+      <DeferredBelowFold estimatedHeight={420}>
+        <ComparisonBridgeChart
+          retirementIncomeSeries={retirementIncomeSeries}
+          bridgeChartParameters={bridgeChartParameters}
+          bridgeChartLimits={bridgeChartLimits}
+          onChangeChartParameters={onChangeChartParameters}
+        />
+      </DeferredBelowFold>
 
-      <ComparisonBuilder
-        scenarios={scenarios}
-        actions={scenarioActions}
-      />
+      <DeferredBelowFold estimatedHeight={180}>
+        <ComparisonBuilder
+          scenarios={scenarios}
+          actions={scenarioActions}
+        />
+      </DeferredBelowFold>
 
-      <ComparisonResults
-        results={results}
-        insights={insights}
-      />
-      <SavedScenariosSection
-        scenarios={scenarios}
-        savedResults={savedResults}
-        currentScenarioIsValid={currentScenarioIsValid}
-        onLoadScenario={onLoadScenario}
-        renameScenario={renameScenario}
-        replaceScenario={replaceScenario}
-        removeScenario={removeScenario}
-      />
+      <DeferredBelowFold estimatedHeight={420}>
+        <ComparisonResults
+          results={results}
+          insights={insights}
+        />
+      </DeferredBelowFold>
+      <DeferredBelowFold estimatedHeight={260}>
+        <SavedScenariosSection
+          scenarios={scenarios}
+          savedResults={savedResults}
+          currentScenarioIsValid={currentScenarioIsValid}
+          onLoadScenario={onLoadScenario}
+          renameScenario={renameScenario}
+          replaceScenario={replaceScenario}
+          removeScenario={removeScenario}
+        />
+      </DeferredBelowFold>
 
       {derivedInflationAssumptions ? (
-        <InflationBasisPanel
-          settings={settings}
-          assumptions={derivedInflationAssumptions}
-        />
+        <DeferredBelowFold estimatedHeight={240}>
+          <InflationBasisPanel
+            settings={settings}
+            assumptions={derivedInflationAssumptions}
+          />
+        </DeferredBelowFold>
       ) : null}
     </section>
+  );
+}
+
+function DeferredBelowFold({
+  children,
+  estimatedHeight,
+}: {
+  children: ReactNode;
+  estimatedHeight: number;
+}) {
+  const [shouldRender, setShouldRender] = useState(false);
+  const placeholderRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (shouldRender) {
+      return undefined;
+    }
+
+    const placeholder = placeholderRef.current;
+
+    if (!placeholder || typeof window.IntersectionObserver !== "function") {
+      setShouldRender(true);
+      return undefined;
+    }
+
+    const observer = new window.IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          return;
+        }
+
+        setShouldRender(true);
+        observer.disconnect();
+      },
+      { rootMargin: "700px 0px" },
+    );
+
+    observer.observe(placeholder);
+
+    return () => observer.disconnect();
+  }, [shouldRender]);
+
+  if (shouldRender) {
+    return children;
+  }
+
+  return (
+    <div
+      ref={placeholderRef}
+      aria-hidden="true"
+      style={{ minHeight: `${estimatedHeight}px` }}
+    />
   );
 }
 
@@ -5832,6 +5885,39 @@ const projectionTableColumns: ProjectionTableColumn[] = [
   },
 ] as const;
 
+function ProjectionTableSection({ rows, settings }: ProjectionTableProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <h2>Monthly pension projection table</h2>
+        <p className="section-copy">
+          The table is generated from the projection layer so each row stays
+          traceable back to the modeller inputs and factor tables. It is kept
+          collapsed until you need it because the full table can create a large
+          amount of browser work.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        className="secondary-button"
+        aria-expanded={isExpanded}
+        onClick={() => {
+          startTransition(() => {
+            setIsExpanded((current) => !current);
+          });
+        }}
+      >
+        {isExpanded ? "Hide monthly projection table" : "Show monthly projection table"}
+      </button>
+
+      {isExpanded ? <ProjectionTable rows={rows} settings={settings} /> : null}
+    </section>
+  );
+}
+
 function ProjectionTable({ rows, settings }: ProjectionTableProps) {
   const [showMilestonesOnly, setShowMilestonesOnly] = useState(true);
   const visibleColumns = projectionTableColumns.filter(
@@ -5928,12 +6014,11 @@ function ProjectionTableFrame<Row>({
     );
   }
 
-  return (
-    <div className="table-shell">
-      {controls ? <div className="table-controls">{controls}</div> : null}
-
-      {showMobileCards ? (
-        <div className="projection-mobile-cards">
+  if (showMobileCards) {
+    return (
+      <div className="table-shell">
+        {controls ? <div className="table-controls">{controls}</div> : null}
+        <div className="projection-mobile-cards projection-mobile-cards--active">
           {rows.map((row, rowIndex) => {
             const rowKey = getRowKey(row, rowIndex);
             const cells = renderCells(row, rowIndex);
@@ -5957,7 +6042,13 @@ function ProjectionTableFrame<Row>({
             );
           })}
         </div>
-      ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="table-shell">
+      {controls ? <div className="table-controls">{controls}</div> : null}
 
       <div className="table-header-shell">
         <div className="table-header-scroll" ref={headerScrollRef}>

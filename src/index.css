@@ -1526,6 +1526,12 @@ h3 {
   display: none;
 }
 
+.projection-mobile-cards--active {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
 .projection-table--header,
 .projection-table--body {
   min-width: 62rem;

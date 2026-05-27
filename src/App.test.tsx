@@ -561,7 +561,7 @@ describe("App settings form", () => {
     );
   });
 
-  it("renders sensible default values", () => {
+  it("renders sensible default values", async () => {
     renderAcknowledgedApp();
 
     expect(
@@ -640,7 +640,15 @@ describe("App settings form", () => {
       screen.getByRole("heading", { name: "Monthly pension projection table" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("columnheader", {
+      screen.queryByRole("columnheader", {
+        name: "Total monthly income before tax",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
+
+    expect(
+      await screen.findByRole("columnheader", {
         name: "Total monthly income before tax",
       }),
     ).toBeInTheDocument();
@@ -1653,7 +1661,7 @@ describe("App settings form", () => {
     );
   });
 
-  it("enables ISA settings and lump sums when included", () => {
+  it("enables ISA settings and lump sums when included", async () => {
     renderAcknowledgedApp();
 
     fireEvent.change(screen.getByLabelText("Current ISA pot (£)"), {
@@ -1666,7 +1674,8 @@ describe("App settings form", () => {
     });
 
     expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "ISA" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
+    expect(await screen.findByRole("columnheader", { name: "ISA" })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         isaCurrentPot: 20000,
@@ -1783,6 +1792,7 @@ describe("App settings form", () => {
     renderAcknowledgedApp();
 
     expect(screen.getByRole("heading", { name: "Check these assumptions" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
     expect(
       screen.getByText("No projection rows are available for the current settings."),
     ).toBeInTheDocument();
@@ -1887,6 +1897,7 @@ describe("App settings form", () => {
     expect(
       screen.queryByText("No projection rows are available for the current settings."),
     ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
     expect(screen.getByText(/Showing \d+ of \d+ rows/)).toBeInTheDocument();
   });
 
@@ -1899,6 +1910,8 @@ describe("App settings form", () => {
     const nonMilestoneRow = rows.find((row) => row.milestones.length === 0);
 
     renderAcknowledgedApp();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show monthly projection table" }));
 
     expect(
       screen.getByText(
