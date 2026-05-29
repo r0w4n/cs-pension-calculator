@@ -81,6 +81,22 @@ Some important current assumptions in the projection logic:
 
 Tests are colocated with the code in `src/*.test.ts` and `src/*.test.tsx`.
 
+## Browser Storage
+
+The modeller persists inputs and a few UI preferences using `window.localStorage` on the same device/browser.
+
+Keys currently used:
+
+| Key | Purpose | Stored value |
+| --- | --- | --- |
+| `cs-pension-modeller.settings` | Pension inputs and assumptions. | JSON object (settings payload). |
+| `cs-pension-modeller.appMode` | Remembers the selected mode. | One of `bridge`, `simple`, `expert`. |
+| `cs-pension-modeller.guidanceNotes` | Remembers whether guidance notes are shown. | `"true"` or `"false"`. |
+| `cs-pension-modeller.comparisonScenarios` | Stores up to 5 saved comparison scenarios. | JSON array of scenarios `{ id, name, settings, createdAt, updatedAt }`. |
+| `cs-pension-modeller.acknowledgement` | Records that the important information notice has been acknowledged. | Version string (currently `"v1"`). |
+
+To remove all stored data, clear this site’s storage in your browser settings.
+
 ## Development
 
 Requirements:

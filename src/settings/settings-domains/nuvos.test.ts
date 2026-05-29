@@ -1,4 +1,5 @@
 import { coerceNuvosSettings, normalizeNuvosBooleanSetting, validateNuvosRules } from "./nuvos";
+import type { StoredPensionSettings } from "../settings-types";
 
 describe("nuvos domain", () => {
   it("normalizes booleans", () => {
@@ -27,17 +28,19 @@ describe("nuvos domain", () => {
   });
 
   it("coerces stored values", () => {
+    const storedSettings = {
+      showNuvos: true,
+      nuvosPensionAbsDate: "2025",
+      nuvosAccruedPensionAtLastAbs: "1000",
+      nuvosPensionableEarnings: "42000",
+      nuvosPensionLeaveAge: "65",
+      nuvosPensionDrawAge: "65",
+      nuvosApplyPensionIncreases: false,
+      nuvosAssumedCpiPercent: "2.5",
+    } as unknown as Partial<StoredPensionSettings>;
+
     expect(
-      coerceNuvosSettings({
-        showNuvos: true,
-        nuvosPensionAbsDate: "2025",
-        nuvosAccruedPensionAtLastAbs: "1000",
-        nuvosPensionableEarnings: "42000",
-        nuvosPensionLeaveAge: "65",
-        nuvosPensionDrawAge: "65",
-        nuvosApplyPensionIncreases: false,
-        nuvosAssumedCpiPercent: "2.5",
-      }),
+      coerceNuvosSettings(storedSettings),
     ).toEqual({
       showNuvos: true,
       nuvosPensionAbsDate: "2025",

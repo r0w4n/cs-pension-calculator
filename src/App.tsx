@@ -91,6 +91,7 @@ import {
   DateInputFieldEditor as DateInputFieldEditorFeature,
   useMobileDateDropdowns as useMobileDateDropdownsHook,
 } from "./app/form-fields";
+import { SiteFooter } from "./app/site-footer";
 
 const ACKNOWLEDGEMENT_STORAGE_KEY = "cs-pension-modeller.acknowledgement";
 const ACKNOWLEDGEMENT_VERSION = "v1";
@@ -1054,8 +1055,9 @@ function App() {
               regulated financial adviser.
             </p>
             <p className="section-copy">
-              Cookies are used for analytics purposes only, and no financial or personal
-              information is transmitted.
+              Your inputs are saved locally in your browser so you can come back to the
+              same assumptions later. This site does not use analytics cookies, and no
+              financial or personal information is transmitted.
             </p>
             <button
               type="button"
@@ -1364,6 +1366,8 @@ function App() {
             <ProjectionTableSectionFeature rows={projectionRows} settings={settings} />
           </ProjectionTableSectionContainer>
         ) : null}
+
+        <SiteFooter />
       </main>
     </GuidanceNotesContext.Provider>
   );

@@ -193,10 +193,15 @@ export function normalizeSetting<K extends keyof PensionSettings>(
     case "nuvosApplyPensionIncreases":
       return normalizeNuvosBooleanSetting(value) as PensionSettings[K];
     case "projectionBasis":
+      return normalizeInflationSetting(
+        "projectionBasis",
+        value as PensionSettings["projectionBasis"],
+        normalizeNumericSetting,
+      ) as PensionSettings[K];
     case "inflationRateAnnual":
       return normalizeInflationSetting(
-        key,
-        value,
+        "inflationRateAnnual",
+        value as PensionSettings["inflationRateAnnual"],
         normalizeNumericSetting,
       ) as PensionSettings[K];
     case "sippTaxReliefRate":

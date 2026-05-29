@@ -4,6 +4,7 @@ import {
   normalizeStatePensionDrawDate,
   validateStatePensionRules,
 } from "./state-pension";
+import type { StoredPensionSettings } from "../settings-types";
 
 describe("state-pension domain", () => {
   it("normalizes booleans and draw dates", () => {
@@ -30,15 +31,17 @@ describe("state-pension domain", () => {
   });
 
   it("coerces stored values", () => {
+    const storedSettings = {
+      showStatePension: true,
+      currentStatePension: "12000",
+      statePensionDrawDate: "2045-01-01",
+      statePensionApplyFutureGrowth: false,
+      statePensionCpiPercent: "1.5",
+      statePensionWageGrowthPercent: "2.5",
+    } as unknown as Partial<StoredPensionSettings>;
+
     expect(
-      coerceStatePensionSettings({
-        showStatePension: true,
-        currentStatePension: "12000",
-        statePensionDrawDate: "2045-01-01",
-        statePensionApplyFutureGrowth: false,
-        statePensionCpiPercent: "1.5",
-        statePensionWageGrowthPercent: "2.5",
-      }),
+      coerceStatePensionSettings(storedSettings),
     ).toEqual({
       showStatePension: true,
       currentStatePension: 12000,

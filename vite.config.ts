@@ -2,9 +2,23 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+function resolveInputPath(relativePath: string) {
+  return decodeURIComponent(new URL(relativePath, import.meta.url).pathname);
+}
+
 export default defineConfig({
   base: "./",
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolveInputPath("./index.html"),
+        privacy: resolveInputPath("./privacy/index.html"),
+        methodology: resolveInputPath("./methodology/index.html"),
+        about: resolveInputPath("./about/index.html"),
+      },
+    },
+  },
   test: {
     environment: "jsdom",
     globals: true,
