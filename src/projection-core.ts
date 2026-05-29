@@ -28,7 +28,6 @@ import {
 } from "./projection-domains/isa";
 import {
   calculateAccruedAlphaPension,
-  calculateAlphaPensionRevaluationFactor,
   calculateAnnualAlphaPensionIncludingEpaReduction,
   calculateAnnualAlphaPensionIncludingReduction,
   calculateLumpSumAddedPension,
@@ -207,10 +206,12 @@ type MilestoneDefinition = {
 
 type ProjectionRowWithoutMilestones = Omit<ProjectionRow, "milestones" | "milestoneDates">;
 
-type AlphaBenefitComponent = {
+type AlphaBenefitPortion = "standard" | "epa";
+
+type AlphaRevaluationEvent = {
   amount: number;
-  startDate: string;
-  portion: "standard" | "epa";
+  dueDate: string;
+  portion: AlphaBenefitPortion;
 };
 
 export type DerivedProjectionInputs = {
@@ -606,13 +607,16 @@ function createProjectionTableWithPensionIncreases(
     minIsoDate(alphaAbsDate, settings.showNuvos ? nuvosAbsDate : settings.startDate),
     settings.startDate,
   );
-  const benefitComponents: AlphaBenefitComponent[] = [
-    {
-      amount: settings.accruedPensionAtLastAbs,
-      startDate: alphaAbsDate,
-      portion: "standard",
-    },
-  ];
+  const alphaRevaluationTracker = createAlphaRevaluationTracker({
+    activeUntilDate: accrualStopDate,
+    cpiPercent: getModelledPensionInflationPercent(settings),
+    endDate,
+  });
+  alphaRevaluationTracker.addComponent({
+    amount: settings.accruedPensionAtLastAbs,
+    startDate: alphaAbsDate,
+    portion: "standard",
+  });
   let previousRowDate: string | undefined;
 
   const allRowDates = Array.from(
@@ -651,7 +655,7 @@ function createProjectionTableWithPensionIncreases(
         : 0;
 
     if (monthlyStandardAlphaAccrual > 0) {
-      benefitComponents.push({
+      alphaRevaluationTracker.addComponent({
         amount: monthlyStandardAlphaAccrual,
         startDate: rowDate,
         portion: "standard",
@@ -659,7 +663,7 @@ function createProjectionTableWithPensionIncreases(
     }
 
     if (monthlyEpaAlphaAccrual > 0) {
-      benefitComponents.push({
+      alphaRevaluationTracker.addComponent({
         amount: monthlyEpaAlphaAccrual,
         startDate: rowDate,
         portion: "epa",
@@ -689,7 +693,7 @@ function createProjectionTableWithPensionIncreases(
       : 0;
 
     if (monthlyAddedPension > 0) {
-      benefitComponents.push({
+      alphaRevaluationTracker.addComponent({
         amount: monthlyAddedPension,
         startDate: rowDate,
         portion: "standard",
@@ -697,19 +701,14 @@ function createProjectionTableWithPensionIncreases(
     }
 
     if (lumpSumAddedPension > 0) {
-      benefitComponents.push({
+      alphaRevaluationTracker.addComponent({
         amount: lumpSumAddedPension,
         startDate: rowDate,
         portion: "standard",
       });
     }
 
-    const alphaPortions = calculateRevaluedAlphaPensionPortions({
-      benefitComponents,
-      rowDate,
-      activeUntilDate: accrualStopDate,
-      cpiPercent: getModelledPensionInflationPercent(settings),
-    });
+    const alphaPortions = alphaRevaluationTracker.getPortionsAt(rowDate);
     const annualStandardAlphaPension = alphaPortions.standardAlphaPension;
     const annualEpaAlphaPension = alphaPortions.epaAlphaPension;
     const annualAccruedAlphaPension =
@@ -1215,42 +1214,176 @@ function calculateStartingAlphaPortionsAtStartDate(input: {
   };
 }
 
-function calculateRevaluedAlphaPensionPortions(input: {
-  benefitComponents: AlphaBenefitComponent[];
-  rowDate: string;
+function createAlphaRevaluationTracker(input: {
   activeUntilDate: string;
   cpiPercent: number;
+  endDate: string;
 }) {
-  const { benefitComponents, rowDate, activeUntilDate, cpiPercent } = input;
+  const { activeUntilDate, cpiPercent, endDate } = input;
+  const cpiRate = cpiPercent / 100;
+  const activeRate = cpiRate + ALPHA_IN_SERVICE_REVALUATION_UPLIFT_RATE;
+  const events: AlphaRevaluationEvent[] = [];
+  const totals = {
+    standardAlphaPension: 0,
+    epaAlphaPension: 0,
+  };
 
-  return benefitComponents.reduce(
-    (totals, component) => {
-    const revaluationFactor = calculateAlphaPensionRevaluationFactor({
-      fromDate: component.startDate,
-      rowDate,
-      activeUntilDate,
-      cpiPercent,
-    });
-
-      const revaluedAmount = component.amount * revaluationFactor;
-
-      if (component.portion === "epa") {
-        return {
-          ...totals,
-          epaAlphaPension: totals.epaAlphaPension + revaluedAmount,
-        };
+  return {
+    addComponent(component: {
+      amount: number;
+      startDate: string;
+      portion: AlphaBenefitPortion;
+    }) {
+      if (component.amount <= 0) {
+        return;
       }
 
-      return {
-        ...totals,
-        standardAlphaPension: totals.standardAlphaPension + revaluedAmount,
-      };
+      addAmountToAlphaPortionTotals(totals, component.portion, component.amount);
+      scheduleAlphaRevaluationEvent(events, {
+        amount: component.amount,
+        dueDate: addYears(component.startDate, 1),
+        portion: component.portion,
+      });
     },
-    {
-      standardAlphaPension: 0,
-      epaAlphaPension: 0,
+    getPortionsAt(rowDate: string) {
+      applyDueAlphaRevaluationEvents({
+        events,
+        totals,
+        rowDate,
+        endDate,
+        activeUntilDate,
+        cpiRate,
+        activeRate,
+      });
+
+      return { ...totals };
     },
-  );
+  };
+}
+
+function applyDueAlphaRevaluationEvents(input: {
+  events: AlphaRevaluationEvent[];
+  totals: {
+    standardAlphaPension: number;
+    epaAlphaPension: number;
+  };
+  rowDate: string;
+  endDate: string;
+  activeUntilDate: string;
+  cpiRate: number;
+  activeRate: number;
+}) {
+  const { events, totals, rowDate, endDate, activeUntilDate, cpiRate, activeRate } = input;
+
+  while (events[0] && events[0].dueDate <= rowDate) {
+    const event = popNextAlphaRevaluationEvent(events);
+    const revaluationRate = event.dueDate <= activeUntilDate ? activeRate : cpiRate;
+    const revaluedAmount = event.amount * (1 + revaluationRate);
+    const revaluationIncrease = revaluedAmount - event.amount;
+
+    addAmountToAlphaPortionTotals(totals, event.portion, revaluationIncrease);
+
+    const nextDueDate = addYears(event.dueDate, 1);
+    if (nextDueDate <= endDate) {
+      scheduleAlphaRevaluationEvent(events, {
+        ...event,
+        amount: revaluedAmount,
+        dueDate: nextDueDate,
+      });
+    }
+  }
+}
+
+function addAmountToAlphaPortionTotals(
+  totals: {
+    standardAlphaPension: number;
+    epaAlphaPension: number;
+  },
+  portion: AlphaBenefitPortion,
+  amount: number,
+) {
+  if (portion === "epa") {
+    totals.epaAlphaPension += amount;
+    return;
+  }
+
+  totals.standardAlphaPension += amount;
+}
+
+function scheduleAlphaRevaluationEvent(
+  events: AlphaRevaluationEvent[],
+  event: AlphaRevaluationEvent,
+) {
+  events.push(event);
+  siftAlphaRevaluationEventUp(events, events.length - 1);
+}
+
+function popNextAlphaRevaluationEvent(events: AlphaRevaluationEvent[]) {
+  const nextEvent = events[0];
+  const lastEvent = events.pop();
+
+  if (!nextEvent || !lastEvent) {
+    throw new Error("Cannot pop an Alpha revaluation event from an empty queue.");
+  }
+
+  if (events.length > 0) {
+    events[0] = lastEvent;
+    siftAlphaRevaluationEventDown(events, 0);
+  }
+
+  return nextEvent;
+}
+
+function siftAlphaRevaluationEventUp(events: AlphaRevaluationEvent[], index: number) {
+  let childIndex = index;
+
+  while (childIndex > 0) {
+    const parentIndex = Math.floor((childIndex - 1) / 2);
+
+    if (events[parentIndex].dueDate <= events[childIndex].dueDate) {
+      return;
+    }
+
+    [events[parentIndex], events[childIndex]] = [
+      events[childIndex],
+      events[parentIndex],
+    ];
+    childIndex = parentIndex;
+  }
+}
+
+function siftAlphaRevaluationEventDown(events: AlphaRevaluationEvent[], index: number) {
+  let parentIndex = index;
+
+  while (true) {
+    const leftIndex = parentIndex * 2 + 1;
+    const rightIndex = leftIndex + 1;
+    let earliestIndex = parentIndex;
+
+    if (
+      leftIndex < events.length &&
+      events[leftIndex].dueDate < events[earliestIndex].dueDate
+    ) {
+      earliestIndex = leftIndex;
+    }
+
+    if (
+      rightIndex < events.length &&
+      events[rightIndex].dueDate < events[earliestIndex].dueDate
+    ) {
+      earliestIndex = rightIndex;
+    }
+
+    if (earliestIndex === parentIndex) {
+      return;
+    }
+
+    [events[parentIndex], events[earliestIndex]] = [
+      events[earliestIndex],
+      events[parentIndex],
+    ];
+    parentIndex = earliestIndex;
+  }
 }
 
 
