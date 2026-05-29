@@ -70,10 +70,27 @@ import {
 } from "./settings";
 import { knowledgeLinks } from "./knowledgeLinks";
 import { ModeSelection } from "./app/mode-selection";
-import { JourneySection } from "./app/journey";
-import { ResultsSummarySection } from "./app/results-summary";
-import { ComparisonSection } from "./app/comparison";
-import { ProjectionTableSectionContainer } from "./app/projection-table";
+import {
+  GuidanceNotesToggle as GuidanceNotesToggleFeature,
+  JourneySection,
+} from "./app/journey";
+import {
+  ResultsSummarySection,
+  RetirementIncomeDisplayToggle as RetirementIncomeDisplayToggleFeature,
+  RetirementIncomeSummaryFooter as RetirementIncomeSummaryFooterFeature,
+} from "./app/results-summary";
+import {
+  ComparisonBuilder as ComparisonBuilderFeature,
+  ComparisonSection,
+} from "./app/comparison";
+import {
+  ProjectionTableSection as ProjectionTableSectionFeature,
+  ProjectionTableSectionContainer,
+} from "./app/projection-table";
+import {
+  DateInputFieldEditor as DateInputFieldEditorFeature,
+  useMobileDateDropdowns as useMobileDateDropdownsHook,
+} from "./app/form-fields";
 
 const ACKNOWLEDGEMENT_STORAGE_KEY = "cs-pension-modeller.acknowledgement";
 const ACKNOWLEDGEMENT_VERSION = "v1";
@@ -502,7 +519,7 @@ function App() {
       }
     });
   }, []);
-  const useDropdownDates = useMobileDateDropdowns();
+  const useDropdownDates = useMobileDateDropdownsHook();
   const deferredSettings = useDeferredValue(settings);
   const visibleSettings = settings;
   const validationIssues = useMemo(
@@ -1192,7 +1209,7 @@ function App() {
                         Hidden sections keep their saved values, and guidance notes
                         can be turned off once the controls feel familiar.
                       </p>
-                      <GuidanceNotesToggle
+                      <GuidanceNotesToggleFeature
                         checked={showGuidanceNotes}
                         onChange={setShowGuidanceNotes}
                       />
@@ -1344,7 +1361,7 @@ function App() {
 
         {appMode === "expert" ? (
           <ProjectionTableSectionContainer>
-            <ProjectionTableSection rows={projectionRows} settings={settings} />
+            <ProjectionTableSectionFeature rows={projectionRows} settings={settings} />
           </ProjectionTableSectionContainer>
         ) : null}
       </main>
@@ -1729,8 +1746,8 @@ function ComparisonPanel({
       </DeferredBelowFold>
 
       <DeferredBelowFold estimatedHeight={180}>
-        <ComparisonBuilder
-          scenarios={scenarios}
+        <ComparisonBuilderFeature
+          scenarioCount={scenarios.length}
           actions={scenarioActions}
         />
       </DeferredBelowFold>
@@ -1915,14 +1932,14 @@ function PensionSummarySection({
       description={description}
       items={retirementIncomeItems}
       controls={onRetirementIncomeDisplayChange ? (
-        <RetirementIncomeDisplayToggle
+        <RetirementIncomeDisplayToggleFeature
           value={retirementIncomeDisplay}
           onChange={onRetirementIncomeDisplayChange}
         />
       ) : undefined}
       footer={
         <>
-          <RetirementIncomeSummaryFooter
+          <RetirementIncomeSummaryFooterFeature
             totalLabel={retirementIncomeTitle}
             totalValue={retirementIncomeTotal}
             targetLabel={retirementIncomeTargetTitle}
@@ -2002,7 +2019,7 @@ function ComparisonBridgeChart({
   );
 }
 
-function ComparisonBuilder({
+function _ComparisonBuilder({
   scenarios,
   actions,
 }: {
@@ -3307,7 +3324,7 @@ function formatCapitalPreservation(result: ComparisonResult) {
     : `First depletion at ${formatDecimalAge(score)}`;
 }
 
-function GuidanceNotesToggle({
+function _GuidanceNotesToggle({
   checked,
   onChange,
 }: {
@@ -3434,7 +3451,7 @@ function JourneyFlow({
           <div className="journey-progress" aria-label="Journey progress">
             Step {activeStepIndex + 1} of {visibleSteps.length}
           </div>
-          <GuidanceNotesToggle
+          <GuidanceNotesToggleFeature
             checked={showGuidanceNotes}
             onChange={onShowGuidanceNotesChange}
           />
@@ -4161,7 +4178,7 @@ function InflationBasisPanel({
   );
 }
 
-function RetirementIncomeDisplayToggle({
+function _RetirementIncomeDisplayToggle({
   value,
   onChange,
 }: {
@@ -4202,7 +4219,7 @@ function RetirementIncomeDisplayToggle({
   );
 }
 
-function RetirementIncomeSummaryFooter({
+function _RetirementIncomeSummaryFooter({
   totalLabel,
   totalValue,
   targetLabel,
@@ -5596,7 +5613,7 @@ function DateSettingField({
           }}
         />
       ) : (
-        <DateInputFieldEditor
+        <DateInputFieldEditorFeature
           key={value}
           label={field.label}
           initialValue={value}
@@ -5632,6 +5649,7 @@ function DateSettingField({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function DateInputFieldEditor({
   label,
   initialValue,
@@ -5850,6 +5868,7 @@ const projectionTableColumns: ProjectionTableColumn[] = [
   },
 ] as const;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ProjectionTableSection({ rows, settings }: ProjectionTableProps) {
   const [shouldRenderTable, setShouldRenderTable] = useState(false);
 

@@ -1,0 +1,368 @@
+import type {
+  AddedPensionLumpSum,
+  PensionSettings,
+} from "./settings-types";
+import { defaultSettings } from "./settings-defaults";
+import { inflationNumericSettingRules, normalizeInflationSetting } from "./settings-domains/inflation";
+import {
+  normalizeAddedPensionFactorType,
+  normalizeAddedPensionLumpSums,
+  normalizeAlphaAbsYearValue,
+  normalizeAlphaPensionBooleanSetting,
+} from "./settings-domains/alpha-pension";
+import { normalizeIsaBooleanSetting, normalizeIsaWithdrawalStrategy } from "./settings-domains/isa";
+import {
+  normalizeNuvosBooleanSetting,
+  nuvosNumericSettingRules,
+} from "./settings-domains/nuvos";
+import {
+  normalizePersonalDateSetting,
+  personalDetailsNumericSettingRules,
+} from "./settings-domains/personal-details";
+import { normalizePartialRetirementBooleanSetting } from "./settings-domains/partial-retirement";
+import { normalizeIsoDate } from "./settings-shared/date";
+import {
+  normalizeStatePensionBooleanSetting,
+  normalizeStatePensionDrawDate,
+  statePensionNumericSettingRules,
+} from "./settings-domains/state-pension";
+import {
+  normalizeSippBooleanSetting,
+  normalizeSippTaxReliefRate,
+  normalizeSippWithdrawalStrategy,
+} from "./settings-domains/sipp";
+import {
+  normalizeTaxationBooleanSetting,
+  taxNumericSettingRules,
+} from "./settings-domains/tax";
+import {
+  calculateNormalPensionAge,
+  normalizeAlphaPensionDrawAge,
+  normalizeSippDrawAge,
+  normalizeStatePensionDrawAge,
+} from "./settings-shared/state";
+
+const numericSettingRules = {
+  ...personalDetailsNumericSettingRules,
+  ...inflationNumericSettingRules,
+  ...statePensionNumericSettingRules,
+  partialRetirementStartAge: { min: 40, max: 70, step: 1 },
+  partialRetirementWorkPercent: { min: 0, max: 100, step: 1 },
+  fullSalary: { min: 0, max: 300000, step: 1 },
+  assumedCpiPercent: { min: 0, max: 10, step: 0.1 },
+  alphaAddedPensionMonthly: { min: 0, max: 1000, step: 25 },
+  alphaPensionLeaveAge: { min: 0, max: 70, step: 1 },
+  accruedPensionAtLastAbs: { min: 0, max: 50000, step: 1 },
+  pensionableEarnings: { min: 10000, max: 150000, step: 500 },
+  alphaPensionDrawAge: { min: 55, max: 70, step: 1 },
+  alphaEpaYearsBeforeNpa: { min: 1, max: 3, step: 1 },
+  ...nuvosNumericSettingRules,
+  sippCurrentPot: { min: 0, max: 2_000_000, step: 1 },
+  sippMonthlyContribution: { min: 0, max: 5000, step: 25 },
+  sippDrawAge: { min: 55, max: 70, step: 1 },
+  sippRealInterestPercent: { min: -10, max: 10, step: 0.1 },
+  sippWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
+  sippWithdrawalTargetAge: { min: 55, max: 100, step: 1 },
+  isaCurrentPot: { min: 0, max: 2_000_000, step: 1 },
+  isaMonthlyContribution: { min: 0, max: 5000, step: 25 },
+  isaDrawAge: { min: 0, max: 70, step: 1 },
+  isaRealInterestPercent: { min: -10, max: 10, step: 0.1 },
+  isaWithdrawalPercent: { min: 0, max: 15, step: 0.1 },
+  isaWithdrawalTargetAge: { min: 0, max: 100, step: 1 },
+  ...taxNumericSettingRules,
+} as const;
+
+type NumericSettingKey = keyof typeof numericSettingRules;
+
+const numericSettingDefaults: Record<NumericSettingKey, number> = {
+  lifeExpectancy: defaultSettings.lifeExpectancy,
+  requirementAge: defaultSettings.requirementAge,
+  inflationRateAnnual: defaultSettings.inflationRateAnnual,
+  currentStatePension: defaultSettings.currentStatePension,
+  desiredRetirementIncome: defaultSettings.desiredRetirementIncome,
+  statePensionCpiPercent: defaultSettings.statePensionCpiPercent,
+  statePensionWageGrowthPercent: defaultSettings.statePensionWageGrowthPercent,
+  partialRetirementStartAge: defaultSettings.partialRetirementStartAge,
+  partialRetirementWorkPercent: defaultSettings.partialRetirementWorkPercent,
+  fullSalary: defaultSettings.fullSalary,
+  assumedCpiPercent: defaultSettings.assumedCpiPercent,
+  alphaAddedPensionMonthly: defaultSettings.alphaAddedPensionMonthly,
+  alphaPensionLeaveAge: defaultSettings.alphaPensionLeaveAge,
+  accruedPensionAtLastAbs: defaultSettings.accruedPensionAtLastAbs,
+  pensionableEarnings: defaultSettings.pensionableEarnings,
+  alphaPensionDrawAge: defaultSettings.alphaPensionDrawAge,
+  alphaEpaYearsBeforeNpa: defaultSettings.alphaEpaYearsBeforeNpa,
+  nuvosAccruedPensionAtLastAbs: defaultSettings.nuvosAccruedPensionAtLastAbs,
+  nuvosPensionableEarnings: defaultSettings.nuvosPensionableEarnings,
+  nuvosPensionLeaveAge: defaultSettings.nuvosPensionLeaveAge,
+  nuvosPensionDrawAge: defaultSettings.nuvosPensionDrawAge,
+  nuvosAssumedCpiPercent: defaultSettings.nuvosAssumedCpiPercent,
+  sippCurrentPot: defaultSettings.sippCurrentPot,
+  sippMonthlyContribution: defaultSettings.sippMonthlyContribution,
+  sippDrawAge: defaultSettings.sippDrawAge,
+  sippRealInterestPercent: defaultSettings.sippRealInterestPercent,
+  sippWithdrawalPercent: defaultSettings.sippWithdrawalPercent,
+  sippWithdrawalTargetAge: defaultSettings.sippWithdrawalTargetAge,
+  isaCurrentPot: defaultSettings.isaCurrentPot,
+  isaMonthlyContribution: defaultSettings.isaMonthlyContribution,
+  isaDrawAge: defaultSettings.isaDrawAge,
+  isaRealInterestPercent: defaultSettings.isaRealInterestPercent,
+  isaWithdrawalPercent: defaultSettings.isaWithdrawalPercent,
+  isaWithdrawalTargetAge: defaultSettings.isaWithdrawalTargetAge,
+  taxPersonalAllowance: defaultSettings.taxPersonalAllowance,
+  taxPersonalAllowanceTaperThreshold: defaultSettings.taxPersonalAllowanceTaperThreshold,
+  taxBasicRateLimit: defaultSettings.taxBasicRateLimit,
+  taxAdditionalRateThreshold: defaultSettings.taxAdditionalRateThreshold,
+  taxBasicRatePercent: defaultSettings.taxBasicRatePercent,
+  taxHigherRatePercent: defaultSettings.taxHigherRatePercent,
+  taxAdditionalRatePercent: defaultSettings.taxAdditionalRatePercent,
+  taxSippTaxFreeWithdrawalPercent: defaultSettings.taxSippTaxFreeWithdrawalPercent,
+};
+
+const decimalAgeSettingKeys: readonly NumericSettingKey[] = [
+  "lifeExpectancy",
+  "requirementAge",
+  "partialRetirementStartAge",
+  "alphaPensionLeaveAge",
+  "alphaPensionDrawAge",
+  "nuvosPensionLeaveAge",
+  "nuvosPensionDrawAge",
+  "sippDrawAge",
+  "sippWithdrawalTargetAge",
+  "isaDrawAge",
+  "isaWithdrawalTargetAge",
+];
+
+function normalizeNumericSetting(key: NumericSettingKey, value: unknown) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return numericSettingDefaults[key];
+  }
+
+  const { min, max, step } = numericSettingRules[key];
+  const clamped = Math.min(max, Math.max(min, parsed));
+
+  if (step !== 1 || decimalAgeSettingKeys.includes(key)) {
+    return clamped;
+  }
+
+  const snapped = Math.round((clamped - min) / step) * step + min;
+
+  return Math.min(max, Math.max(min, snapped));
+}
+
+// eslint-disable-next-line sonarjs/cyclomatic-complexity
+export function normalizeSetting<K extends keyof PensionSettings>(
+  key: K,
+  value: PensionSettings[K],
+): PensionSettings[K] {
+  switch (key) {
+    case "startDate":
+    case "dateOfBirth":
+      return normalizePersonalDateSetting(
+        key,
+        value as string,
+        normalizeIsoDate,
+      ) as PensionSettings[K];
+    case "statePensionDrawDate":
+      return normalizeIsoDate(
+        value as string,
+        defaultSettings.statePensionDrawDate,
+      ) as PensionSettings[K];
+    case "applyPensionIncreases":
+    case "showAlpha":
+    case "alphaEpaEnabled":
+      return normalizeAlphaPensionBooleanSetting(value) as PensionSettings[K];
+    case "showNuvos":
+      return normalizeNuvosBooleanSetting(value) as PensionSettings[K];
+    case "showStatePension":
+      return normalizeStatePensionBooleanSetting(value) as PensionSettings[K];
+    case "taxationEnabled":
+      return normalizeTaxationBooleanSetting(value) as PensionSettings[K];
+    case "partialRetirementEnabled":
+      return normalizePartialRetirementBooleanSetting(value) as PensionSettings[K];
+    case "showSipp":
+    case "sippApplyRealInterest":
+      return normalizeSippBooleanSetting(value) as PensionSettings[K];
+    case "showIsa":
+    case "isaApplyRealInterest":
+      return normalizeIsaBooleanSetting(value) as PensionSettings[K];
+    case "statePensionApplyFutureGrowth":
+      return normalizeStatePensionBooleanSetting(value) as PensionSettings[K];
+    case "nuvosApplyPensionIncreases":
+      return normalizeNuvosBooleanSetting(value) as PensionSettings[K];
+    case "projectionBasis":
+    case "inflationRateAnnual":
+      return normalizeInflationSetting(
+        key,
+        value,
+        normalizeNumericSetting,
+      ) as PensionSettings[K];
+    case "sippTaxReliefRate":
+      return normalizeSippTaxReliefRate(value) as PensionSettings[K];
+    case "alphaAddedPensionFactorType":
+      return normalizeAddedPensionFactorType(value) as PensionSettings[K];
+    case "sippWithdrawalStrategy":
+      return normalizeSippWithdrawalStrategy(value) as PensionSettings[K];
+    case "isaWithdrawalStrategy":
+      return normalizeIsaWithdrawalStrategy(value) as PensionSettings[K];
+    case "alphaEpaStartDate":
+    case "alphaEpaEndDate":
+      return normalizeIsoDate(value as string, defaultSettings[key] as string) as PensionSettings[K];
+    case "alphaPensionAbsDate":
+    case "nuvosPensionAbsDate":
+      return normalizeAlphaAbsYearValue(
+        value as string,
+        defaultSettings[key] as string,
+      ) as PensionSettings[K];
+    case "alphaAddedPensionLumpSums":
+      return normalizeAddedPensionLumpSums(
+        value as AddedPensionLumpSum[],
+        { includeFactorType: true },
+      ) as PensionSettings[K];
+    case "isaLumpSums":
+    case "sippLumpSums":
+      return normalizeAddedPensionLumpSums(value as AddedPensionLumpSum[]) as PensionSettings[K];
+    default:
+      return normalizeNumericSetting(key as NumericSettingKey, value) as PensionSettings[K];
+  }
+}
+
+export function normalizeSettings(settings: PensionSettings): PensionSettings {
+  const dateOfBirth = normalizeSetting("dateOfBirth", settings.dateOfBirth);
+  const requirementAge = normalizeSetting("requirementAge", settings.requirementAge);
+
+  return {
+    startDate: normalizeSetting("startDate", settings.startDate),
+    dateOfBirth,
+    lifeExpectancy: normalizeSetting("lifeExpectancy", settings.lifeExpectancy),
+    requirementAge,
+    normalPensionAge: calculateNormalPensionAge(dateOfBirth),
+    showAlpha: settings.showAlpha !== false,
+    projectionBasis: normalizeSetting("projectionBasis", settings.projectionBasis),
+    inflationRateAnnual: normalizeSetting("inflationRateAnnual", settings.inflationRateAnnual),
+    showNuvos: normalizeNuvosBooleanSetting(settings.showNuvos),
+    showStatePension: normalizeStatePensionBooleanSetting(settings.showStatePension),
+    showSipp: Boolean(settings.showSipp),
+    showIsa: Boolean(settings.showIsa),
+    taxationEnabled: normalizeTaxationBooleanSetting(settings.taxationEnabled),
+    partialRetirementEnabled: Boolean(settings.partialRetirementEnabled),
+    partialRetirementStartAge: normalizeSetting(
+      "partialRetirementStartAge",
+      settings.partialRetirementStartAge,
+    ),
+    partialRetirementWorkPercent: normalizeSetting(
+      "partialRetirementWorkPercent",
+      settings.partialRetirementWorkPercent,
+    ),
+    fullSalary: normalizeSetting("fullSalary", settings.fullSalary),
+    currentStatePension: normalizeSetting("currentStatePension", settings.currentStatePension),
+    desiredRetirementIncome: normalizeSetting(
+      "desiredRetirementIncome",
+      settings.desiredRetirementIncome,
+    ),
+    statePensionDrawDate: normalizeStatePensionDrawDate(settings.statePensionDrawDate, dateOfBirth),
+    statePensionApplyFutureGrowth: normalizeStatePensionBooleanSetting(
+      settings.statePensionApplyFutureGrowth,
+    ),
+    statePensionCpiPercent: normalizeSetting("statePensionCpiPercent", settings.statePensionCpiPercent),
+    statePensionWageGrowthPercent: normalizeSetting(
+      "statePensionWageGrowthPercent",
+      settings.statePensionWageGrowthPercent,
+    ),
+    applyPensionIncreases: Boolean(settings.applyPensionIncreases),
+    assumedCpiPercent: normalizeSetting("assumedCpiPercent", settings.assumedCpiPercent),
+    alphaPensionAbsDate: normalizeSetting("alphaPensionAbsDate", settings.alphaPensionAbsDate),
+    alphaAddedPensionMonthly: normalizeSetting(
+      "alphaAddedPensionMonthly",
+      settings.alphaAddedPensionMonthly,
+    ),
+    alphaAddedPensionFactorType: normalizeSetting(
+      "alphaAddedPensionFactorType",
+      settings.alphaAddedPensionFactorType,
+    ),
+    alphaPensionLeaveAge: normalizeSetting("alphaPensionLeaveAge", settings.alphaPensionLeaveAge),
+    accruedPensionAtLastAbs: normalizeSetting("accruedPensionAtLastAbs", settings.accruedPensionAtLastAbs),
+    pensionableEarnings: normalizeSetting("pensionableEarnings", settings.pensionableEarnings),
+    alphaPensionDrawAge: normalizeAlphaPensionDrawAge(settings.alphaPensionDrawAge, dateOfBirth),
+    alphaEpaEnabled: Boolean(settings.alphaEpaEnabled),
+    alphaEpaYearsBeforeNpa: normalizeSetting("alphaEpaYearsBeforeNpa", settings.alphaEpaYearsBeforeNpa),
+    alphaEpaStartDate: normalizeSetting("alphaEpaStartDate", settings.alphaEpaStartDate),
+    alphaEpaEndDate: normalizeSetting("alphaEpaEndDate", settings.alphaEpaEndDate),
+    alphaAddedPensionLumpSums: normalizeSetting(
+      "alphaAddedPensionLumpSums",
+      settings.alphaAddedPensionLumpSums,
+    ),
+    nuvosPensionAbsDate: normalizeSetting("nuvosPensionAbsDate", settings.nuvosPensionAbsDate),
+    nuvosAccruedPensionAtLastAbs: normalizeSetting(
+      "nuvosAccruedPensionAtLastAbs",
+      settings.nuvosAccruedPensionAtLastAbs,
+    ),
+    nuvosPensionableEarnings: normalizeSetting(
+      "nuvosPensionableEarnings",
+      settings.nuvosPensionableEarnings,
+    ),
+    nuvosPensionLeaveAge: normalizeSetting("nuvosPensionLeaveAge", settings.nuvosPensionLeaveAge),
+    nuvosPensionDrawAge: normalizeSetting("nuvosPensionDrawAge", settings.nuvosPensionDrawAge),
+    nuvosApplyPensionIncreases: normalizeNuvosBooleanSetting(
+      settings.nuvosApplyPensionIncreases,
+    ),
+    nuvosAssumedCpiPercent: normalizeSetting("nuvosAssumedCpiPercent", settings.nuvosAssumedCpiPercent),
+    sippCurrentPot: normalizeSetting("sippCurrentPot", settings.sippCurrentPot),
+    sippMonthlyContribution: normalizeSetting("sippMonthlyContribution", settings.sippMonthlyContribution),
+    sippDrawAge: normalizeSippDrawAge(settings.sippDrawAge, dateOfBirth),
+    sippLumpSums: normalizeSetting("sippLumpSums", settings.sippLumpSums),
+    sippApplyRealInterest: Boolean(settings.sippApplyRealInterest),
+    sippRealInterestPercent: normalizeSetting("sippRealInterestPercent", settings.sippRealInterestPercent),
+    sippTaxReliefRate: normalizeSetting("sippTaxReliefRate", settings.sippTaxReliefRate),
+    sippWithdrawalStrategy: normalizeSetting("sippWithdrawalStrategy", settings.sippWithdrawalStrategy),
+    sippWithdrawalPercent: normalizeSetting("sippWithdrawalPercent", settings.sippWithdrawalPercent),
+    sippWithdrawalTargetAge: normalizeSetting(
+      "sippWithdrawalTargetAge",
+      settings.sippWithdrawalTargetAge,
+    ),
+    isaCurrentPot: normalizeSetting("isaCurrentPot", settings.isaCurrentPot),
+    isaMonthlyContribution: normalizeSetting("isaMonthlyContribution", settings.isaMonthlyContribution),
+    isaDrawAge: normalizeSetting("isaDrawAge", requirementAge),
+    isaLumpSums: normalizeSetting("isaLumpSums", settings.isaLumpSums),
+    isaApplyRealInterest: Boolean(settings.isaApplyRealInterest),
+    isaRealInterestPercent: normalizeSetting("isaRealInterestPercent", settings.isaRealInterestPercent),
+    isaWithdrawalStrategy: normalizeSetting("isaWithdrawalStrategy", settings.isaWithdrawalStrategy),
+    isaWithdrawalPercent: normalizeSetting("isaWithdrawalPercent", settings.isaWithdrawalPercent),
+    isaWithdrawalTargetAge: normalizeSetting(
+      "isaWithdrawalTargetAge",
+      settings.isaWithdrawalTargetAge,
+    ),
+    taxPersonalAllowance: normalizeSetting("taxPersonalAllowance", settings.taxPersonalAllowance),
+    taxPersonalAllowanceTaperThreshold: normalizeSetting(
+      "taxPersonalAllowanceTaperThreshold",
+      settings.taxPersonalAllowanceTaperThreshold,
+    ),
+    taxBasicRateLimit: normalizeSetting("taxBasicRateLimit", settings.taxBasicRateLimit),
+    taxAdditionalRateThreshold: normalizeSetting(
+      "taxAdditionalRateThreshold",
+      settings.taxAdditionalRateThreshold,
+    ),
+    taxBasicRatePercent: normalizeSetting("taxBasicRatePercent", settings.taxBasicRatePercent),
+    taxHigherRatePercent: normalizeSetting("taxHigherRatePercent", settings.taxHigherRatePercent),
+    taxAdditionalRatePercent: normalizeSetting(
+      "taxAdditionalRatePercent",
+      settings.taxAdditionalRatePercent,
+    ),
+    taxSippTaxFreeWithdrawalPercent: normalizeSetting(
+      "taxSippTaxFreeWithdrawalPercent",
+      settings.taxSippTaxFreeWithdrawalPercent,
+    ),
+  };
+}
+
+export {
+  normalizeAlphaPensionDrawAge,
+  normalizeSippDrawAge,
+  normalizeStatePensionDrawDate,
+  normalizeStatePensionDrawAge,
+  normalizeSippTaxReliefRate,
+  normalizeSippWithdrawalStrategy,
+  normalizeIsaWithdrawalStrategy,
+};
