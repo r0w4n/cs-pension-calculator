@@ -391,15 +391,17 @@ describe("App settings form", () => {
     vi.useRealTimers();
   });
 
-  it("starts in the simple early retirement journey after the notice", () => {
+  it("shows the journey chooser without opening a journey after the notice", () => {
     renderAcknowledgedApp({ mode: null });
 
     expect(
-      screen.getByRole("heading", { name: "Simplified retirement journey" }),
+      screen.getByRole("heading", { name: "Choose the level of detail" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Your retirement assumptions" }),
+      screen.queryByRole("heading", { name: "Simplified retirement journey" }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Work out what I need to retire early" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Your retirement assumptions" })).not.toBeInTheDocument();
   });
 
   it("saves the selected modeller mode locally", () => {

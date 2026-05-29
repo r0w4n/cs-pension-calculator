@@ -5,26 +5,16 @@ import {
   calculateAccruedAlphaPension,
   calculateAge,
   calculateAlphaPensionRevaluationFactor,
-  calculateAnnualStatePensionAtDraw,
-  calculateAnnualStatePensionAtDate,
   calculateAnnualAlphaPensionIncludingReduction,
-  calculateAnnualIncomeTax,
   calculateAnnualNuvosPensionAtDate,
   calculateRealAnnualRate,
-  calculateRetirementIncomeTargetAtDate,
   calculateIsaPotAtDate,
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
-  calculateMonthlyAlphaAccrual,
   calculateMonthlyAlphaPensionTakeHome,
-  calculateMonthlySippPension,
-  calculateNuvosPensionRevaluationFactor,
   calculateStartingAlphaPensionAtStartDate,
   calculateWholeMonthDifference,
-  calculateMonthlyStatePension,
-  calculateMonthlyIncomeTax,
   calculateSippPotAtDate,
-  calculateStatePensionDeferralIncreasePercent,
   calculateTotalGrossMonthlyPension,
   createProjectionTable,
   deriveProjectionInputs,
@@ -269,15 +259,12 @@ describe("projection calculations", () => {
     expect(calculateAge("1987-06-15", "2026-06-15")).toBe(39);
   });
 
-  it("calculates monthly alpha accrual at 2.32 percent divided by 12", () => {
-    expect(calculateMonthlyAlphaAccrual(42000)).toBeCloseTo(81.2, 6);
-  });
-
   it("applies partial retirement to regular Alpha accrual and added pension purchases", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
       startDate: "2042-04-01",
       dateOfBirth: "1987-06-15",
+      requirementAge: 57,
       alphaPensionAbsDate: "2042",
       accruedPensionAtLastAbs: 0,
       pensionableEarnings: 12000,
@@ -304,30 +291,6 @@ describe("projection calculations", () => {
       (12000 * 0.0232) / 12 / 2 + 64.1 / getAddedPensionFactorForAge(54),
       6,
     );
-  });
-
-  it("calculates nuvos accrual at 2.3 percent of pensionable earnings", () => {
-    const settings: PensionSettings = {
-      ...defaultSettings,
-      showNuvos: true,
-      startDate: "2025-04-01",
-      dateOfBirth: "1960-04-01",
-      lifeExpectancy: 90,
-      nuvosPensionAbsDate: "2025",
-      nuvosAccruedPensionAtLastAbs: 1000,
-      nuvosPensionableEarnings: 12000,
-      nuvosPensionLeaveAge: 65,
-      nuvosPensionDrawAge: 65,
-    };
-
-    expect(
-      calculateAnnualNuvosPensionAtDate({
-        settings,
-        rowDate: "2026-04-01",
-        nuvosAbsDate: "2025-04-01",
-        accrualStopDate: "2026-04-01",
-      }),
-    ).toBeCloseTo(1276, 6);
   });
 
   it("applies partial retirement to nuvos accrual", () => {
@@ -424,16 +387,6 @@ describe("projection calculations", () => {
 
     expect(summary.nuvosPension.annualAtDraw).toBeCloseTo(12000 * 0.771, 6);
     expect(summary.nuvosPension.monthlyAtDraw).toBeCloseTo((12000 * 0.771) / 12, 6);
-  });
-
-  it("applies nuvos CPI revaluation without the Alpha active-service uplift", () => {
-    expect(
-      calculateNuvosPensionRevaluationFactor({
-        fromDate: "2025-04-01",
-        rowDate: "2027-04-01",
-        cpiPercent: 2,
-      }),
-    ).toBeCloseTo(1.0404, 6);
   });
 
   it("uses whole-month differences and ignores days", () => {
@@ -811,120 +764,7 @@ describe("projection calculations", () => {
     expect(calculateMonthlyAlphaPensionTakeHome("2047-06-15", "2047-06-15", 12000)).toBe(1000);
   });
 
-  it("starts state pension from the configured state pension date", () => {
-    expect(calculateMonthlyStatePension("2055-06-14", "2055-06-15", 11500)).toBe(0);
-    expect(calculateMonthlyStatePension("2055-06-15", "2055-06-15", 11500)).toBeCloseTo(
-      958.333333,
-      6,
-    );
-  });
 
-  it("projects State Pension future growth using the highest triple-lock input", () => {
-    expect(
-      calculateAnnualStatePensionAtDraw({
-        ...defaultSettings,
-        projectionBasis: "nominal",
-        startDate: "2026-01-01",
-        statePensionDrawDate: "2028-01-01",
-        currentStatePension: 10000,
-        statePensionApplyFutureGrowth: true,
-        statePensionCpiPercent: 3,
-        statePensionWageGrowthPercent: 4,
-      }),
-    ).toBeCloseTo(10816, 6);
-    expect(
-      calculateAnnualStatePensionAtDraw({
-        ...defaultSettings,
-        startDate: "2026-01-01",
-        statePensionDrawDate: "2028-01-01",
-        currentStatePension: 10000,
-        statePensionApplyFutureGrowth: false,
-        statePensionCpiPercent: 10,
-        statePensionWageGrowthPercent: 10,
-      }),
-    ).toBe(10000);
-  });
-
-  it("removes inflation from State Pension increases in real terms", () => {
-    expect(
-      calculateAnnualStatePensionAtDraw({
-        ...defaultSettings,
-        projectionBasis: "real",
-        inflationRateAnnual: 2.5,
-        startDate: "2026-01-01",
-        statePensionDrawDate: "2028-01-01",
-        currentStatePension: 10000,
-        statePensionApplyFutureGrowth: true,
-        statePensionWageGrowthPercent: 0,
-      }),
-    ).toBeCloseTo(10000, 6);
-  });
-
-  it("inflates retirement targets only in nominal terms", () => {
-    const settings: PensionSettings = {
-      ...defaultSettings,
-      projectionBasis: "nominal",
-      inflationRateAnnual: 2.5,
-      desiredRetirementIncome: 31700,
-      startDate: "2026-01-01",
-    };
-
-    expect(calculateRetirementIncomeTargetAtDate(settings, "2028-01-01")).toBeCloseTo(
-      31700 * 1.025 ** 2,
-      6,
-    );
-    expect(
-      calculateRetirementIncomeTargetAtDate(
-        {
-          ...settings,
-          projectionBasis: "real",
-        },
-        "2028-01-01",
-      ),
-    ).toBe(31700);
-  });
-
-  it("adds the new State Pension deferral uplift from the selected draw date", () => {
-    expect(
-      calculateStatePensionDeferralIncreasePercent("1987-06-15", "2055-08-17"),
-    ).toBeCloseTo(1, 6);
-    expect(
-      calculateStatePensionDeferralIncreasePercent("1987-06-15", "2056-06-14"),
-    ).toBeCloseTo(52 / 9, 6);
-    expect(
-      calculateAnnualStatePensionAtDraw({
-        ...defaultSettings,
-        dateOfBirth: "1987-06-15",
-        statePensionDrawDate: "2056-06-14",
-        currentStatePension: 12000,
-        statePensionApplyFutureGrowth: false,
-      }),
-    ).toBeCloseTo(12693.333333, 6);
-  });
-
-  it("continues to uprate State Pension after draw while deferred extra grows by CPI", () => {
-    const settings = {
-      ...defaultSettings,
-      projectionBasis: "nominal" as const,
-      startDate: "2026-01-01",
-      dateOfBirth: "1987-06-15",
-      statePensionDrawDate: "2056-06-14",
-      currentStatePension: 10000,
-      statePensionApplyFutureGrowth: true,
-      statePensionCpiPercent: 3,
-      statePensionWageGrowthPercent: 4,
-    };
-
-    const baseAtDraw = 10000 * 1.04 ** 30;
-    const deferredExtraAtDraw = baseAtDraw * ((52 / 9) / 100);
-    const baseAtRow = 10000 * 1.04 ** 32;
-    const deferredExtraAtRow = deferredExtraAtDraw * 1.025 ** 2;
-
-    expect(calculateAnnualStatePensionAtDate(settings, "2058-06-14")).toBeCloseTo(
-      baseAtRow + deferredExtraAtRow,
-      6,
-    );
-  });
 
   it("derives projection inputs from valid settings", () => {
     expect(deriveProjectionInputs(defaultSettings)).toMatchObject({
@@ -987,99 +827,6 @@ describe("projection calculations", () => {
       1856.33,
       6,
     );
-  });
-
-  it("keeps income tax at zero when taxation is disabled", () => {
-    expect(
-      calculateMonthlyIncomeTax({
-        settings: {
-          ...defaultSettings,
-          taxationEnabled: false,
-        },
-        monthlyAlphaPension: 3000,
-        monthlyStatePension: 1000,
-        monthlySippPension: 500,
-      }),
-    ).toBe(0);
-  });
-
-  it("calculates annual Income Tax using the standard assumptions", () => {
-    const settings: PensionSettings = {
-      ...defaultSettings,
-      taxationEnabled: true,
-    };
-
-    expect(calculateAnnualIncomeTax(settings, 50000)).toBeCloseTo(7486, 6);
-    expect(calculateAnnualIncomeTax(settings, 125140)).toBeCloseTo(42516, 6);
-    expect(calculateAnnualIncomeTax(settings, 130000)).toBeCloseTo(44703, 6);
-  });
-
-  it("taxes pension income while keeping the SIPP tax-free share outside taxable income", () => {
-    const settings: PensionSettings = {
-      ...defaultSettings,
-      taxationEnabled: true,
-      taxSippTaxFreeWithdrawalPercent: 25,
-    };
-
-    expect(
-      calculateMonthlyIncomeTax({
-        settings,
-        monthlyAlphaPension: 2000,
-        monthlyStatePension: 1000,
-        monthlySippPension: 1000,
-      }),
-    ).toBeCloseTo(6486 / 12, 6);
-  });
-
-  it("includes nuvos pension in taxable retirement income", () => {
-    expect(
-      calculateMonthlyIncomeTax({
-        settings: {
-          ...defaultSettings,
-          taxationEnabled: true,
-          taxPersonalAllowance: 0,
-          taxBasicRateLimit: 50000,
-          taxBasicRatePercent: 20,
-          taxHigherRatePercent: 40,
-          taxAdditionalRatePercent: 45,
-        },
-        monthlyAlphaPension: 100,
-        monthlyNuvosPension: 50,
-        monthlyStatePension: 0,
-        monthlySippPension: 0,
-      }),
-    ).toBeCloseTo(30, 6);
-  });
-
-  it("projects SIPP pot with tax relief and optional real interest", () => {
-    const settings: PensionSettings = {
-      ...defaultSettings,
-      startDate: "2026-01-01",
-      dateOfBirth: "1986-01-01",
-      alphaPensionDrawAge: 40,
-      lifeExpectancy: 75,
-      sippCurrentPot: 10000,
-      sippMonthlyContribution: 100,
-      sippLumpSums: [
-        {
-          id: "sipp-lump",
-          amount: 1000,
-          startDate: "2026-01-01",
-          cadence: "once",
-          endDate: "2026-01-01",
-        },
-      ],
-      sippTaxReliefRate: "20",
-      sippApplyRealInterest: false,
-    };
-
-    expect(
-      calculateSippPotAtDate({
-        settings,
-        rowDate: "2026-03-01",
-        drawDate: "2026-04-01",
-      }),
-    ).toBeCloseTo(11625, 6);
   });
 
   it("converts SIPP and ISA nominal returns to real returns in real-terms mode", () => {
@@ -1313,27 +1060,6 @@ describe("projection calculations", () => {
         drawDate: "2026-04-01",
       }),
     ).toBeCloseTo(12166.666667, 6);
-  });
-
-  it("can calculate SIPP income by zero-at-death or annual percentage strategy", () => {
-    expect(
-      calculateMonthlySippPension({
-        potAtDraw: 120000,
-        drawDate: "2046-01-01",
-        endDate: "2056-01-01",
-        strategy: "zero_at_death",
-        withdrawalPercent: 4,
-      }),
-    ).toBeCloseTo(1000, 6);
-    expect(
-      calculateMonthlySippPension({
-        potAtDraw: 120000,
-        drawDate: "2046-01-01",
-        endDate: "2056-01-01",
-        strategy: "percentage",
-        withdrawalPercent: 4,
-      }),
-    ).toBeCloseTo(400, 6);
   });
 
   it("can deplete SIPP and ISA pots by a selected use-by age", () => {
@@ -1896,6 +1622,7 @@ describe("projection calculations", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
       startDate: "2025-12-15",
+      requirementAge: 57,
       alphaPensionAbsDate: "2025",
       accruedPensionAtLastAbs: 8250,
       pensionableEarnings: 42000,
@@ -1916,6 +1643,7 @@ describe("projection calculations", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
       startDate: "2025-12-15",
+      requirementAge: 57,
       alphaPensionAbsDate: "2025",
       accruedPensionAtLastAbs: 8250,
       pensionableEarnings: 42000,

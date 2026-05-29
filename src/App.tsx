@@ -69,6 +69,11 @@ import {
   type PensionValidationIssue,
 } from "./settings";
 import { knowledgeLinks } from "./knowledgeLinks";
+import { ModeSelection } from "./app/mode-selection";
+import { JourneySection } from "./app/journey";
+import { ResultsSummarySection } from "./app/results-summary";
+import { ComparisonSection } from "./app/comparison";
+import { ProjectionTableSectionContainer } from "./app/projection-table";
 
 const ACKNOWLEDGEMENT_STORAGE_KEY = "cs-pension-modeller.acknowledgement";
 const ACKNOWLEDGEMENT_VERSION = "v1";
@@ -1063,11 +1068,11 @@ function App() {
             </p>
           </div>
 
-          <ModeSelectionPanel selectedMode={appMode} onSelectMode={selectAppMode} />
+          <ModeSelection selectedMode={appMode} onSelectMode={selectAppMode} />
         </section>
 
         {appMode === "bridge" ? (
-          <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
+          <JourneySection activeModeRef={activeModeRef}>
             <JourneyFlow
               key="early-retirement-bridge"
               journey={JOURNEY_DEFINITIONS[0]}
@@ -1099,11 +1104,11 @@ function App() {
               showGuidanceNotes={showGuidanceNotes}
               onShowGuidanceNotesChange={setShowGuidanceNotes}
             />
-          </div>
+          </JourneySection>
         ) : null}
 
         {appMode === "simple" ? (
-          <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
+          <JourneySection activeModeRef={activeModeRef}>
             <JourneyFlow
               key="simple-early-retirement"
               journey={JOURNEY_DEFINITIONS[1]}
@@ -1135,26 +1140,28 @@ function App() {
               showGuidanceNotes={showGuidanceNotes}
               onShowGuidanceNotesChange={setShowGuidanceNotes}
             />
-          </div>
+          </JourneySection>
         ) : null}
 
         {appMode === "expert" ? (
-          <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
-            <PensionSummarySection
-              activeResult={currentComparisonResult}
-              headingLevel={2}
-              description="This summary is generated from the current calculation result, so the same structure can later support side-by-side scenario comparisons."
-              retirementIncomeDisplay={retirementIncomeDisplay}
-              onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
-              retirementIncomeItems={retirementIncomeItems}
-              retirementIncomeTitle={retirementIncomeTitle}
-              retirementIncomeTotal={retirementIncomeTotal}
-              retirementIncomeTargetTitle={retirementIncomeTargetTitle}
-              retirementIncomeTarget={retirementIncomeTarget}
-              statusItems={currentComparisonResult ? buildComparisonStatusItems(currentComparisonResult) : []}
-              showLimitations={showLimitations}
-              onToggleLimitations={() => setShowLimitations((current) => !current)}
-            />
+          <JourneySection activeModeRef={activeModeRef}>
+            <ResultsSummarySection>
+              <PensionSummarySection
+                activeResult={currentComparisonResult}
+                headingLevel={2}
+                description="This summary is generated from the current calculation result, so the same structure can later support side-by-side scenario comparisons."
+                retirementIncomeDisplay={retirementIncomeDisplay}
+                onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
+                retirementIncomeItems={retirementIncomeItems}
+                retirementIncomeTitle={retirementIncomeTitle}
+                retirementIncomeTotal={retirementIncomeTotal}
+                retirementIncomeTargetTitle={retirementIncomeTargetTitle}
+                retirementIncomeTarget={retirementIncomeTarget}
+                statusItems={currentComparisonResult ? buildComparisonStatusItems(currentComparisonResult) : []}
+                showLimitations={showLimitations}
+                onToggleLimitations={() => setShowLimitations((current) => !current)}
+              />
+            </ResultsSummarySection>
 
             <section className="layout">
               <section className="panel settings-panel">
@@ -1319,22 +1326,26 @@ function App() {
               {...bridgeChartParameters}
             />
 
-          </div>
+          </JourneySection>
         ) : null}
 
         {appMode === "expert" ? (
-          <ComparisonPanel
-            settings={settings}
-            validationIssues={validationIssues}
-            scenarios={comparisonScenarios}
-            comparisonResultCache={comparisonResultCache}
-            onScenariosChange={setComparisonScenarios}
-            onLoadScenario={loadComparisonScenario}
-          />
+          <ComparisonSection>
+            <ComparisonPanel
+              settings={settings}
+              validationIssues={validationIssues}
+              scenarios={comparisonScenarios}
+              comparisonResultCache={comparisonResultCache}
+              onScenariosChange={setComparisonScenarios}
+              onLoadScenario={loadComparisonScenario}
+            />
+          </ComparisonSection>
         ) : null}
 
         {appMode === "expert" ? (
-          <ProjectionTableSection rows={projectionRows} settings={settings} />
+          <ProjectionTableSectionContainer>
+            <ProjectionTableSection rows={projectionRows} settings={settings} />
+          </ProjectionTableSectionContainer>
         ) : null}
       </main>
     </GuidanceNotesContext.Provider>
@@ -1343,10 +1354,6 @@ function App() {
   function acknowledgeNotice() {
     setHasAcknowledgedNotice(true);
     writeStorageItem(ACKNOWLEDGEMENT_STORAGE_KEY, ACKNOWLEDGEMENT_VERSION);
-
-    if (appMode === null) {
-      selectAppMode("simple");
-    }
   }
 
 function selectAppMode(mode: AppMode) {
@@ -1367,80 +1374,6 @@ function selectAppMode(mode: AppMode) {
     setAppMode(mode);
     saveStoredAppMode(mode);
   }
-}
-
-type ModeSelectionPanelProps = {
-  selectedMode: AppMode | null;
-  onSelectMode: (mode: AppMode) => void;
-};
-
-function ModeSelectionPanel({
-  selectedMode,
-  onSelectMode,
-}: ModeSelectionPanelProps) {
-  return (
-    <section className="mode-panel" aria-labelledby="mode-selection-title">
-      <div className="panel-heading">
-        <h2 id="mode-selection-title">Choose the level of detail</h2>
-        <p className="section-copy">
-          The simplified journey asks fewer questions and keeps assumptions simple.
-          Switch to expert mode any time if you want every modelling control.
-        </p>
-      </div>
-
-      <div className="mode-card-grid">
-        <button
-          type="button"
-          className={getModeCardClassName(selectedMode === "simple")}
-          aria-pressed={selectedMode === "simple"}
-          onClick={() => onSelectMode("simple")}
-        >
-          <span className="card-label">Simple journey</span>
-          <strong>Simplified retirement journey</strong>
-          <span>
-            Answer a smaller set of questions to see what your retirement could
-            look like financially. This journey keeps the main assumptions simple
-            and shows your projected income, key dates, and funding gaps at the
-            end.
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className={getModeCardClassName(selectedMode === "bridge")}
-          aria-pressed={selectedMode === "bridge"}
-          onClick={() => onSelectMode("bridge")}
-        >
-          <span className="card-label">Early retirement</span>
-          <strong>Work out what I need to retire early</strong>
-          <span>
-            Follow a statement-led flow that closely matches the main Civil Service
-            calculator inputs, then review the full results breakdown.
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className={getModeCardClassName(selectedMode === "expert")}
-          aria-pressed={selectedMode === "expert"}
-          onClick={() => onSelectMode("expert")}
-        >
-          <span className="card-label">Expert mode</span>
-          <strong>Show all settings and unlock full control.</strong>
-          <span>
-            Reveal every assumption, optional section, lump sum, and detailed
-            projection table.
-          </span>
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function getModeCardClassName(isActive: boolean) {
-  return ["mode-card", isActive ? "mode-card--active" : ""]
-    .filter(Boolean)
-    .join(" ");
 }
 
 type ComparisonScenario = {
