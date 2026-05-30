@@ -158,7 +158,8 @@ function CurrencySettingFieldEditor({
   onCommit: (nextValue: number) => number;
 }) {
   const [draftValue, setDraftValue] = useState(initialValue.toString());
-  const showsResetButton = field.id !== "desiredRetirementIncome";
+  const showsResetButton =
+    field.id !== "desiredRetirementIncome" && field.id !== "accruedPensionAtLastAbs";
 
   const commitValue = (nextValue: string) => {
     const parsedValue = Number(nextValue);
