@@ -202,7 +202,6 @@ export function ComparisonPanel({
   );
   const {
     activeResult,
-    hasVisibleShortfall,
     insights,
     resultStatusItems,
     results,
@@ -273,14 +272,7 @@ export function ComparisonPanel({
   }
 
   return (
-    <section className="panel comparison-panel" aria-labelledby="comparison-title">
-      <div className="panel-heading">
-        <p className="eyebrow">Results breakdown</p>
-        <h2 id="comparison-title">Review this result</h2>
-        <p className="section-copy">
-          Review the current model in detail, including retirement timing, secure pension income, bridge funding, and assumptions. Save this result as a scenario when you want to compare it with other retirement options.
-        </p>
-      </div>
+    <section className="panel comparison-panel" aria-label="Comparison results">
 
       <ComparisonPensionSummary
         activeResult={activeResult}
@@ -295,13 +287,6 @@ export function ComparisonPanel({
         showLimitations={showLimitations}
         onToggleLimitations={onToggleLimitations}
       />
-
-      {hasVisibleShortfall ? (
-        <p className="section-copy bridge-shortfall-explainer">
-          The shaded shortfall shows where projected income is below your target
-          before secure pension income is fully in place.
-        </p>
-      ) : null}
 
       <DeferredBelowFold estimatedHeight={420} forceRender={validationIssues.length > 0}>
         <ComparisonBridgeChart

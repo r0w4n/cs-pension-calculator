@@ -147,9 +147,16 @@ export function loadStoredSettings(): PensionSettings {
 }
 
 export function saveSettings(settings: PensionSettings) {
+  const storedSettings = getStoredSettingsSnapshot(settings);
+
+  writeStorageItem(SETTINGS_STORAGE_KEY, JSON.stringify(storedSettings));
+}
+
+export function getStoredSettingsSnapshot(
+  settings: PensionSettings,
+): StoredPensionSettings {
   const normalizedSettings = normalizeSettings(settings);
   const { startDate: _startDate, normalPensionAge: _normalPensionAge, ...storedSettings } =
     normalizedSettings;
-
-  writeStorageItem(SETTINGS_STORAGE_KEY, JSON.stringify(storedSettings));
+  return storedSettings;
 }

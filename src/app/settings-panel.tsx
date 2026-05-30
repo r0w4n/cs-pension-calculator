@@ -26,6 +26,7 @@ type SettingsPanelProps = {
   validationIssues: PensionValidationIssue[];
   onChange: SettingsFieldOnChange;
   onReset: () => void;
+  onExport: () => void;
   showGuidanceNotes: boolean;
   onShowGuidanceNotesChange: (checked: boolean) => void;
   useDropdownDates: boolean;
@@ -38,6 +39,7 @@ export function SettingsPanel({
   validationIssues,
   onChange,
   onReset,
+  onExport,
   showGuidanceNotes,
   onShowGuidanceNotesChange,
   useDropdownDates,
@@ -51,14 +53,23 @@ export function SettingsPanel({
           These inputs define your pension scenario, letting you see how different
           assumptions affect your outcome.
         </p>
-        <button
-          type="button"
-          className="secondary-button settings-reset-button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={onReset}
-        >
-          Reset parameters
-        </button>
+        <div className="settings-panel-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onExport}
+          >
+            Export parameters
+          </button>
+          <button
+            type="button"
+            className="secondary-button settings-reset-button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={onReset}
+          >
+            Reset parameters
+          </button>
+        </div>
       </div>
 
       <div className="settings-sections" key={settingsFormVersion}>

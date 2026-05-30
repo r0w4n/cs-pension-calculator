@@ -249,8 +249,14 @@ h3 {
   justify-items: start;
 }
 
+.settings-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
 .settings-reset-button {
-  margin-top: 0.25rem;
+  margin-top: 0;
 }
 
 .mode-panel {
@@ -477,25 +483,6 @@ h3 {
 .secondary-button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
-}
-
-.journey-answer {
-  display: grid;
-  gap: 1rem;
-}
-
-.bridge-result {
-  display: grid;
-  gap: 1rem;
-}
-
-.bridge-table-section {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.bridge-table-section h3 {
-  margin-bottom: 0;
 }
 
 .comparison-panel {
@@ -1406,6 +1393,15 @@ h3 {
   margin-bottom: 0;
 }
 
+.bridge-table-section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.bridge-table-section h3 {
+  margin-bottom: 0;
+}
+
 .assumptions-version-strip {
   display: flex;
   flex-wrap: wrap;
@@ -1780,25 +1776,31 @@ h3 {
     backdrop-filter: none;
   }
 
-  .journey-answer .summary-section,
-  .journey-answer .bridge-chart-panel {
+  .journey-step > .summary-section,
+  .journey-step > .bridge-chart-panel,
+  .comparison-panel .summary-section,
+  .comparison-panel .bridge-chart-panel {
     box-shadow: none;
   }
 
-  .journey-answer .summary-section {
+  .journey-step > .summary-section,
+  .comparison-panel .summary-section {
     border-radius: 0.85rem;
   }
 
-  .journey-answer .summary-section--feature {
+  .journey-step > .summary-section--feature,
+  .comparison-panel .summary-section--feature {
     padding: 1rem;
   }
 
-  .journey-answer .summary-section--feature .summary-section-inner {
+  .journey-step > .summary-section--feature .summary-section-inner,
+  .comparison-panel .summary-section--feature .summary-section-inner {
     padding: 0;
     border-radius: 0;
   }
 
-  .journey-answer .bridge-chart-panel {
+  .journey-step > .bridge-chart-panel,
+  .comparison-panel .bridge-chart-panel {
     margin-inline: -1rem;
     border-right: 0;
     border-left: 0;

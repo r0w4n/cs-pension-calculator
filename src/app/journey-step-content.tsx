@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { fieldGroups, type FieldDefinition } from "../fieldDefinitions";
 import {
   deriveInflationAssumptions,
   type PensionSummary,
   type RetirementIncomeDisplay,
+  type ProjectionRow,
 } from "../projection";
 import {
   RetirementIncomeBridgeChart,
@@ -19,22 +20,26 @@ import {
   OPTIONAL_SECTION_TOGGLES,
   buildComparisonStatusItems,
   clonePensionSettings,
-  createBridgeAnswerResult,
   createComparisonResult,
   formatDate,
   formatDecimalAge,
   getSettingsSignature,
-  type BridgeAnswerResultCache,
   type ComparisonResultCache,
   type ComparisonScenario,
   type JourneyFieldLabels,
   type JourneyStepDefinition,
   type OptionalSectionToggleKey,
 } from "../app-domains";
+import { ComparisonBridgeChart } from "./chart";
 import {
   ComparisonPanel as ComparisonPanelFeature,
+  ComparisonSection,
   PensionSummarySection as PensionSummarySectionFeature,
 } from "./comparison";
+import {
+  ProjectionTableSection as ProjectionTableSectionFeature,
+  ProjectionTableSectionContainer,
+} from "./projection-table";
 import {
   AddedPensionLumpSumsEditor as AddedPensionLumpSumsEditorFeature,
   SettingsFields as SettingsFieldsFeature,
@@ -46,6 +51,7 @@ import {
   SummarySection as SummarySectionFeature,
   type SummaryItem,
   ValidationIssuesSection as ValidationIssuesSectionFeature,
+  ResultsSummarySection,
 } from "./results-summary";
 
 export type JourneyStepViewModel = {
@@ -56,6 +62,7 @@ export type JourneyStepViewModel = {
   bridgeChartParameters: RetirementIncomeBridgeParameters;
   bridgeChartLimits: RetirementIncomeBridgeLimits;
   derivedInflationAssumptions: ReturnType<typeof deriveInflationAssumptions>;
+  projectionRows: ProjectionRow[];
   retirementIncomeDisplay: RetirementIncomeDisplay;
   retirementIncomeItems: SummaryItem[];
   retirementIncomeTitle: string;
@@ -70,7 +77,6 @@ export type JourneyStepViewModel = {
   ) => void;
   comparisonScenarios: ComparisonScenario[];
   comparisonResultCache: ComparisonResultCache;
-  bridgeAnswerResultCache: BridgeAnswerResultCache;
   onScenariosChange: (scenarios: ComparisonScenario[]) => void;
   onLoadScenario: (scenarioSettings: PensionSettings) => void;
   onRetirementIncomeDisplayChange: (display: RetirementIncomeDisplay) => void;
@@ -95,6 +101,7 @@ export function JourneyStepContent({
     bridgeChartParameters,
     bridgeChartLimits,
     derivedInflationAssumptions,
+    projectionRows,
     retirementIncomeDisplay,
     retirementIncomeItems,
     retirementIncomeTitle,
@@ -107,7 +114,6 @@ export function JourneyStepContent({
     onChangeChartParameters,
     comparisonScenarios,
     comparisonResultCache,
-    bridgeAnswerResultCache,
     onScenariosChange,
     onLoadScenario,
     onRetirementIncomeDisplayChange,
@@ -117,20 +123,18 @@ export function JourneyStepContent({
 
   const currentComparisonResult = useMemo(
     () =>
-      pensionSummary
-        ? createComparisonResult(
-            {
-              id: "current-model",
-              name: "Current model",
-              settings: clonePensionSettings(settings),
-              createdAt: "",
-              updatedAt: "",
-            },
-            getSettingsSignature(settings),
-            comparisonResultCache,
-          )
-        : null,
-    [comparisonResultCache, pensionSummary, settings],
+      createComparisonResult(
+        {
+          id: "current-model",
+          name: "Current model",
+          settings: clonePensionSettings(settings),
+          createdAt: "",
+          updatedAt: "",
+        },
+        getSettingsSignature(settings),
+        comparisonResultCache,
+      ),
+    [comparisonResultCache, settings],
   );
 
   if (step.kind === "optional-sections") {
@@ -149,7 +153,7 @@ export function JourneyStepContent({
     }
 
     return (
-      <div className="journey-answer">
+      <>
         {validationIssues.length > 0 ? (
           <ValidationIssuesSectionFeature validationIssues={validationIssues} />
         ) : null}
@@ -232,24 +236,67 @@ export function JourneyStepContent({
           bridgeChartLimits={bridgeChartLimits}
           onChangeChartParameters={onChangeChartParameters}
         />
-      </div>
+      </>
     );
   }
 
   if (step.kind === "bridge-answer") {
     return (
-      <BridgeAnswer
-        settings={settings}
-        validationIssues={validationIssues}
-        onChangeChartParameters={onChangeChartParameters}
-        comparisonScenarios={comparisonScenarios}
-        comparisonResultCache={comparisonResultCache}
-        bridgeAnswerResultCache={bridgeAnswerResultCache}
-        onScenariosChange={onScenariosChange}
-        onLoadScenario={onLoadScenario}
-        showLimitations={showLimitations}
-        onToggleLimitations={onToggleLimitations}
-      />
+      <>
+        {validationIssues.length > 0 ? (
+          <ValidationIssuesSectionFeature validationIssues={validationIssues} />
+        ) : null}
+
+        <ResultsSummarySection>
+          <PensionSummarySectionFeature
+            activeResult={currentComparisonResult}
+            headingLevel={2}
+            description="This summary uses your current journey assumptions and shows your projected annual income before tax."
+            retirementIncomeDisplay={retirementIncomeDisplay}
+            onRetirementIncomeDisplayChange={onRetirementIncomeDisplayChange}
+            retirementIncomeItems={retirementIncomeItems}
+            retirementIncomeTitle={retirementIncomeTitle}
+            retirementIncomeTotal={retirementIncomeTotal}
+            retirementIncomeTargetTitle={retirementIncomeTargetTitle}
+            retirementIncomeTarget={retirementIncomeTarget}
+            statusItems={
+              currentComparisonResult
+                ? buildComparisonStatusItems(currentComparisonResult)
+                : []
+            }
+            showLimitations={showLimitations}
+            onToggleLimitations={onToggleLimitations}
+          />
+        </ResultsSummarySection>
+
+        <InflationBasisPanelFeature
+          settings={settings}
+          assumptions={derivedInflationAssumptions}
+        />
+
+        <ComparisonBridgeChart
+          retirementIncomeSeries={retirementIncomeSeries}
+          bridgeChartParameters={bridgeChartParameters}
+          bridgeChartLimits={bridgeChartLimits}
+          validationIssues={validationIssues}
+          onChangeChartParameters={onChangeChartParameters}
+        />
+
+        <ComparisonSection>
+          <ComparisonPanelFeature
+            settings={settings}
+            validationIssues={validationIssues}
+            scenarios={comparisonScenarios}
+            comparisonResultCache={comparisonResultCache}
+            onScenariosChange={onScenariosChange}
+            onLoadScenario={onLoadScenario}
+          />
+        </ComparisonSection>
+
+        <ProjectionTableSectionContainer>
+          <ProjectionTableSectionFeature rows={projectionRows} settings={settings} />
+        </ProjectionTableSectionContainer>
+      </>
     );
   }
 
@@ -322,134 +369,6 @@ export function OptionalSectionToggleGrid({
           </span>
         </label>
       ))}
-    </div>
-  );
-}
-
-function BridgeAnswer({
-  settings,
-  validationIssues,
-  onChangeChartParameters,
-  comparisonScenarios,
-  comparisonResultCache,
-  bridgeAnswerResultCache,
-  onScenariosChange,
-  onLoadScenario,
-  showLimitations,
-  onToggleLimitations,
-}: {
-  settings: PensionSettings;
-  validationIssues: PensionValidationIssue[];
-  onChangeChartParameters: (
-    patch: Partial<RetirementIncomeBridgeParameters>,
-  ) => void;
-  comparisonScenarios: ComparisonScenario[];
-  comparisonResultCache: ComparisonResultCache;
-  bridgeAnswerResultCache: BridgeAnswerResultCache;
-  onScenariosChange: (scenarios: ComparisonScenario[]) => void;
-  onLoadScenario: (scenarioSettings: PensionSettings) => void;
-  showLimitations: boolean;
-  onToggleLimitations: () => void;
-}) {
-  const [isReadyToCalculate, setIsReadyToCalculate] = useState(false);
-
-  useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
-      setIsReadyToCalculate(true);
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, []);
-
-  return (
-    <div className="journey-answer">
-      {validationIssues.length > 0 ? (
-        <ValidationIssuesSectionFeature validationIssues={validationIssues} />
-      ) : null}
-      {!isReadyToCalculate ? (
-        <section className="summary-section summary-section--feature" aria-live="polite">
-          <div className="summary-section-header">
-            <h4>Preparing your result</h4>
-            <p className="section-copy">
-              We are lining up the bridge calculation and comparison view.
-            </p>
-          </div>
-        </section>
-      ) : null}
-
-      <BridgeAnswerResults
-        settings={settings}
-        validationIssues={validationIssues}
-        onChangeChartParameters={onChangeChartParameters}
-        comparisonScenarios={comparisonScenarios}
-        comparisonResultCache={comparisonResultCache}
-        bridgeAnswerResultCache={bridgeAnswerResultCache}
-        onScenariosChange={onScenariosChange}
-        onLoadScenario={onLoadScenario}
-        showLimitations={showLimitations}
-        onToggleLimitations={onToggleLimitations}
-      />
-    </div>
-  );
-}
-
-function BridgeAnswerResults({
-  settings,
-  validationIssues,
-  onChangeChartParameters,
-  comparisonScenarios,
-  comparisonResultCache,
-  bridgeAnswerResultCache,
-  onScenariosChange,
-  onLoadScenario,
-  showLimitations,
-  onToggleLimitations,
-}: {
-  settings: PensionSettings;
-  validationIssues: PensionValidationIssue[];
-  onChangeChartParameters: (
-    patch: Partial<RetirementIncomeBridgeParameters>,
-  ) => void;
-  comparisonScenarios: ComparisonScenario[];
-  comparisonResultCache: ComparisonResultCache;
-  bridgeAnswerResultCache: BridgeAnswerResultCache;
-  onScenariosChange: (scenarios: ComparisonScenario[]) => void;
-  onLoadScenario: (scenarioSettings: PensionSettings) => void;
-  showLimitations: boolean;
-  onToggleLimitations: () => void;
-}) {
-  const {
-    bridgeChartData,
-    bridgeChartParameters,
-    bridgeChartLimits,
-    derivedInflationAssumptions,
-  } = useMemo(
-    () => createBridgeAnswerResult(settings, bridgeAnswerResultCache),
-    [bridgeAnswerResultCache, settings],
-  );
-
-  return (
-    <div className="journey-answer">
-      {validationIssues.length > 0 ? (
-        <ValidationIssuesSectionFeature validationIssues={validationIssues} />
-      ) : null}
-
-      <ComparisonPanelFeature
-        settings={settings}
-        validationIssues={validationIssues}
-        scenarios={comparisonScenarios}
-        comparisonResultCache={comparisonResultCache}
-        onScenariosChange={onScenariosChange}
-        onLoadScenario={onLoadScenario}
-        retirementIncomeDisplay="annual"
-        showLimitations={showLimitations}
-        onToggleLimitations={onToggleLimitations}
-        derivedInflationAssumptions={derivedInflationAssumptions}
-        retirementIncomeSeries={bridgeChartData}
-        bridgeChartParameters={bridgeChartParameters}
-        bridgeChartLimits={bridgeChartLimits}
-        onChangeChartParameters={onChangeChartParameters}
-      />
     </div>
   );
 }

@@ -40,6 +40,7 @@ export { validateSettings } from "./settings/settings-validate";
 export {
   loadStoredSettings,
   saveSettings,
+  getStoredSettingsSnapshot,
   readStorageItem,
   writeStorageItem,
 } from "./settings/settings-storage";

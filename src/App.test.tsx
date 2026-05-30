@@ -521,7 +521,7 @@ describe("App settings form", () => {
 
     advanceJourneyToResult();
 
-    expect(await screen.findByRole("heading", { name: "Review this result" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Comparison results" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Detailed breakdown" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Current model" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
@@ -542,7 +542,7 @@ describe("App settings form", () => {
 
     advanceJourneyToResult();
 
-    expect(await screen.findByRole("heading", { name: "Review this result" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Comparison results" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Detailed breakdown" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Current model" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Pension Summary" })).toBeInTheDocument();
@@ -689,11 +689,8 @@ describe("App settings form", () => {
       screen.getByRole("heading", { level: 2, name: "Pension Summary" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Plan status" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Review this result" })).toBeInTheDocument();
-    const expertBodyText = document.body.textContent ?? "";
-    expect(expertBodyText.indexOf("Review this result")).toBeLessThan(
-      expertBodyText.indexOf("Monthly pension projection table"),
-    );
+    expect(screen.getByRole("region", { name: "Comparison results" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Review this result" })).not.toBeInTheDocument();
 
     const titleSection = screen
       .getByRole("heading", {
@@ -816,6 +813,27 @@ describe("App settings form", () => {
       "min",
       "67.75",
     );
+  });
+
+  it("exports parameters as a JSON download", () => {
+    const createObjectURL = vi.fn(() => "blob:mock-export-url");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(window.URL, "createObjectURL", {
+      configurable: true,
+      writable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(window.URL, "revokeObjectURL", {
+      configurable: true,
+      writable: true,
+      value: revokeObjectURL,
+    });
+
+    renderAcknowledgedApp();
+    fireEvent.click(screen.getByRole("button", { name: "Export parameters" }));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-export-url");
   });
 
   it("orders optional section toggles like the assumptions sections", () => {

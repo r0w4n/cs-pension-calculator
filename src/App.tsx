@@ -23,6 +23,7 @@ import {
   RetirementIncomeBridgeChart,
 } from "./RetirementIncomeBridgeChart";
 import {
+  getStoredSettingsSnapshot,
   loadStoredSettings,
   saveSettings,
   validateSettings,
@@ -81,7 +82,6 @@ import {
   getSettingsSignature,
   loadStoredComparisonScenarios,
   saveStoredComparisonScenarios,
-  type BridgeAnswerResultCache,
   type ComparisonResultCache,
   type ComparisonScenario,
   type JourneyDefinition,
@@ -162,9 +162,6 @@ function App() {
     null,
   );
   const [comparisonResultCache] = useState<ComparisonResultCache>(() => new Map());
-  const [bridgeAnswerResultCache] = useState<BridgeAnswerResultCache>(
-    () => new Map(),
-  );
   const activeModeRef = useRef<HTMLDivElement | null>(null);
   const shouldFocusActiveMode = useRef(false);
   const scrollActiveModeIntoView = useCallback(() => {
@@ -368,6 +365,23 @@ function App() {
     });
   }
 
+  function exportParameters() {
+    const snapshot = getStoredSettingsSnapshot(settings);
+    const fileDate = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
+      type: "application/json",
+    });
+    const objectUrl = window.URL.createObjectURL(blob);
+    const link = window.document.createElement("a");
+    link.href = objectUrl;
+    link.download = `cs-pension-parameters-${fileDate}.json`;
+    window.document.body.append(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(objectUrl);
+    showSavedLabel();
+  }
+
   const toggleLimitations = useCallback(() => {
     setShowLimitations((current) => !current);
   }, []);
@@ -385,6 +399,7 @@ function App() {
     bridgeChartParameters,
     bridgeChartLimits,
     derivedInflationAssumptions,
+    projectionRows,
     retirementIncomeDisplay,
     retirementIncomeItems,
     retirementIncomeTitle,
@@ -397,7 +412,6 @@ function App() {
     onChangeChartParameters: updateBridgeChartParameters,
     comparisonScenarios,
     comparisonResultCache,
-    bridgeAnswerResultCache,
     onScenariosChange: setComparisonScenarios,
     onLoadScenario: loadComparisonScenario,
     onRetirementIncomeDisplayChange: setRetirementIncomeDisplay,
@@ -497,6 +511,7 @@ function App() {
                 validationIssues={validationIssues}
                 onChange={updateSetting}
                 onReset={resetSettings}
+                onExport={exportParameters}
                 showGuidanceNotes={showGuidanceNotes}
                 onShowGuidanceNotesChange={setShowGuidanceNotes}
                 useDropdownDates={useDropdownDates}
