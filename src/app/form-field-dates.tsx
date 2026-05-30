@@ -30,8 +30,7 @@ import {
   getFieldCardClassName,
 } from "./form-fields-shared";
 
-export function useMobileDateDropdowns() {
-  const mobileBreakpoint = "(max-width: 480px)";
+export function useMobileDateDropdowns(mobileBreakpoint = "(max-width: 480px)") {
   const [matches, setMatches] = useState(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
       return false;
@@ -55,7 +54,7 @@ export function useMobileDateDropdowns() {
     return () => {
       mediaQuery.removeEventListener("change", updateMatch);
     };
-  }, []);
+  }, [mobileBreakpoint]);
 
   return matches;
 }

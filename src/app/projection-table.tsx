@@ -258,7 +258,7 @@ export function ProjectionTableFrame<Row>({
   minWidth?: string;
 }) {
   const headerScrollRef = useRef<HTMLDivElement | null>(null);
-  const showMobileCards = useMobileDateDropdowns();
+  const showMobileCards = useMobileDateDropdowns("(max-width: 640px)");
 
   const syncHeaderScroll = (scrollLeft: number) => {
     if (headerScrollRef.current) {
