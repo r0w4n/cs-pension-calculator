@@ -382,13 +382,12 @@ h3 {
 
 .journey-stepper {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
-  overflow-x: auto;
+  overflow-x: visible;
   padding: 0.1rem 0 0.3rem;
   min-width: 0;
   scroll-margin-top: 1rem;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
 }
 
 .journey-step-button {

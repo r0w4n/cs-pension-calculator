@@ -63,6 +63,7 @@ export type JourneyStepDefinition =
       title: string;
       description: string;
       kind: "optional-sections" | "answer" | "bridge-answer";
+      showProjectionTable?: boolean;
       toggleKeys?: readonly OptionalSectionToggleKey[];
       visible?: (settings: PensionSettings) => boolean;
     }
@@ -211,6 +212,7 @@ export const JOURNEY_DEFINITIONS = [
         description:
           "Review your projected income, bridge funding, key dates, and assumptions.",
         kind: "bridge-answer",
+        showProjectionTable: true,
       },
     ],
   },
@@ -343,6 +345,7 @@ export const JOURNEY_DEFINITIONS = [
         description:
           "Review your projected income, bridge funding, key dates, and assumptions.",
         kind: "bridge-answer",
+        showProjectionTable: false,
       },
     ],
   },

@@ -293,9 +293,11 @@ export function JourneyStepContent({
           />
         </ComparisonSection>
 
-        <ProjectionTableSectionContainer>
-          <ProjectionTableSectionFeature rows={projectionRows} settings={settings} />
-        </ProjectionTableSectionContainer>
+        {step.showProjectionTable !== false ? (
+          <ProjectionTableSectionContainer>
+            <ProjectionTableSectionFeature rows={projectionRows} settings={settings} />
+          </ProjectionTableSectionContainer>
+        ) : null}
       </>
     );
   }

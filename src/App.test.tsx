@@ -534,6 +534,9 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Assumptions version")).toHaveTextContent(
       "Assumptions version 2026.05",
     );
+    expect(
+      screen.queryByRole("heading", { name: "Monthly pension projection table" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Action required" })).not.toBeInTheDocument();
   });
 
@@ -551,6 +554,9 @@ describe("App settings form", () => {
       screen.queryByRole("heading", { name: "Later secure income check" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Scenario recap" })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Monthly pension projection table" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the bridge target retirement age stable after slider release", () => {
