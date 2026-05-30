@@ -422,7 +422,7 @@ export const fieldGroups: FieldGroup[] = [
         step: 1,
         inputStep: 0.1,
         description:
-          "The age Alpha pensionable service stops. Future 2.32% accrual stops here, even if you draw the pension later.",
+          "The age you stop active Alpha service. New 2.32% accrual stops here, and the extra 1.5% yearly increase on your accrued Alpha pension stops when you leave the scheme.",
       },
       {
         id: "pensionableEarnings",
@@ -466,7 +466,7 @@ export const fieldGroups: FieldGroup[] = [
         format: "currency",
         valuePrefix: "/mo",
         description:
-          "Optional extra Alpha pension you buy on top of the standard 2.32% accrual. This is separate from ordinary employee contributions and uses added-pension factor tables.",
+          "Optional extra Alpha pension you choose to buy in addition to the pension you build up each year through normal Alpha service. This is separate from ordinary employee contributions and is calculated using added-pension factor tables.",
         infoUrl: knowledgeLinks.alphaAddedPensionFactors,
         infoLinkText: "Added pension factors",
       },
