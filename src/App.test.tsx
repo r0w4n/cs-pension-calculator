@@ -1687,6 +1687,10 @@ describe("App settings form", () => {
     renderAcknowledgedApp();
 
     fireEvent.click(screen.getByLabelText("Partial retirement"));
+    fireEvent.change(screen.getByLabelText("Build-up shown"), {
+      target: { value: "15" },
+    });
+    fireEvent.mouseUp(screen.getByLabelText("Build-up shown"));
 
     expect(screen.getByLabelText("Start partial, age 55")).toBeInTheDocument();
     expect(

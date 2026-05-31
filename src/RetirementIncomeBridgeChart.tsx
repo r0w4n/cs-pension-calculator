@@ -186,6 +186,7 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-GB", {
 const BUILD_UP_META = {
   label: "Build-up",
 };
+const DEFAULT_BUILD_UP_WINDOW_YEARS = 2.5;
 const HANDLE_LABEL_WIDTH = 24;
 const HANDLE_LABEL_HEIGHT = 84;
 const HANDLE_LABEL_STACK_GAP = 16;
@@ -239,6 +240,9 @@ export function RetirementIncomeBridgeChart({
     useState<MilestoneKey | null>(null);
   const [selectedMobileMarkerKey, setSelectedMobileMarkerKey] =
     useState<MilestoneKey>("retirementAge");
+  const [buildUpWindowYears, setBuildUpWindowYears] = useState(
+    DEFAULT_BUILD_UP_WINDOW_YEARS
+  );
   const dataSourceTargetIncomeAnnual =
     data[0]?.targetIncomeAnnual ?? targetIncomeAnnual;
   const displayedTargetIncomeAnnual =
@@ -349,11 +353,58 @@ export function RetirementIncomeBridgeChart({
     dimensions.height - dimensions.marginTop - dimensions.marginBottom
   );
   const ageExtent = d3.extent(displayedData, (point) => point.age);
-  const minAge = Math.floor(ageExtent[0] ?? retirementAge - 5);
-  const maxAge = Math.ceil(ageExtent[1] ?? statePensionAge + 20);
+  const activeMilestoneAges = createActiveMilestoneAges({
+    alphaLeaveAge,
+    alphaStartAge,
+    isaAccessAge,
+    isaUseByAge,
+    isaUseByAgeEnabled,
+    partialRetirementEnabled,
+    partialRetirementStartAge,
+    retirementAge,
+    showIsa,
+    showSipp,
+    showStatePension,
+    sippAccessAge,
+    sippUseByAge,
+    sippUseByAgeEnabled,
+    statePensionAge,
+  });
+  const minAge = createChartMinAge({
+    dataMinAge: ageExtent[0],
+    fallbackMinAge: retirementAge - 5,
+    milestoneAges: activeMilestoneAges,
+  });
+  const chartMaxAge = createChartMaxAge({
+    dataMaxAge: ageExtent[1],
+    fallbackMaxAge: statePensionAge + 20,
+    milestoneAges: activeMilestoneAges,
+  });
+  const buildUpWindow = createBuildUpWindow({
+    chartMaxAge,
+    minAge,
+    requestedYears: buildUpWindowYears,
+    retirementAge,
+  });
+  const {
+    effectiveYears: effectiveBuildUpWindowYears,
+    fullYears: fullBuildUpWindowYears,
+    showControl: showBuildUpWindowControl,
+    xDomainMax,
+    xDomainMin,
+  } = buildUpWindow;
+  const visibleData = useMemo(
+    () =>
+      createVisibleChartData(
+        displayedData,
+        buildUpWindow.xDomainMin,
+        buildUpWindow.xDomainMax
+      ),
+    [buildUpWindow.xDomainMax, buildUpWindow.xDomainMin, displayedData]
+  );
   const maxIncome =
     d3.max(
-      displayedData,
+      visibleData,
       (point) =>
         Math.max(point.targetIncomeAnnual, point.totalIncomeAnnual) / divisor
     ) ?? displayedTargetIncomeAnnual / divisor;
@@ -363,8 +414,9 @@ export function RetirementIncomeBridgeChart({
     10000 / divisor
   );
   const xScale = useMemo(
-    () => d3.scaleLinear().domain([minAge, maxAge]).range([0, plotWidth]),
-    [maxAge, minAge, plotWidth]
+    () =>
+      d3.scaleLinear().domain([xDomainMin, xDomainMax]).range([0, plotWidth]),
+    [plotWidth, xDomainMax, xDomainMin]
   );
   const yScale = useMemo(
     () => d3.scaleLinear().domain([0, yMax]).nice().range([plotHeight, 0]),
@@ -374,7 +426,7 @@ export function RetirementIncomeBridgeChart({
     .stack<RetirementIncomePoint>()
     .keys(visibleIncomeKeys)
     .value((point, key) => Number(point[key as IncomeKey]) / divisor);
-  const stackedSeries = stack(displayedData);
+  const stackedSeries = stack(visibleData);
   const area = d3
     .area<d3.SeriesPoint<RetirementIncomePoint>>()
     .x((point) => xScale(point.data.age))
@@ -529,26 +581,33 @@ export function RetirementIncomeBridgeChart({
       })),
     [draftMarkerAges, milestoneMarkers]
   );
+  const visibleMilestoneMarkers = useMemo(
+    () =>
+      displayedMilestoneMarkers.filter(
+        (marker) => marker.age >= xDomainMin && marker.age <= xDomainMax
+      ),
+    [displayedMilestoneMarkers, xDomainMax, xDomainMin]
+  );
   const markerLayouts = createMarkerLayouts(
-    displayedMilestoneMarkers,
+    visibleMilestoneMarkers,
     xScale,
     plotHeight
   );
   const draggingMobileMarker =
     activeMarkerDragKey === null
       ? undefined
-      : displayedMilestoneMarkers.find(
+      : visibleMilestoneMarkers.find(
           (marker) => marker.key === activeMarkerDragKey
         );
-  const effectiveSelectedMobileMarkerKey = displayedMilestoneMarkers.some(
+  const effectiveSelectedMobileMarkerKey = visibleMilestoneMarkers.some(
     (marker) => marker.key === selectedMobileMarkerKey
   )
     ? selectedMobileMarkerKey
-    : displayedMilestoneMarkers[0]?.key;
+    : visibleMilestoneMarkers[0]?.key;
   const selectedMobileMarker =
-    displayedMilestoneMarkers.find(
+    visibleMilestoneMarkers.find(
       (marker) => marker.key === effectiveSelectedMobileMarkerKey
-    ) ?? displayedMilestoneMarkers[0];
+    ) ?? visibleMilestoneMarkers[0];
   const mobileBridgeSummary = useMemo(
     () =>
       createMobileBridgeSummary({
@@ -568,7 +627,7 @@ export function RetirementIncomeBridgeChart({
       statePensionAge,
     ]
   );
-  const buildUpWidth = Math.max(0, xScale(retirementAge) - xScale(minAge));
+  const buildUpWidth = Math.max(0, xScale(retirementAge) - xScale(xDomainMin));
 
   useEffect(() => {
     const cleanup: Array<() => void> = [];
@@ -839,7 +898,7 @@ export function RetirementIncomeBridgeChart({
           >
             {buildUpWidth > 0 ? (
               <rect
-                x={xScale(minAge)}
+                x={0}
                 y={0}
                 width={buildUpWidth}
                 height={plotHeight}
@@ -876,23 +935,23 @@ export function RetirementIncomeBridgeChart({
             })}
 
             <path
-              d={shortfallArea(displayedData) ?? undefined}
+              d={shortfallArea(visibleData) ?? undefined}
               className="bridge-shortfall-fill"
             />
             <path
-              d={shortfallArea(displayedData) ?? undefined}
+              d={shortfallArea(visibleData) ?? undefined}
               fill="url(#shortfall-hatch)"
               opacity="0.55"
             />
 
             <path
               className="bridge-target-line"
-              d={targetLine(displayedData) ?? undefined}
+              d={targetLine(visibleData) ?? undefined}
             />
             <path
               ref={targetLineRef}
               className="bridge-target-line-hitbox"
-              d={targetLine(displayedData) ?? undefined}
+              d={targetLine(visibleData) ?? undefined}
               role="slider"
               tabIndex={0}
               aria-label="Target income line"
@@ -1086,7 +1145,7 @@ export function RetirementIncomeBridgeChart({
                 setSelectedMobileMarkerKey(event.target.value as MilestoneKey)
               }
             >
-              {displayedMilestoneMarkers.map((marker) => (
+              {visibleMilestoneMarkers.map((marker) => (
                 <option key={marker.key} value={marker.key}>
                   {marker.label}
                 </option>
@@ -1181,6 +1240,21 @@ export function RetirementIncomeBridgeChart({
             }
           />
         ) : null}
+        {showBuildUpWindowControl ? (
+          <BridgeMetricControl
+            label="Build-up shown"
+            value={effectiveBuildUpWindowYears}
+            suffix="before retirement"
+            limit={{
+              min: DEFAULT_BUILD_UP_WINDOW_YEARS,
+              max: fullBuildUpWindowYears,
+              step: 0.25,
+            }}
+            colour="#b7791f"
+            formatValue={(value) => `${Math.round(value)} years`}
+            onChange={setBuildUpWindowYears}
+          />
+        ) : null}
         <BridgeMetricControl
           label="Target income"
           value={
@@ -1273,6 +1347,170 @@ function BridgeMetricControl({
       </div>
     </div>
   );
+}
+
+function createVisibleChartData(
+  data: RetirementIncomePoint[],
+  minAge: number,
+  maxAge: number
+) {
+  if (data.length === 0) {
+    return [];
+  }
+
+  const visiblePoints = data.filter(
+    (point) => point.age >= minAge && point.age <= maxAge
+  );
+  const startPoint = createChartBoundaryPoint(data, minAge);
+  const endPoint = createChartBoundaryPoint(data, maxAge);
+  const nextData = [...visiblePoints];
+
+  if (!nextData.some((point) => areAgesEquivalent(point.age, minAge))) {
+    nextData.unshift(startPoint);
+  }
+
+  if (
+    !areAgesEquivalent(minAge, maxAge) &&
+    !nextData.some((point) => areAgesEquivalent(point.age, maxAge))
+  ) {
+    nextData.push(endPoint);
+  }
+
+  return nextData.sort((first, second) => first.age - second.age);
+}
+
+function createActiveMilestoneAges({
+  alphaLeaveAge,
+  alphaStartAge,
+  isaAccessAge,
+  isaUseByAge,
+  isaUseByAgeEnabled,
+  partialRetirementEnabled,
+  partialRetirementStartAge,
+  retirementAge,
+  showIsa,
+  showSipp,
+  showStatePension,
+  sippAccessAge,
+  sippUseByAge,
+  sippUseByAgeEnabled,
+  statePensionAge,
+}: Pick<
+  RetirementIncomeBridgeParameters,
+  | "alphaLeaveAge"
+  | "alphaStartAge"
+  | "isaAccessAge"
+  | "isaUseByAge"
+  | "isaUseByAgeEnabled"
+  | "partialRetirementEnabled"
+  | "partialRetirementStartAge"
+  | "retirementAge"
+  | "showIsa"
+  | "showSipp"
+  | "showStatePension"
+  | "sippAccessAge"
+  | "sippUseByAge"
+  | "sippUseByAgeEnabled"
+  | "statePensionAge"
+>) {
+  return [
+    retirementAge,
+    alphaLeaveAge,
+    showSipp ? sippAccessAge : null,
+    showSipp && sippUseByAgeEnabled ? sippUseByAge : null,
+    showIsa ? isaAccessAge : null,
+    showIsa && isaUseByAgeEnabled ? isaUseByAge : null,
+    partialRetirementEnabled ? partialRetirementStartAge : null,
+    alphaStartAge,
+    showStatePension ? statePensionAge : null,
+  ];
+}
+
+function createChartMinAge({
+  dataMinAge,
+  fallbackMinAge,
+  milestoneAges,
+}: {
+  dataMinAge: number | undefined;
+  fallbackMinAge: number;
+  milestoneAges: Array<number | null>;
+}) {
+  return Math.floor(
+    Math.min(dataMinAge ?? fallbackMinAge, ...filterFiniteAges(milestoneAges))
+  );
+}
+
+function createChartMaxAge({
+  dataMaxAge,
+  fallbackMaxAge,
+  milestoneAges,
+}: {
+  dataMaxAge: number | undefined;
+  fallbackMaxAge: number;
+  milestoneAges: Array<number | null>;
+}) {
+  return Math.ceil(
+    Math.max(dataMaxAge ?? fallbackMaxAge, ...filterFiniteAges(milestoneAges))
+  );
+}
+
+function filterFiniteAges(ages: Array<number | null>) {
+  return ages.filter(
+    (age): age is number => age !== null && Number.isFinite(age)
+  );
+}
+
+function createBuildUpWindow({
+  chartMaxAge,
+  minAge,
+  requestedYears,
+  retirementAge,
+}: {
+  chartMaxAge: number;
+  minAge: number;
+  requestedYears: number;
+  retirementAge: number;
+}) {
+  const fullYears = Math.max(0, retirementAge - minAge);
+  const showControl = fullYears > DEFAULT_BUILD_UP_WINDOW_YEARS + 0.001;
+  const effectiveYears = showControl
+    ? clampNumber(requestedYears, DEFAULT_BUILD_UP_WINDOW_YEARS, fullYears)
+    : fullYears;
+  const visibleMinAge = showControl
+    ? Math.max(minAge, retirementAge - effectiveYears)
+    : minAge;
+  const xDomainMin = Math.min(visibleMinAge, chartMaxAge - 1);
+  const xDomainMax = Math.max(chartMaxAge, xDomainMin + 1);
+
+  return {
+    effectiveYears,
+    fullYears,
+    showControl,
+    xDomainMax,
+    xDomainMin,
+  };
+}
+
+function createChartBoundaryPoint(data: RetirementIncomePoint[], age: number) {
+  const previousPoint = findPreviousChartPoint(data, age);
+  const nextPoint = data.find((point) => point.age >= age);
+
+  return {
+    ...(previousPoint ?? nextPoint ?? data[0]),
+    age,
+  };
+}
+
+function findPreviousChartPoint(data: RetirementIncomePoint[], age: number) {
+  for (let index = data.length - 1; index >= 0; index -= 1) {
+    const point = data[index];
+
+    if (point && point.age <= age) {
+      return point;
+    }
+  }
+
+  return undefined;
 }
 
 function createMarkerLayouts(
