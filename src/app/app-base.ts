@@ -15,4 +15,3 @@ export function resolveAppBaseHref() {
   const content = meta?.getAttribute("content") ?? "./";
   return ensureTrailingSlash(content.trim() || "./");
 }
-

@@ -19,18 +19,17 @@ describe("projection inflation domain", () => {
       startDate: "2026-01-01",
     };
 
-    expect(calculateRetirementIncomeTargetAtDate(settings, "2028-01-01")).toBeCloseTo(
-      31700 * 1.025 ** 2,
-      6,
-    );
+    expect(
+      calculateRetirementIncomeTargetAtDate(settings, "2028-01-01")
+    ).toBeCloseTo(31700 * 1.025 ** 2, 6);
     expect(
       calculateRetirementIncomeTargetAtDate(
         {
           ...settings,
           projectionBasis: "real",
         },
-        "2028-01-01",
-      ),
+        "2028-01-01"
+      )
     ).toBe(31700);
   });
 });

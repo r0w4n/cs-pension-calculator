@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  calculateAnnualIncomeTax,
-  calculateMonthlyIncomeTax,
-} from "./tax";
+import { calculateAnnualIncomeTax, calculateMonthlyIncomeTax } from "./tax";
 import { defaultSettings, type PensionSettings } from "../settings";
 
 describe("projection tax domain", () => {
@@ -16,7 +13,7 @@ describe("projection tax domain", () => {
         monthlyAlphaPension: 3000,
         monthlyStatePension: 1000,
         monthlySippPension: 500,
-      }),
+      })
     ).toBe(0);
   });
 
@@ -44,7 +41,7 @@ describe("projection tax domain", () => {
         monthlyAlphaPension: 2000,
         monthlyStatePension: 1000,
         monthlySippPension: 1000,
-      }),
+      })
     ).toBeCloseTo(6486 / 12, 6);
   });
 
@@ -64,7 +61,7 @@ describe("projection tax domain", () => {
         monthlyNuvosPension: 50,
         monthlyStatePension: 0,
         monthlySippPension: 0,
-      }),
+      })
     ).toBeCloseTo(30, 6);
   });
 });

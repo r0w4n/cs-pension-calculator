@@ -1,13 +1,14 @@
-import {
-  DEFAULT_ALPHA_ABS_YEAR,
-  type PensionSettings,
-} from "./settings-types";
+import { DEFAULT_ALPHA_ABS_YEAR, type PensionSettings } from "./settings-types";
 import { inflationDefaults } from "./settings-domains/inflation";
 import { personalDetailsDefaults } from "./settings-domains/personal-details";
 import { nuvosDefaults } from "./settings-domains/nuvos";
 import { statePensionDefaults } from "./settings-domains/state-pension";
 import { taxDefaults } from "./settings-domains/tax";
-import { formatLocalIsoDate, getTodayIsoDate, isValidIsoDate } from "./settings-shared/date";
+import {
+  formatLocalIsoDate,
+  getTodayIsoDate,
+  isValidIsoDate,
+} from "./settings-shared/date";
 import {
   calculateMinimumStatePensionDrawAge,
   calculateNormalPensionAge,
@@ -36,9 +37,11 @@ export const defaultSettings: PensionSettings = {
   currentStatePension: statePensionDefaults.currentStatePension,
   desiredRetirementIncome: personalDetailsDefaults.desiredRetirementIncome,
   statePensionDrawDate: statePensionDefaults.statePensionDrawDate,
-  statePensionApplyFutureGrowth: statePensionDefaults.statePensionApplyFutureGrowth,
+  statePensionApplyFutureGrowth:
+    statePensionDefaults.statePensionApplyFutureGrowth,
   statePensionCpiPercent: statePensionDefaults.statePensionCpiPercent,
-  statePensionWageGrowthPercent: statePensionDefaults.statePensionWageGrowthPercent,
+  statePensionWageGrowthPercent:
+    statePensionDefaults.statePensionWageGrowthPercent,
   applyPensionIncreases: false,
   assumedCpiPercent: 0,
   alphaPensionAbsDate: DEFAULT_ALPHA_ABS_YEAR,
@@ -78,7 +81,8 @@ export const defaultSettings: PensionSettings = {
   isaWithdrawalPercent: 4,
   isaWithdrawalTargetAge: 75,
   taxPersonalAllowance: taxDefaults.taxPersonalAllowance,
-  taxPersonalAllowanceTaperThreshold: taxDefaults.taxPersonalAllowanceTaperThreshold,
+  taxPersonalAllowanceTaperThreshold:
+    taxDefaults.taxPersonalAllowanceTaperThreshold,
   taxBasicRateLimit: taxDefaults.taxBasicRateLimit,
   taxAdditionalRateThreshold: taxDefaults.taxAdditionalRateThreshold,
   taxBasicRatePercent: taxDefaults.taxBasicRatePercent,
@@ -88,9 +92,11 @@ export const defaultSettings: PensionSettings = {
 };
 
 export function createDefaultSettings(): PensionSettings {
-  const normalPensionAge = calculateNormalPensionAge(defaultSettings.dateOfBirth);
+  const normalPensionAge = calculateNormalPensionAge(
+    defaultSettings.dateOfBirth
+  );
   const statePensionDrawAge = calculateMinimumStatePensionDrawAge(
-    defaultSettings.dateOfBirth,
+    defaultSettings.dateOfBirth
   );
 
   return {
@@ -99,11 +105,11 @@ export function createDefaultSettings(): PensionSettings {
     startDate: getTodayIsoDate(),
     sippDrawAge: normalizeSippDrawAge(
       defaultSettings.sippDrawAge,
-      defaultSettings.dateOfBirth,
+      defaultSettings.dateOfBirth
     ),
     statePensionDrawDate: calculateStatePensionDrawDateFromAge(
       defaultSettings.dateOfBirth,
-      statePensionDrawAge,
+      statePensionDrawAge
     ),
   };
 }

@@ -30,7 +30,9 @@ describe("projection bridge analysis domain", () => {
     const summary = generatePensionSummary(pensionRows, settings);
     const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
 
-    expect(summary.retirementIncome.sources.some((source) => source.key === "alpha")).toBe(false);
+    expect(
+      summary.retirementIncome.sources.some((source) => source.key === "alpha")
+    ).toBe(false);
     expect(analysis.planWorks).toBe(true);
     expect(analysis.phases[0]?.incomeSourcesActive).toEqual(["None"]);
   });
@@ -63,7 +65,11 @@ describe("projection bridge analysis domain", () => {
     const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
 
     expect(analysis.planWorks).toBe(true);
-    expect(analysis.phases.some((phase) => phase.incomeSourcesActive.includes("State Pension"))).toBe(true);
+    expect(
+      analysis.phases.some((phase) =>
+        phase.incomeSourcesActive.includes("State Pension")
+      )
+    ).toBe(true);
     expect(analysis.stableAnnualGuaranteedIncome).toBeCloseTo(12000, 6);
   });
 });

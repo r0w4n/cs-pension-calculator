@@ -30,10 +30,16 @@ export function normalizeStatePensionBooleanSetting(value: unknown) {
   return Boolean(value);
 }
 
-export function normalizeStatePensionDrawDate(value: string, dateOfBirth: string) {
+export function normalizeStatePensionDrawDate(
+  value: string,
+  dateOfBirth: string
+) {
   const defaultDrawDate = calculateStatePensionDrawDate(dateOfBirth);
   const normalizedDrawDate = normalizeIsoDate(value, defaultDrawDate);
-  const normalizedDrawAge = calculateStatePensionDrawAge(dateOfBirth, normalizedDrawDate);
+  const normalizedDrawAge = calculateStatePensionDrawAge(
+    dateOfBirth,
+    normalizedDrawDate
+  );
 
   return calculateStatePensionDrawDateFromAge(dateOfBirth, normalizedDrawAge);
 }
@@ -51,7 +57,10 @@ export function validateStatePensionRules({
 }: StatePensionValidationContext): PensionValidationIssue[] {
   const issues: PensionValidationIssue[] = [];
 
-  if (settings.showStatePension && settings.statePensionDrawDate > lifeExpectancyDate) {
+  if (
+    settings.showStatePension &&
+    settings.statePensionDrawDate > lifeExpectancyDate
+  ) {
     issues.push({
       field: "lifeExpectancy",
       message: "Life expectancy must be after the State Pension start date.",
@@ -85,14 +94,18 @@ function coerceBoolean(value: unknown) {
 }
 
 export function coerceStatePensionSettings(
-  input: Partial<StoredPensionSettings>,
+  input: Partial<StoredPensionSettings>
 ): Partial<StoredPensionSettings> {
   return {
     showStatePension: coerceBoolean(input.showStatePension),
     currentStatePension: coerceNumber(input.currentStatePension),
     statePensionDrawDate: coerceString(input.statePensionDrawDate),
-    statePensionApplyFutureGrowth: coerceBoolean(input.statePensionApplyFutureGrowth),
+    statePensionApplyFutureGrowth: coerceBoolean(
+      input.statePensionApplyFutureGrowth
+    ),
     statePensionCpiPercent: coerceNumber(input.statePensionCpiPercent),
-    statePensionWageGrowthPercent: coerceNumber(input.statePensionWageGrowthPercent),
+    statePensionWageGrowthPercent: coerceNumber(
+      input.statePensionWageGrowthPercent
+    ),
   };
 }

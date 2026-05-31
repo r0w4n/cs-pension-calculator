@@ -4,10 +4,7 @@ import type {
   RangeField,
   SelectField,
 } from "../fieldDefinitions";
-import {
-  clampNumber,
-  getEffectiveRangeField,
-} from "../app-domains";
+import { clampNumber, getEffectiveRangeField } from "../app-domains";
 import {
   defaultSettings,
   formatCurrency,
@@ -42,7 +39,13 @@ export function SelectSettingField({
   const validationId = validationIssue ? `${field.id}-validation` : undefined;
 
   return (
-    <div className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
+    <div
+      className={getFieldCardClassName(
+        disabled,
+        hideOnMobile,
+        Boolean(validationIssue)
+      )}
+    >
       <span className="field-header">
         <FieldLabel field={field} />
       </span>
@@ -117,7 +120,13 @@ export function CurrencySettingField({
   const resetValue = defaultSettings[field.id];
 
   return (
-    <div className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
+    <div
+      className={getFieldCardClassName(
+        disabled,
+        hideOnMobile,
+        Boolean(validationIssue)
+      )}
+    >
       <span className="field-header">
         <FieldLabel field={field} />
       </span>
@@ -129,7 +138,11 @@ export function CurrencySettingField({
         describedBy={validationId}
         hasValidationIssue={Boolean(validationIssue)}
         onCommit={(nextValue) => {
-          const normalizedValue = clampNumber(nextValue, 0, Number.MAX_SAFE_INTEGER);
+          const normalizedValue = clampNumber(
+            nextValue,
+            0,
+            Number.MAX_SAFE_INTEGER
+          );
           onChange(field.id, normalizedValue);
           return normalizedValue;
         }}
@@ -159,17 +172,20 @@ function CurrencySettingFieldEditor({
 }) {
   const [draftValue, setDraftValue] = useState(initialValue.toString());
   const showsResetButton =
-    field.id !== "desiredRetirementIncome" && field.id !== "accruedPensionAtLastAbs";
+    field.id !== "desiredRetirementIncome" &&
+    field.id !== "accruedPensionAtLastAbs";
 
   const commitValue = (nextValue: string) => {
     const parsedValue = Number(nextValue);
-    const normalizedValue = Number.isFinite(parsedValue) ? parsedValue : initialValue;
+    const normalizedValue = Number.isFinite(parsedValue)
+      ? parsedValue
+      : initialValue;
     const committedValue = onCommit(normalizedValue);
     setDraftValue(committedValue.toString());
   };
 
   const applyPresetValue = (
-    presetValue: NonNullable<CurrencyInputField["presets"]>[number]["value"],
+    presetValue: NonNullable<CurrencyInputField["presets"]>[number]["value"]
   ) => {
     setDraftValue(presetValue.toString());
     onCommit(presetValue);
@@ -267,7 +283,7 @@ export function RangeSettingField({
     ? parsedDraftExactValue
     : Math.min(
         effectiveField.max,
-        Math.max(effectiveField.min, draftValue ?? value),
+        Math.max(effectiveField.min, draftValue ?? value)
       );
   const displayedExactValue = draftExactValue ?? displayedRangeValue.toString();
   const validationId = validationIssue ? `${field.id}-validation` : undefined;
@@ -281,7 +297,7 @@ export function RangeSettingField({
     const normalizedValue = clampNumber(
       nextValue,
       effectiveField.min,
-      effectiveField.max,
+      effectiveField.max
     );
     onChange(field.id, normalizedValue);
     setDraftValue(null);
@@ -289,7 +305,13 @@ export function RangeSettingField({
   };
 
   return (
-    <div className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
+    <div
+      className={getFieldCardClassName(
+        disabled,
+        hideOnMobile,
+        Boolean(validationIssue)
+      )}
+    >
       <span className="field-header">
         <FieldLabel field={effectiveField} />
       </span>
@@ -311,13 +333,21 @@ export function RangeSettingField({
               setDraftValue(nextValue);
               setDraftExactValue(null);
             }}
-            onMouseUp={(event) => commitValue(Number(event.currentTarget.value))}
-            onTouchEnd={(event) => commitValue(Number(event.currentTarget.value))}
+            onMouseUp={(event) =>
+              commitValue(Number(event.currentTarget.value))
+            }
+            onTouchEnd={(event) =>
+              commitValue(Number(event.currentTarget.value))
+            }
             onBlur={(event) => commitValue(Number(event.currentTarget.value))}
           />
           <div className="range-scale">
-            <span>{formatFieldValue(effectiveField.min, effectiveField.format)}</span>
-            <span>{formatFieldValue(effectiveField.max, effectiveField.format)}</span>
+            <span>
+              {formatFieldValue(effectiveField.min, effectiveField.format)}
+            </span>
+            <span>
+              {formatFieldValue(effectiveField.max, effectiveField.format)}
+            </span>
           </div>
         </div>
 
@@ -361,7 +391,8 @@ export function RangeSettingField({
             if (event.key === "Enter") {
               const parsedValue = Number(event.currentTarget.value);
               const nextValue =
-                event.currentTarget.value.trim() === "" || !Number.isFinite(parsedValue)
+                event.currentTarget.value.trim() === "" ||
+                !Number.isFinite(parsedValue)
                   ? displayedRangeValue
                   : parsedValue;
               commitValue(nextValue);

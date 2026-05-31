@@ -4,8 +4,12 @@ import type {
   PensionValidationIssue,
 } from "../settings-types";
 
-export function normalizeIsaWithdrawalStrategy(value: unknown): IsaWithdrawalStrategy {
-  return value === "percentage" || value === "zero_at_death" || value === "use_by_age"
+export function normalizeIsaWithdrawalStrategy(
+  value: unknown
+): IsaWithdrawalStrategy {
+  return value === "percentage" ||
+    value === "zero_at_death" ||
+    value === "use_by_age"
     ? value
     : "zero_at_death";
 }

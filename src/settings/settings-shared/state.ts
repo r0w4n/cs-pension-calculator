@@ -52,9 +52,12 @@ const statePensionAgeInMonthsRules = [
 ] as const;
 
 export function calculateStatePensionDrawDate(dateOfBirth: string) {
-  const normalizedDateOfBirth = normalizeIsoDate(dateOfBirth, DEFAULT_DATE_OF_BIRTH);
+  const normalizedDateOfBirth = normalizeIsoDate(
+    dateOfBirth,
+    DEFAULT_DATE_OF_BIRTH
+  );
   const fixedDateRule = fixedStatePensionDateRules.find((rule) =>
-    isIsoDateInRange(normalizedDateOfBirth, rule.from, rule.to),
+    isIsoDateInRange(normalizedDateOfBirth, rule.from, rule.to)
   );
 
   if (fixedDateRule) {
@@ -66,11 +69,14 @@ export function calculateStatePensionDrawDate(dateOfBirth: string) {
   }
 
   const ageInMonthsRule = statePensionAgeInMonthsRules.find((rule) =>
-    isIsoDateInRange(normalizedDateOfBirth, rule.from, rule.to),
+    isIsoDateInRange(normalizedDateOfBirth, rule.from, rule.to)
   );
 
   if (ageInMonthsRule) {
-    return addMonthsToIsoDate(normalizedDateOfBirth, ageInMonthsRule.ageInMonths);
+    return addMonthsToIsoDate(
+      normalizedDateOfBirth,
+      ageInMonthsRule.ageInMonths
+    );
   }
 
   if (normalizedDateOfBirth <= "1977-04-05") {
@@ -84,11 +90,18 @@ export function calculateStatePensionDrawDate(dateOfBirth: string) {
   return addYearsToIsoDate(normalizedDateOfBirth, 68);
 }
 
-function calculateNormalPensionAgeMonths(dateOfBirth: string, statePensionDrawDate: string) {
+function calculateNormalPensionAgeMonths(
+  dateOfBirth: string,
+  statePensionDrawDate: string
+) {
   const [birthYear, birthMonth] = dateOfBirth.split("-").map(Number);
   const [drawYear, drawMonth] = statePensionDrawDate.split("-").map(Number);
-  const monthDifference = (drawYear - birthYear) * 12 + (drawMonth - birthMonth);
-  const dateAtMonthDifference = addMonthsToIsoDate(dateOfBirth, monthDifference);
+  const monthDifference =
+    (drawYear - birthYear) * 12 + (drawMonth - birthMonth);
+  const dateAtMonthDifference = addMonthsToIsoDate(
+    dateOfBirth,
+    monthDifference
+  );
 
   return dateAtMonthDifference >= statePensionDrawDate
     ? monthDifference
@@ -96,24 +109,41 @@ function calculateNormalPensionAgeMonths(dateOfBirth: string, statePensionDrawDa
 }
 
 export function calculateNormalPensionAge(dateOfBirth: string) {
-  const normalizedDateOfBirth = normalizeIsoDate(dateOfBirth, DEFAULT_DATE_OF_BIRTH);
-  const statePensionDrawDate = calculateStatePensionDrawDate(normalizedDateOfBirth);
+  const normalizedDateOfBirth = normalizeIsoDate(
+    dateOfBirth,
+    DEFAULT_DATE_OF_BIRTH
+  );
+  const statePensionDrawDate = calculateStatePensionDrawDate(
+    normalizedDateOfBirth
+  );
 
-  return calculateNormalPensionAgeMonths(normalizedDateOfBirth, statePensionDrawDate) / 12;
+  return (
+    calculateNormalPensionAgeMonths(
+      normalizedDateOfBirth,
+      statePensionDrawDate
+    ) / 12
+  );
 }
 
 export function calculateMinimumStatePensionDrawAge(dateOfBirth: string) {
-  const normalizedDateOfBirth = normalizeIsoDate(dateOfBirth, DEFAULT_DATE_OF_BIRTH);
+  const normalizedDateOfBirth = normalizeIsoDate(
+    dateOfBirth,
+    DEFAULT_DATE_OF_BIRTH
+  );
   const defaultDrawDate = calculateStatePensionDrawDate(normalizedDateOfBirth);
 
   return roundUpToStep(
     calculateDateAge(normalizedDateOfBirth, defaultDrawDate),
-    STATE_PENSION_AGE_STEP,
+    STATE_PENSION_AGE_STEP
   );
 }
 
-export function normalizeStatePensionDrawAge(value: number, dateOfBirth: string) {
-  const minimumStatePensionDrawAge = calculateMinimumStatePensionDrawAge(dateOfBirth);
+export function normalizeStatePensionDrawAge(
+  value: number,
+  dateOfBirth: string
+) {
+  const minimumStatePensionDrawAge =
+    calculateMinimumStatePensionDrawAge(dateOfBirth);
   const parsedValue = Number(value);
 
   if (!Number.isFinite(parsedValue)) {
@@ -122,46 +152,60 @@ export function normalizeStatePensionDrawAge(value: number, dateOfBirth: string)
 
   return roundUpToStep(
     Math.min(100, Math.max(minimumStatePensionDrawAge, parsedValue)),
-    STATE_PENSION_AGE_STEP,
+    STATE_PENSION_AGE_STEP
   );
 }
 
 export function calculateStatePensionDrawAge(
   dateOfBirth: string,
-  statePensionDrawDate: string,
+  statePensionDrawDate: string
 ) {
-  const normalizedDateOfBirth = normalizeIsoDate(dateOfBirth, DEFAULT_DATE_OF_BIRTH);
+  const normalizedDateOfBirth = normalizeIsoDate(
+    dateOfBirth,
+    DEFAULT_DATE_OF_BIRTH
+  );
   const normalizedDrawDate = normalizeIsoDate(
     statePensionDrawDate,
-    calculateStatePensionDrawDate(normalizedDateOfBirth),
+    calculateStatePensionDrawDate(normalizedDateOfBirth)
   );
 
   return normalizeStatePensionDrawAge(
     calculateDateAge(normalizedDateOfBirth, normalizedDrawDate),
-    normalizedDateOfBirth,
+    normalizedDateOfBirth
   );
 }
 
 export function calculateStatePensionDrawDateFromAge(
   dateOfBirth: string,
-  statePensionDrawAge: number,
+  statePensionDrawAge: number
 ) {
-  const normalizedDateOfBirth = normalizeIsoDate(dateOfBirth, DEFAULT_DATE_OF_BIRTH);
+  const normalizedDateOfBirth = normalizeIsoDate(
+    dateOfBirth,
+    DEFAULT_DATE_OF_BIRTH
+  );
   const normalizedDrawAge = normalizeStatePensionDrawAge(
     statePensionDrawAge,
-    normalizedDateOfBirth,
+    normalizedDateOfBirth
   );
 
   return addYearsToIsoDate(normalizedDateOfBirth, normalizedDrawAge);
 }
 
 function normalizeMinimumPensionAccessAge(value: number, dateOfBirth: string) {
-  const normalizedDateOfBirth = normalizeIsoDate(dateOfBirth, DEFAULT_DATE_OF_BIRTH);
+  const normalizedDateOfBirth = normalizeIsoDate(
+    dateOfBirth,
+    DEFAULT_DATE_OF_BIRTH
+  );
   const parsed = Number(value);
-  const normalizedAge = Number.isFinite(parsed) ? Math.min(70, Math.max(55, parsed)) : 58;
+  const normalizedAge = Number.isFinite(parsed)
+    ? Math.min(70, Math.max(55, parsed))
+    : 58;
   const sippDrawDate = addYearsToIsoDate(normalizedDateOfBirth, normalizedAge);
 
-  if (sippDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE && normalizedAge < 57) {
+  if (
+    sippDrawDate >= NORMAL_MINIMUM_PENSION_AGE_INCREASE_DATE &&
+    normalizedAge < 57
+  ) {
     return 57;
   }
 
@@ -169,16 +213,24 @@ function normalizeMinimumPensionAccessAge(value: number, dateOfBirth: string) {
 }
 
 export function calculateMinimumPensionAccessAge(dateOfBirth: string) {
-  const normalizedDateOfBirth = normalizeIsoDate(dateOfBirth, DEFAULT_DATE_OF_BIRTH);
+  const normalizedDateOfBirth = normalizeIsoDate(
+    dateOfBirth,
+    DEFAULT_DATE_OF_BIRTH
+  );
 
-  return normalizeMinimumPensionAccessAge(55, normalizedDateOfBirth) > 55 ? 57 : 55;
+  return normalizeMinimumPensionAccessAge(55, normalizedDateOfBirth) > 55
+    ? 57
+    : 55;
 }
 
 export function calculateMinimumSippAccessAge(dateOfBirth: string) {
   return calculateMinimumPensionAccessAge(dateOfBirth);
 }
 
-export function normalizeAlphaPensionDrawAge(value: number, dateOfBirth: string) {
+export function normalizeAlphaPensionDrawAge(
+  value: number,
+  dateOfBirth: string
+) {
   return normalizeMinimumPensionAccessAge(value, dateOfBirth);
 }
 

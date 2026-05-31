@@ -1,4 +1,8 @@
-import type { DateField, FieldDefinition, RangeField } from "../fieldDefinitions";
+import type {
+  DateField,
+  FieldDefinition,
+  RangeField,
+} from "../fieldDefinitions";
 import {
   MAX_ADDED_PENSION_PURCHASE_INPUT_AGE,
   calculateMinimumPensionAccessAge,
@@ -27,7 +31,7 @@ export function isAlphaEpaField(fieldId: FieldDefinition["id"]) {
 
 export function getAlphaEffectiveRangeField(
   field: RangeField,
-  settings: PensionSettings,
+  settings: PensionSettings
 ): RangeField {
   let effectiveField = field;
 
@@ -61,7 +65,10 @@ export function getAlphaEffectiveRangeField(
     return effectiveField;
   }
 
-  const cappedMax = Math.min(effectiveField.max, MAX_ADDED_PENSION_PURCHASE_INPUT_AGE);
+  const cappedMax = Math.min(
+    effectiveField.max,
+    MAX_ADDED_PENSION_PURCHASE_INPUT_AGE
+  );
 
   return {
     ...effectiveField,

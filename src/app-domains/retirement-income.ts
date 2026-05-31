@@ -20,33 +20,39 @@ import { addYearsToIsoDate, clampNumber } from "./shared";
 
 export function createRetirementIncomeSeries(
   rows: ProjectionRow[],
-  settings: PensionSettings,
+  settings: PensionSettings
 ): RetirementIncomePoint[] {
   const statePensionAge = calculateDateAge(
     settings.dateOfBirth,
-    settings.statePensionDrawDate,
+    settings.statePensionDrawDate
   );
   const requirementDate = addYearsToIsoDate(
     settings.dateOfBirth,
-    settings.requirementAge,
+    settings.requirementAge
   );
   const alphaDrawDate = addYearsToIsoDate(
     settings.dateOfBirth,
-    settings.alphaPensionDrawAge,
+    settings.alphaPensionDrawAge
   );
   const nuvosDrawDate = addYearsToIsoDate(
     settings.dateOfBirth,
-    settings.nuvosPensionDrawAge,
+    settings.nuvosPensionDrawAge
   );
-  const sippDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge);
-  const isaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge);
+  const sippDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.sippDrawAge
+  );
+  const isaDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.isaDrawAge
+  );
   const sippUseByDate = addYearsToIsoDate(
     settings.dateOfBirth,
-    settings.sippWithdrawalTargetAge,
+    settings.sippWithdrawalTargetAge
   );
   const isaUseByDate = addYearsToIsoDate(
     settings.dateOfBirth,
-    settings.isaWithdrawalTargetAge,
+    settings.isaWithdrawalTargetAge
   );
 
   const baseSeries = rows
@@ -54,50 +60,53 @@ export function createRetirementIncomeSeries(
     .map((row, index) => {
       const age = row.age + row.ageMonths / 12;
       const previousRow = index > 0 ? rows[index - 1] : undefined;
-      const isaIncomeAnnual =
-        settings.showIsa
-          ? getBridgePotIncomeAnnual({
-              row,
-              previousRow,
-              rowDate: row.date,
-              drawDate: isaDrawDate,
-              stopDate:
-                settings.isaWithdrawalStrategy === "use_by_age" ? isaUseByDate : null,
-              monthlyIncome: row.monthlyIsaPension,
-              previousMonthlyIncome: previousRow?.monthlyIsaPension ?? 0,
-            })
-          : 0;
-      const sippIncomeAnnual =
-        settings.showSipp
-          ? getBridgePotIncomeAnnual({
-              row,
-              previousRow,
-              rowDate: row.date,
-              drawDate: sippDrawDate,
-              stopDate:
-                settings.sippWithdrawalStrategy === "use_by_age" ? sippUseByDate : null,
-              monthlyIncome: row.monthlySippPension,
-              previousMonthlyIncome: previousRow?.monthlySippPension ?? 0,
-            })
-          : 0;
+      const isaIncomeAnnual = settings.showIsa
+        ? getBridgePotIncomeAnnual({
+            row,
+            previousRow,
+            rowDate: row.date,
+            drawDate: isaDrawDate,
+            stopDate:
+              settings.isaWithdrawalStrategy === "use_by_age"
+                ? isaUseByDate
+                : null,
+            monthlyIncome: row.monthlyIsaPension,
+            previousMonthlyIncome: previousRow?.monthlyIsaPension ?? 0,
+          })
+        : 0;
+      const sippIncomeAnnual = settings.showSipp
+        ? getBridgePotIncomeAnnual({
+            row,
+            previousRow,
+            rowDate: row.date,
+            drawDate: sippDrawDate,
+            stopDate:
+              settings.sippWithdrawalStrategy === "use_by_age"
+                ? sippUseByDate
+                : null,
+            monthlyIncome: row.monthlySippPension,
+            previousMonthlyIncome: previousRow?.monthlySippPension ?? 0,
+          })
+        : 0;
       const alphaIncomeAnnual =
-        row.date >= alphaDrawDate ? row.monthlyAlphaPensionTakeHome * 12 : 0;
+        row.date >= alphaDrawDate ? row.monthlyAlphaPensionGross * 12 : 0;
       const nuvosIncomeAnnual =
         settings.showNuvos && row.date >= nuvosDrawDate
-          ? row.monthlyNuvosPensionTakeHome * 12
+          ? row.monthlyNuvosPensionGross * 12
           : 0;
-      const partialRetirementIncomeAnnual = calculatePartialRetirementIncomeAnnual(
-        settings,
-        row.date,
-        requirementDate,
-      );
+      const partialRetirementIncomeAnnual =
+        calculatePartialRetirementIncomeAnnual(
+          settings,
+          row.date,
+          requirementDate
+        );
       const statePensionIncomeAnnual =
         settings.showStatePension && row.date >= settings.statePensionDrawDate
           ? row.monthlyStatePension * 12
           : 0;
       const targetIncomeAnnual = calculateRetirementIncomeTargetAtDate(
         settings,
-        row.date,
+        row.date
       );
       const totalIncomeAnnual =
         isaIncomeAnnual +
@@ -149,19 +158,19 @@ function getBridgePotIncomeAnnual(input: {
   monthlyIncome: number;
   previousMonthlyIncome: number;
 }) {
-  const {
-    rowDate,
-    drawDate,
-    stopDate,
-    monthlyIncome,
-    previousMonthlyIncome,
-  } = input;
+  const { rowDate, drawDate, stopDate, monthlyIncome, previousMonthlyIncome } =
+    input;
 
   if (rowDate < drawDate) {
     return 0;
   }
 
-  if (stopDate && rowDate < stopDate && monthlyIncome <= 0 && previousMonthlyIncome > 0) {
+  if (
+    stopDate &&
+    rowDate < stopDate &&
+    monthlyIncome <= 0 &&
+    previousMonthlyIncome > 0
+  ) {
     return previousMonthlyIncome * 12;
   }
 
@@ -170,7 +179,7 @@ function getBridgePotIncomeAnnual(input: {
 
 function insertChartTransitionPoints(
   points: RetirementIncomePoint[],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
   const transitionDates = [
     addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge),
@@ -178,14 +187,22 @@ function insertChartTransitionPoints(
     settings.showIsa && settings.isaWithdrawalStrategy === "use_by_age"
       ? addYearsToIsoDate(settings.dateOfBirth, settings.isaWithdrawalTargetAge)
       : "",
-    settings.showSipp ? addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge) : "",
+    settings.showSipp
+      ? addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge)
+      : "",
     settings.showSipp && settings.sippWithdrawalStrategy === "use_by_age"
-      ? addYearsToIsoDate(settings.dateOfBirth, settings.sippWithdrawalTargetAge)
+      ? addYearsToIsoDate(
+          settings.dateOfBirth,
+          settings.sippWithdrawalTargetAge
+        )
       : "",
     addYearsToIsoDate(settings.dateOfBirth, settings.alphaPensionDrawAge),
     settings.showStatePension ? settings.statePensionDrawDate : "",
     settings.partialRetirementEnabled
-      ? addYearsToIsoDate(settings.dateOfBirth, settings.partialRetirementStartAge)
+      ? addYearsToIsoDate(
+          settings.dateOfBirth,
+          settings.partialRetirementStartAge
+        )
       : "",
   ]
     .filter(Boolean)
@@ -195,7 +212,11 @@ function insertChartTransitionPoints(
   let nextPoints = [...points];
 
   transitionDates.forEach((transitionDate) => {
-    nextPoints = insertChartTransitionPoint(nextPoints, settings, transitionDate);
+    nextPoints = insertChartTransitionPoint(
+      nextPoints,
+      settings,
+      transitionDate
+    );
   });
 
   return nextPoints;
@@ -204,13 +225,18 @@ function insertChartTransitionPoints(
 function insertChartTransitionPoint(
   points: RetirementIncomePoint[],
   settings: PensionSettings,
-  transitionDate: string,
+  transitionDate: string
 ) {
-  if (points.length === 0 || points.some((point) => point.date === transitionDate)) {
+  if (
+    points.length === 0 ||
+    points.some((point) => point.date === transitionDate)
+  ) {
     return points;
   }
 
-  const insertionIndex = points.findIndex((point) => point.date > transitionDate);
+  const insertionIndex = points.findIndex(
+    (point) => point.date > transitionDate
+  );
 
   if (insertionIndex <= 0) {
     return points;
@@ -238,11 +264,11 @@ function insertChartTransitionPoint(
 function calculatePartialRetirementIncomeAnnual(
   settings: PensionSettings,
   rowDate: string,
-  requirementDate: string,
+  requirementDate: string
 ) {
   const partialRetirementStartDate = addYearsToIsoDate(
     settings.dateOfBirth,
-    settings.partialRetirementStartAge,
+    settings.partialRetirementStartAge
   );
 
   if (
@@ -257,7 +283,7 @@ function calculatePartialRetirementIncomeAnnual(
 }
 
 export function createBridgeChartParameters(
-  settings: PensionSettings,
+  settings: PensionSettings
 ): RetirementIncomeBridgeParameters {
   return {
     targetIncomeAnnual: settings.desiredRetirementIncome,
@@ -276,7 +302,7 @@ export function createBridgeChartParameters(
     partialRetirementEnabled: settings.partialRetirementEnabled,
     statePensionAge: calculateStatePensionDrawAge(
       settings.dateOfBirth,
-      settings.statePensionDrawDate,
+      settings.statePensionDrawDate
     ),
     showIsa: settings.showIsa,
     showSipp: settings.showSipp,
@@ -290,22 +316,29 @@ export function createBridgeChartParameters(
 }
 
 export function createBridgeChartLimits(
-  settings: PensionSettings,
+  settings: PensionSettings
 ): RetirementIncomeBridgeLimits {
   const statePensionAge = calculateStatePensionDrawAge(
     settings.dateOfBirth,
-    settings.statePensionDrawDate,
+    settings.statePensionDrawDate
   );
-  const minimumSippAccessAge = calculateMinimumSippAccessAge(settings.dateOfBirth);
-  const minimumAlphaAccessAge = calculateMinimumPensionAccessAge(settings.dateOfBirth);
+  const minimumSippAccessAge = calculateMinimumSippAccessAge(
+    settings.dateOfBirth
+  );
+  const minimumAlphaAccessAge = calculateMinimumPensionAccessAge(
+    settings.dateOfBirth
+  );
   const currentPlanningAge = calculateCurrentPlanningAge(settings);
   const defaultStatePensionAge = calculateMinimumStatePensionDrawAge(
-    settings.dateOfBirth,
+    settings.dateOfBirth
   );
-  const ageUpperLimit = Math.max(currentPlanningAge, Math.min(70, statePensionAge));
+  const ageUpperLimit = Math.max(
+    currentPlanningAge,
+    Math.min(70, statePensionAge)
+  );
   const partialRetirementMaxAge = Math.max(
     currentPlanningAge,
-    Math.min(settings.requirementAge - 0.25, 70, settings.lifeExpectancy),
+    Math.min(settings.requirementAge - 0.25, 70, settings.lifeExpectancy)
   );
   const sippUseByMin = settings.sippDrawAge + 0.25;
   const isaUseByMin = settings.isaDrawAge + 0.25;
@@ -318,7 +351,10 @@ export function createBridgeChartLimits(
     sippMonthlyContribution: { min: 0, max: 5000, step: 25 },
     retirementAge: {
       min: currentPlanningAge,
-      max: Math.max(currentPlanningAge, Math.min(ageUpperLimit, settings.alphaPensionDrawAge)),
+      max: Math.max(
+        currentPlanningAge,
+        Math.min(ageUpperLimit, settings.alphaPensionDrawAge)
+      ),
       step: 0.25,
     },
     alphaLeaveAge: { min: currentPlanningAge, max: ageUpperLimit, step: 0.25 },
@@ -342,7 +378,7 @@ export function createBridgeChartLimits(
         currentPlanningAge,
         settings.requirementAge,
         settings.alphaPensionLeaveAge,
-        minimumAlphaAccessAge,
+        minimumAlphaAccessAge
       ),
       max: ageUpperLimit,
       step: 0.25,
@@ -369,7 +405,7 @@ export function createBridgeChartLimits(
 function getRetirementIncomePhase(
   age: number,
   settings: PensionSettings,
-  statePensionAge: number,
+  statePensionAge: number
 ): RetirementIncomePoint["phase"] {
   if (age < settings.isaDrawAge) {
     return "build-up";
@@ -395,7 +431,10 @@ function getRetirementIncomePhase(
 }
 
 function calculateCurrentPlanningAge(settings: PensionSettings) {
-  return Math.max(0, Math.ceil(calculateDateAge(settings.dateOfBirth, settings.startDate)));
+  return Math.max(
+    0,
+    Math.ceil(calculateDateAge(settings.dateOfBirth, settings.startDate))
+  );
 }
 
 export { addYearsToIsoDate, calculateCurrentPlanningAge, clampNumber };

@@ -160,7 +160,8 @@ export const fieldGroups: FieldGroup[] = [
     id: "personal",
     eyebrow: "Personal Details",
     title: "Personal details",
-    description: "Core personal dates and assumptions used across the modeller.",
+    description:
+      "Core personal dates and assumptions used across the modeller.",
     fields: [
       {
         id: "startDate",
@@ -606,7 +607,8 @@ export const fieldGroups: FieldGroup[] = [
     id: "sipp",
     eyebrow: "SIPP",
     title: "SIPP details",
-    description: "Personal pension pot, contribution, relief, and real return assumptions.",
+    description:
+      "Personal pension pot, contribution, relief, and real return assumptions.",
     fields: [
       {
         id: "sippCurrentPot",

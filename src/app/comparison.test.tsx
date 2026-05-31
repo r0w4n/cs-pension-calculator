@@ -6,7 +6,7 @@ describe("comparison module", () => {
     render(
       <ComparisonSection>
         <p>Comparison child</p>
-      </ComparisonSection>,
+      </ComparisonSection>
     );
 
     expect(screen.getByText("Comparison child")).toBeInTheDocument();
@@ -26,7 +26,7 @@ describe("comparison module", () => {
           setScenarioNameDraft,
           addCurrentScenario,
         }}
-      />,
+      />
     );
 
     fireEvent.change(screen.getByRole("textbox", { name: "Scenario name" }), {

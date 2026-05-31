@@ -6,7 +6,7 @@ import {
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
   calculateMonthlyAlphaAccrual,
-  calculateMonthlyAlphaPensionTakeHome,
+  calculateMonthlyAlphaPensionGross,
   calculateStartingAlphaPensionAtStartDate,
   getAddedPensionFactorForAge,
   getEarlyRetirementReductionFactor,
@@ -28,7 +28,7 @@ describe("projection alpha domain", () => {
         rowDate: "2028-04-01",
         activeUntilDate: "2026-04-01",
         cpiPercent: 2,
-      }),
+      })
     ).toBeCloseTo(1.035 * 1.02 * 1.02, 6);
   });
 
@@ -39,13 +39,15 @@ describe("projection alpha domain", () => {
         alphaPensionAbsDate: "2025-04-01",
         startDate: "2026-04-01",
         pensionableEarnings: 100000,
-      }),
+      })
     ).toBeCloseTo(2320, 6);
   });
 
   it("loads the added pension factor from JSON", () => {
     expect(getAddedPensionFactorForAge(60)).toBe(12.82);
-    expect(getAddedPensionFactorForAge(60, "self_plus_beneficiaries")).toBe(13.77);
+    expect(getAddedPensionFactorForAge(60, "self_plus_beneficiaries")).toBe(
+      13.77
+    );
   });
 
   it("calculates monthly added pension with the self and dependants factor", () => {
@@ -56,7 +58,7 @@ describe("projection alpha domain", () => {
         dateOfBirth: "1987-06-15",
         addedPensionMonthlyContribution: 137.7,
         factorType: "self_plus_beneficiaries",
-      }),
+      })
     ).toBeCloseTo(10, 6);
   });
 
@@ -75,22 +77,34 @@ describe("projection alpha domain", () => {
             endDate: "2049-06-15",
           },
         ],
-      }),
+      })
     ).toBeCloseTo(12820 / getAddedPensionFactorForAge(62), 6);
   });
 
   it("interpolates early retirement reduction factors for decimal ages", () => {
-    expect(getEarlyRetirementReductionFactor(68, 60.5)).toBeCloseTo((0.648 + 0.68) / 2, 6);
+    expect(getEarlyRetirementReductionFactor(68, 60.5)).toBeCloseTo(
+      (0.648 + 0.68) / 2,
+      6
+    );
   });
 
   it("applies early retirement reduction when draw date is on or before NPA", () => {
     expect(
-      calculateAnnualAlphaPensionIncludingReduction(12000, "2047-06-15", "2055-06-15", 0.648),
+      calculateAnnualAlphaPensionIncludingReduction(
+        12000,
+        "2047-06-15",
+        "2055-06-15",
+        0.648
+      )
     ).toBeCloseTo(7776, 6);
   });
 
-  it("returns zero monthly alpha take-home before draw date and annual divided by 12 afterwards", () => {
-    expect(calculateMonthlyAlphaPensionTakeHome("2047-06-14", "2047-06-15", 12000)).toBe(0);
-    expect(calculateMonthlyAlphaPensionTakeHome("2047-06-15", "2047-06-15", 12000)).toBe(1000);
+  it("returns zero monthly alpha gross income before draw date and annual divided by 12 afterwards", () => {
+    expect(
+      calculateMonthlyAlphaPensionGross("2047-06-14", "2047-06-15", 12000)
+    ).toBe(0);
+    expect(
+      calculateMonthlyAlphaPensionGross("2047-06-15", "2047-06-15", 12000)
+    ).toBe(1000);
   });
 });

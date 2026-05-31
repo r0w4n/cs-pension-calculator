@@ -29,7 +29,7 @@ describe("projection isa domain", () => {
         settings,
         rowDate: "2026-03-01",
         drawDate: "2027-01-01",
-      }),
+      })
     ).toBeCloseTo(1152.311871, 6);
   });
 
@@ -41,7 +41,7 @@ describe("projection isa domain", () => {
         endDate: "2056-01-01",
         strategy: "zero_at_death",
         withdrawalPercent: 4,
-      }),
+      })
     ).toBeCloseTo(500, 6);
     expect(
       calculateMonthlyIsaPension({
@@ -50,7 +50,7 @@ describe("projection isa domain", () => {
         endDate: "2056-01-01",
         strategy: "percentage",
         withdrawalPercent: 4,
-      }),
+      })
     ).toBeCloseTo(200, 6);
   });
 });

@@ -11,11 +11,12 @@ import {
   calculateIsaPotAtDate,
   calculateLumpSumAddedPension,
   calculateMonthlyAddedPension,
-  calculateMonthlyAlphaPensionTakeHome,
+  calculateMonthlyAlphaPensionGross,
   calculateStartingAlphaPensionAtStartDate,
   calculateWholeMonthDifference,
   calculateSippPotAtDate,
-  calculateTotalGrossMonthlyPension,
+  calculateTotalGrossMonthlyIncome,
+  calculateMonthlyIncomeTax,
   createProjectionTable,
   deriveProjectionInputs,
   generateRetirementBridgeAnalysis,
@@ -35,7 +36,10 @@ import {
 } from "./settings";
 import { createRetirementIncomeSeries } from "./App";
 
-function findRowByDate(rows: ReturnType<typeof createProjectionTable>, date: string) {
+function findRowByDate(
+  rows: ReturnType<typeof createProjectionTable>,
+  date: string
+) {
   return rows.find((row) => row.date === date);
 }
 
@@ -193,10 +197,10 @@ const isaToAlphaBoundaryScenario: PensionSettings = {
 function findPotDepletedRow(
   rows: ReturnType<typeof createProjectionTable>,
   potKey: "isaPot" | "sippPot",
-  drawAge: number,
+  drawAge: number
 ) {
   return rows.find(
-    (row) => row.age + row.ageMonths / 12 >= drawAge && row[potKey] <= 0,
+    (row) => row.age + row.ageMonths / 12 >= drawAge && row[potKey] <= 0
   );
 }
 
@@ -281,11 +285,11 @@ describe("projection calculations", () => {
 
     expect(partialRow?.monthlyAddedPension).toBeCloseTo(
       64.1 / getAddedPensionFactorForAge(54),
-      6,
+      6
     );
     expect(partialRow?.annualAccruedAlphaPension).toBeCloseTo(
       (12000 * 0.0232) / 12 / 2 + 64.1 / getAddedPensionFactorForAge(54),
-      6,
+      6
     );
   });
 
@@ -311,7 +315,7 @@ describe("projection calculations", () => {
         rowDate: "2042-05-01",
         nuvosAbsDate: "2042-04-01",
         accrualStopDate: "2043-06-15",
-      }),
+      })
     ).toBeCloseTo((12000 * 0.023) / 12 / 2, 6);
   });
 
@@ -382,7 +386,10 @@ describe("projection calculations", () => {
     const summary = generatePensionSummary(rows, settings);
 
     expect(summary.nuvosPension.annualAtDraw).toBeCloseTo(12000 * 0.771, 6);
-    expect(summary.nuvosPension.monthlyAtDraw).toBeCloseTo((12000 * 0.771) / 12, 6);
+    expect(summary.nuvosPension.monthlyAtDraw).toBeCloseTo(
+      (12000 * 0.771) / 12,
+      6
+    );
   });
 
   it("uses whole-month differences and ignores days", () => {
@@ -402,7 +409,7 @@ describe("projection calculations", () => {
         rowDate: "2028-04-01",
         activeUntilDate: "2026-04-01",
         cpiPercent: 2,
-      }),
+      })
     ).toBeCloseTo(1.035 * 1.02 * 1.02, 6);
   });
 
@@ -413,7 +420,7 @@ describe("projection calculations", () => {
         alphaPensionAbsDate: "2025-04-01",
         startDate: "2025-04-01",
         pensionableEarnings: 42000,
-      }),
+      })
     ).toBeCloseTo(8250, 6);
   });
 
@@ -424,7 +431,7 @@ describe("projection calculations", () => {
         alphaPensionAbsDate: "2025-04-01",
         startDate: "2025-05-01",
         pensionableEarnings: 42000,
-      }),
+      })
     ).toBeCloseTo(8331.2, 6);
   });
 
@@ -435,7 +442,7 @@ describe("projection calculations", () => {
         alphaPensionAbsDate: "2025-04-01",
         startDate: "2025-12-01",
         pensionableEarnings: 42000,
-      }),
+      })
     ).toBeCloseTo(8899.6, 6);
   });
 
@@ -446,7 +453,7 @@ describe("projection calculations", () => {
         alphaPensionAbsDate: "2025-04-01",
         startDate: "2026-04-01",
         pensionableEarnings: 42000,
-      }),
+      })
     ).toBeCloseTo(9224.4, 6);
   });
 
@@ -457,7 +464,7 @@ describe("projection calculations", () => {
         alphaPensionAbsDate: "2025-04-01",
         startDate: "2025-03-01",
         pensionableEarnings: 42000,
-      }),
+      })
     ).toBeCloseTo(8250, 6);
   });
 
@@ -468,13 +475,15 @@ describe("projection calculations", () => {
         alphaPensionAbsDate: "2025-04-01",
         startDate: "2026-04-01",
         pensionableEarnings: 100000,
-      }),
+      })
     ).toBeCloseTo(2320, 6);
   });
 
   it("loads the added pension factor from JSON", () => {
     expect(getAddedPensionFactorForAge(60)).toBe(12.82);
-    expect(getAddedPensionFactorForAge(60, "self_plus_beneficiaries")).toBe(13.77);
+    expect(getAddedPensionFactorForAge(60, "self_plus_beneficiaries")).toBe(
+      13.77
+    );
   });
 
   it("handles blank added pension factors safely", () => {
@@ -485,7 +494,7 @@ describe("projection calculations", () => {
         stopDate: "2055-06-15",
         dateOfBirth: "1987-06-15",
         addedPensionMonthlyContribution: 150,
-      }),
+      })
     ).toBe(0);
   });
 
@@ -496,7 +505,7 @@ describe("projection calculations", () => {
         stopDate: "2047-06-15",
         dateOfBirth: "1987-06-15",
         addedPensionMonthlyContribution: 150,
-      }),
+      })
     ).toBeCloseTo(11.7004680187, 6);
   });
 
@@ -508,7 +517,7 @@ describe("projection calculations", () => {
         dateOfBirth: "1987-06-15",
         addedPensionMonthlyContribution: 137.7,
         factorType: "self_plus_beneficiaries",
-      }),
+      })
     ).toBeCloseTo(10, 6);
   });
 
@@ -531,16 +540,17 @@ describe("projection calculations", () => {
 
     const rows = createProjectionTable(settings);
 
-    expect(findRowByDate(rows, "2047-04-01")?.monthlyAddedPension).toBeCloseTo(10, 6);
-    expect(findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
+    expect(findRowByDate(rows, "2047-04-01")?.monthlyAddedPension).toBeCloseTo(
       10,
-      6,
+      6
     );
+    expect(
+      findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension
+    ).toBeCloseTo(10, 6);
     expect(findRowByDate(rows, "2047-05-01")?.monthlyAddedPension).toBe(0);
-    expect(findRowByDate(rows, "2047-05-01")?.annualAccruedAlphaPension).toBeCloseTo(
-      10,
-      6,
-    );
+    expect(
+      findRowByDate(rows, "2047-05-01")?.annualAccruedAlphaPension
+    ).toBeCloseTo(10, 6);
   });
 
   it("uses the selected added pension factor in projected monthly purchases", () => {
@@ -563,11 +573,13 @@ describe("projection calculations", () => {
 
     const rows = createProjectionTable(settings);
 
-    expect(findRowByDate(rows, "2047-04-01")?.monthlyAddedPension).toBeCloseTo(10, 6);
-    expect(findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
+    expect(findRowByDate(rows, "2047-04-01")?.monthlyAddedPension).toBeCloseTo(
       10,
-      6,
+      6
     );
+    expect(
+      findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension
+    ).toBeCloseTo(10, 6);
   });
 
   it("revalues regular monthly added pension purchases when pension increases are enabled", () => {
@@ -591,14 +603,12 @@ describe("projection calculations", () => {
 
     const rows = createProjectionTable(settings);
 
-    expect(findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
-      10,
-      6,
-    );
-    expect(findRowByDate(rows, "2048-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
-      10,
-      6,
-    );
+    expect(
+      findRowByDate(rows, "2047-04-01")?.annualAccruedAlphaPension
+    ).toBeCloseTo(10, 6);
+    expect(
+      findRowByDate(rows, "2048-04-01")?.annualAccruedAlphaPension
+    ).toBeCloseTo(10, 6);
   });
 
   it("calculates a one-off lump sum added pension purchase on its payment date", () => {
@@ -615,7 +625,7 @@ describe("projection calculations", () => {
             endDate: "2047-06-15",
           },
         ],
-      }),
+      })
     ).toBeCloseTo(1000, 6);
   });
 
@@ -634,7 +644,7 @@ describe("projection calculations", () => {
             factorType: "self_plus_beneficiaries",
           },
         ],
-      }),
+      })
     ).toBeCloseTo(1000, 6);
   });
 
@@ -688,7 +698,7 @@ describe("projection calculations", () => {
             endDate: "2047-06-20",
           },
         ],
-      }),
+      })
     ).toBeCloseTo(1000, 6);
   });
 
@@ -707,7 +717,7 @@ describe("projection calculations", () => {
             endDate: "2049-06-15",
           },
         ],
-      }),
+      })
     ).toBeCloseTo(12820 / getAddedPensionFactorForAge(62), 6);
   });
 
@@ -718,14 +728,14 @@ describe("projection calculations", () => {
   it("interpolates early retirement reduction factors for decimal ages", () => {
     expect(getEarlyRetirementReductionFactor(68, 60.5)).toBeCloseTo(
       (0.648 + 0.68) / 2,
-      6,
+      6
     );
   });
 
   it("interpolates early retirement reduction factors for decimal normal pension ages", () => {
     expect(getEarlyRetirementReductionFactor(66 + 1 / 12, 60)).toBeCloseTo(
       0.729 + (0.687 - 0.729) / 12,
-      6,
+      6
     );
   });
 
@@ -739,8 +749,8 @@ describe("projection calculations", () => {
         12000,
         "2047-06-15",
         "2055-06-15",
-        0.648,
-      ),
+        0.648
+      )
     ).toBeCloseTo(7776, 6);
   });
 
@@ -750,17 +760,19 @@ describe("projection calculations", () => {
         12000,
         "2056-06-15",
         "2055-06-15",
-        0.648,
-      ),
+        0.648
+      )
     ).toBe(12000);
   });
 
-  it("returns zero monthly alpha take-home before draw date and annual divided by 12 afterwards", () => {
-    expect(calculateMonthlyAlphaPensionTakeHome("2047-06-14", "2047-06-15", 12000)).toBe(0);
-    expect(calculateMonthlyAlphaPensionTakeHome("2047-06-15", "2047-06-15", 12000)).toBe(1000);
+  it("returns zero monthly alpha gross income before draw date and annual divided by 12 afterwards", () => {
+    expect(
+      calculateMonthlyAlphaPensionGross("2047-06-14", "2047-06-15", 12000)
+    ).toBe(0);
+    expect(
+      calculateMonthlyAlphaPensionGross("2047-06-15", "2047-06-15", 12000)
+    ).toBe(1000);
   });
-
-
 
   it("derives projection inputs from valid settings", () => {
     expect(deriveProjectionInputs(defaultSettings)).toMatchObject({
@@ -794,7 +806,7 @@ describe("projection calculations", () => {
     expect(derivedInputs?.npaDate).toBe("2026-05-06");
     expect(derivedInputs?.reductionFactor).toBeCloseTo(
       0.729 + (0.687 - 0.729) / 12,
-      6,
+      6
     );
   });
 
@@ -803,25 +815,78 @@ describe("projection calculations", () => {
       deriveProjectionInputs({
         ...defaultSettings,
         startDate: "2076-01-01",
-      }),
+      })
     ).toBeNull();
   });
 
-  it("adds monthly alpha and state pension into gross monthly pension", () => {
-    expect(calculateTotalGrossMonthlyPension(648, 958.33)).toBeCloseTo(1606.33, 6);
-  });
-
-  it("adds nuvos monthly pension into gross monthly pension", () => {
-    expect(calculateTotalGrossMonthlyPension(648, 958.33, 0, 0, 500)).toBeCloseTo(
-      2106.33,
-      6,
+  it("adds monthly alpha and state pension into gross monthly income", () => {
+    expect(calculateTotalGrossMonthlyIncome(648, 958.33)).toBeCloseTo(
+      1606.33,
+      6
     );
   });
 
-  it("adds SIPP monthly pension into gross monthly pension", () => {
-    expect(calculateTotalGrossMonthlyPension(648, 958.33, 250)).toBeCloseTo(
+  it("adds nuvos monthly pension into gross monthly income", () => {
+    expect(
+      calculateTotalGrossMonthlyIncome(648, 958.33, 0, 0, 500)
+    ).toBeCloseTo(2106.33, 6);
+  });
+
+  it("adds SIPP monthly pension into gross monthly income", () => {
+    expect(calculateTotalGrossMonthlyIncome(648, 958.33, 250)).toBeCloseTo(
       1856.33,
-      6,
+      6
+    );
+  });
+
+  it("treats Alpha and nuvos monthly pension values as gross income before tax is deducted", () => {
+    const settings: PensionSettings = {
+      ...defaultSettings,
+      startDate: "2047-06-15",
+      dateOfBirth: "1987-06-15",
+      lifeExpectancy: 61,
+      requirementAge: 60,
+      taxationEnabled: true,
+      showAlpha: true,
+      showNuvos: true,
+      showStatePension: false,
+      showSipp: false,
+      showIsa: false,
+      accruedPensionAtLastAbs: 18000,
+      alphaPensionAbsDate: "2047",
+      pensionableEarnings: 0,
+      alphaAddedPensionMonthly: 0,
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
+      nuvosAccruedPensionAtLastAbs: 6000,
+      nuvosPensionAbsDate: "2047",
+      nuvosPensionableEarnings: 0,
+      nuvosPensionDrawAge: 60,
+      nuvosPensionLeaveAge: 60,
+    };
+
+    const row = findRowByDate(createProjectionTable(settings), "2047-06-15");
+
+    expect(row?.monthlyAlphaPensionGross).toBeGreaterThan(0);
+    expect(row?.monthlyNuvosPensionGross).toBeGreaterThan(0);
+    expect(row?.totalMonthlyIncomeBeforeTax).toBeCloseTo(
+      (row?.monthlyAlphaPensionGross ?? 0) +
+        (row?.monthlyNuvosPensionGross ?? 0),
+      6
+    );
+    expect(row?.monthlyIncomeTax).toBeCloseTo(
+      calculateMonthlyIncomeTax({
+        settings,
+        monthlyAlphaPension: row?.monthlyAlphaPensionGross ?? 0,
+        monthlyNuvosPension: row?.monthlyNuvosPensionGross ?? 0,
+        monthlyStatePension: 0,
+        monthlySippPension: 0,
+      }),
+      6
+    );
+    expect(row?.totalMonthlyNetIncome).toBeCloseTo(
+      (row?.totalMonthlyIncomeBeforeTax ?? 0) - (row?.monthlyIncomeTax ?? 0),
+      6
     );
   });
 
@@ -849,14 +914,14 @@ describe("projection calculations", () => {
         settings,
         rowDate: "2027-01-01",
         drawDate: "2028-01-01",
-      }),
+      })
     ).toBeCloseTo(expectedPot, 6);
     expect(
       calculateIsaPotAtDate({
         settings,
         rowDate: "2027-01-01",
         drawDate: "2028-01-01",
-      }),
+      })
     ).toBeCloseTo(expectedPot, 6);
   });
 
@@ -887,7 +952,7 @@ describe("projection calculations", () => {
         settings,
         rowDate: "2026-03-01",
         drawDate: "2027-01-01",
-      }),
+      })
     ).toBe(1437.5);
   });
 
@@ -917,7 +982,7 @@ describe("projection calculations", () => {
         settings,
         rowDate: "2026-03-01",
         drawDate: "2027-01-01",
-      }),
+      })
     ).toBe(1150);
   });
 
@@ -974,14 +1039,14 @@ describe("projection calculations", () => {
         settings,
         rowDate: "2030-01-01",
         drawDate: "2031-01-01",
-      }),
+      })
     ).toBe(2750);
     expect(
       calculateIsaPotAtDate({
         settings,
         rowDate: "2030-01-01",
         drawDate: "2031-01-01",
-      }),
+      })
     ).toBe(2200);
   });
 
@@ -1011,14 +1076,14 @@ describe("projection calculations", () => {
         settings,
         rowDate: "2026-05-01",
         drawDate: "2028-01-01",
-      }),
+      })
     ).toBe(0);
     expect(
       calculateSippPotAtDate({
         settings,
         rowDate: "2027-06-01",
         drawDate: "2028-01-01",
-      }),
+      })
     ).toBe(2500);
   });
 
@@ -1048,7 +1113,7 @@ describe("projection calculations", () => {
         settings,
         rowDate: "2026-03-01",
         drawDate: "2026-04-01",
-      }),
+      })
     ).toBeCloseTo(12166.666667, 6);
   });
 
@@ -1079,11 +1144,11 @@ describe("projection calculations", () => {
 
     expect(findRowByDate(rows, "2026-01-01")?.monthlySippPension).toBeCloseTo(
       60000 / 61,
-      6,
+      6
     );
     expect(findRowByDate(rows, "2026-01-01")?.monthlyIsaPension).toBeCloseTo(
       30000 / 61,
-      6,
+      6
     );
     expect(findRowByDate(rows, "2031-01-01")?.sippPot).toBeCloseTo(0, 6);
     expect(findRowByDate(rows, "2031-01-01")?.isaPot).toBeCloseTo(0, 6);
@@ -1121,11 +1186,11 @@ describe("projection calculations", () => {
     expect(firstDrawRow?.monthlySippPension).toBeGreaterThan(1000);
     expect(laterDrawRow?.monthlySippPension).toBeCloseTo(
       firstDrawRow?.monthlySippPension ?? 0,
-      6,
+      6
     );
     expect(laterDrawRow?.monthlyIsaPension).toBeCloseTo(
       firstDrawRow?.monthlyIsaPension ?? 0,
-      6,
+      6
     );
     expect(findRowByDate(rows, "2031-01-01")?.sippPot).toBeCloseTo(0, 6);
     expect(findRowByDate(rows, "2031-01-01")?.isaPot).toBeCloseTo(0, 6);
@@ -1138,7 +1203,7 @@ describe("projection calculations", () => {
     const depletionRow = findPotDepletedRow(
       rows,
       "isaPot",
-      bridgeBoundaryScenario1.isaDrawAge,
+      bridgeBoundaryScenario1.isaDrawAge
     );
 
     expect(depletionRow?.date).toBe("2037-12-01");
@@ -1147,7 +1212,7 @@ describe("projection calculations", () => {
         settings: bridgeBoundaryScenario1,
         rowDate: "2037-11-23",
         drawDate: "2032-11-23",
-      }),
+      })
     ).toBeCloseTo(0, 6);
     expect(preTargetRow?.monthlyIsaPension).toBeGreaterThan(0);
     expectBridgeToRemainActiveUntilTarget({
@@ -1165,7 +1230,7 @@ describe("projection calculations", () => {
     const depletionRow = findPotDepletedRow(
       rows,
       "isaPot",
-      bridgeBoundaryScenario2.isaDrawAge,
+      bridgeBoundaryScenario2.isaDrawAge
     );
 
     expect(depletionRow?.date).toBe("2038-03-01");
@@ -1174,7 +1239,7 @@ describe("projection calculations", () => {
         settings: bridgeBoundaryScenario2,
         rowDate: "2038-02-23",
         drawDate: "2032-11-23",
-      }),
+      })
     ).toBeCloseTo(0, 6);
     expect(preTargetRow?.monthlyIsaPension).toBeGreaterThan(0);
     expectBridgeToRemainActiveUntilTarget({
@@ -1186,7 +1251,9 @@ describe("projection calculations", () => {
   });
 
   it("does not create a shortfall gap when ISA bridge ends on the Alpha start date", () => {
-    const bridgeSettings = prepareBridgeProjectionSettings(isaToAlphaBoundaryScenario);
+    const bridgeSettings = prepareBridgeProjectionSettings(
+      isaToAlphaBoundaryScenario
+    );
     const chartRows = createProjectionTable(bridgeSettings);
     const chartSeries = createRetirementIncomeSeries(chartRows, bridgeSettings);
     const pensionRows = createProjectionTable({
@@ -1194,19 +1261,24 @@ describe("projection calculations", () => {
       showSipp: false,
       showIsa: false,
     });
-    const analysis = generateRetirementBridgeAnalysis(pensionRows, bridgeSettings);
+    const analysis = generateRetirementBridgeAnalysis(
+      pensionRows,
+      bridgeSettings
+    );
 
-    const preAlphaPoint = chartSeries.find((point) => point.date === "2038-02-01");
+    const preAlphaPoint = chartSeries.find(
+      (point) => point.date === "2038-02-01"
+    );
     const alphaPoint = chartSeries.find((point) => point.date === "2038-02-23");
     const alphaAnalysisRow = analysis.potProjection.find(
-      (point) => point.date === "2038-02-23",
+      (point) => point.date === "2038-02-23"
     );
 
     expect(preAlphaPoint?.isaIncomeAnnual).toBeGreaterThan(0);
     expect(preAlphaPoint?.shortfallAnnual).toBe(0);
     expect(alphaPoint?.isaIncomeAnnual).toBe(0);
     expect(alphaPoint?.alphaIncomeAnnual).toBeGreaterThanOrEqual(
-      isaToAlphaBoundaryScenario.desiredRetirementIncome,
+      isaToAlphaBoundaryScenario.desiredRetirementIncome
     );
     expect(alphaPoint?.shortfallAnnual).toBe(0);
     expect(alphaAnalysisRow?.unfundedShortfall).toBe(0);
@@ -1219,7 +1291,7 @@ describe("projection calculations", () => {
     const depletionRow = findPotDepletedRow(
       rows,
       "sippPot",
-      bridgeBoundaryScenario1.sippDrawAge,
+      bridgeBoundaryScenario1.sippDrawAge
     );
 
     expect(depletionRow?.date).toBe("2045-03-01");
@@ -1239,7 +1311,7 @@ describe("projection calculations", () => {
     const depletionRow = findPotDepletedRow(
       rows,
       "sippPot",
-      bridgeBoundaryScenario2.sippDrawAge,
+      bridgeBoundaryScenario2.sippDrawAge
     );
 
     expect(depletionRow?.date).toBe("2045-03-01");
@@ -1296,11 +1368,11 @@ describe("projection calculations", () => {
 
     expect(findRowByDate(rows, "2047-06-15")?.monthlySippPension).toBeCloseTo(
       100 / 12,
-      6,
+      6
     );
     expect(findRowByDate(rows, "2047-06-15")?.monthlyIsaPension).toBeCloseTo(
       100 / 12,
-      6,
+      6
     );
   });
 
@@ -1333,11 +1405,13 @@ describe("projection calculations", () => {
     const rowsWithoutGrowth = createProjectionTable(settingsWithoutGrowth);
     const rowsWithGrowth = createProjectionTable(settingsWithGrowth);
 
-    expect(findRowByDate(rowsWithGrowth, "2026-06-01")?.sippPot).toBeGreaterThan(
-      findRowByDate(rowsWithoutGrowth, "2026-06-01")?.sippPot ?? 0,
+    expect(
+      findRowByDate(rowsWithGrowth, "2026-06-01")?.sippPot
+    ).toBeGreaterThan(
+      findRowByDate(rowsWithoutGrowth, "2026-06-01")?.sippPot ?? 0
     );
     expect(findRowByDate(rowsWithGrowth, "2026-06-01")?.isaPot).toBeGreaterThan(
-      findRowByDate(rowsWithoutGrowth, "2026-06-01")?.isaPot ?? 0,
+      findRowByDate(rowsWithoutGrowth, "2026-06-01")?.isaPot ?? 0
     );
   });
 
@@ -1359,11 +1433,19 @@ describe("projection calculations", () => {
     const rows = createProjectionTable(settings);
 
     expect(findRowByDate(rows, "2048-05-15")?.monthlySippPension).toBe(0);
-    expect(findRowByDate(rows, "2048-06-15")?.monthlySippPension).toBeGreaterThan(0);
+    expect(
+      findRowByDate(rows, "2048-06-15")?.monthlySippPension
+    ).toBeGreaterThan(0);
     expect(findRowByDate(rows, "2049-05-15")?.monthlyIsaPension).toBe(0);
-    expect(findRowByDate(rows, "2049-06-15")?.monthlyIsaPension).toBeGreaterThan(0);
-    expect(findRowByDate(rows, "2048-06-15")?.milestones).toContain("Starts Drawing SIPP");
-    expect(findRowByDate(rows, "2049-06-15")?.milestones).toContain("Starts Drawing ISA");
+    expect(
+      findRowByDate(rows, "2049-06-15")?.monthlyIsaPension
+    ).toBeGreaterThan(0);
+    expect(findRowByDate(rows, "2048-06-15")?.milestones).toContain(
+      "Starts Drawing SIPP"
+    );
+    expect(findRowByDate(rows, "2049-06-15")?.milestones).toContain(
+      "Starts Drawing ISA"
+    );
   });
 
   it("stops monthly alpha accrual after the earlier of draw date and leave date", () => {
@@ -1384,18 +1466,15 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-    expect(findRowByDate(rows, "2047-05-15")?.annualAccruedAlphaPension).toBeCloseTo(
-      8412.4,
-      6,
-    );
-    expect(findRowByDate(rows, "2047-06-15")?.annualAccruedAlphaPension).toBeCloseTo(
-      8493.6,
-      6,
-    );
-    expect(findRowByDate(rows, "2047-07-15")?.annualAccruedAlphaPension).toBeCloseTo(
-      8493.6,
-      6,
-    );
+    expect(
+      findRowByDate(rows, "2047-05-15")?.annualAccruedAlphaPension
+    ).toBeCloseTo(8412.4, 6);
+    expect(
+      findRowByDate(rows, "2047-06-15")?.annualAccruedAlphaPension
+    ).toBeCloseTo(8493.6, 6);
+    expect(
+      findRowByDate(rows, "2047-07-15")?.annualAccruedAlphaPension
+    ).toBeCloseTo(8493.6, 6);
   });
 
   it("creates projection rows through the life expectancy birthday", () => {
@@ -1430,19 +1509,16 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-    expect(findRowByDate(rows, "2047-05-15")?.annualAlphaPensionIncludingReduction).toBeCloseTo(
-      5451.2352,
-      6,
-    );
-    expect(findRowByDate(rows, "2047-05-15")?.monthlyAlphaPensionTakeHome).toBe(0);
-    expect(findRowByDate(rows, "2047-06-15")?.monthlyAlphaPensionTakeHome).toBeCloseTo(
-      458.6544,
-      6,
-    );
-    expect(findRowByDate(rows, "2047-06-15")?.totalMonthlyPensionTakeHomePay).toBeCloseTo(
-      458.6544,
-      6,
-    );
+    expect(
+      findRowByDate(rows, "2047-05-15")?.annualAlphaPensionIncludingReduction
+    ).toBeCloseTo(5451.2352, 6);
+    expect(findRowByDate(rows, "2047-05-15")?.monthlyAlphaPensionGross).toBe(0);
+    expect(
+      findRowByDate(rows, "2047-06-15")?.monthlyAlphaPensionGross
+    ).toBeCloseTo(458.6544, 6);
+    expect(
+      findRowByDate(rows, "2047-06-15")?.totalMonthlyNetIncome
+    ).toBeCloseTo(458.6544, 6);
   });
 
   it("applies optional Alpha pension increases in the projection table", () => {
@@ -1466,14 +1542,12 @@ describe("projection calculations", () => {
 
     const rows = createProjectionTable(settings);
 
-    expect(findRowByDate(rows, "2026-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
-      10150,
-      6,
-    );
-    expect(findRowByDate(rows, "2027-04-01")?.annualAccruedAlphaPension).toBeCloseTo(
-      10150,
-      6,
-    );
+    expect(
+      findRowByDate(rows, "2026-04-01")?.annualAccruedAlphaPension
+    ).toBeCloseTo(10150, 6);
+    expect(
+      findRowByDate(rows, "2027-04-01")?.annualAccruedAlphaPension
+    ).toBeCloseTo(10150, 6);
   });
 
   it("splits EPA accrual into an unreduced EPA portion", () => {
@@ -1584,24 +1658,23 @@ describe("projection calculations", () => {
     const rows = createProjectionTable(settings);
 
     expect(findRowByDate(rows, "2047-05-15")?.lumpSumAddedPension).toBe(0);
-    expect(findRowByDate(rows, "2047-06-15")?.lumpSumAddedPension).toBeCloseTo(1000, 6);
+    expect(findRowByDate(rows, "2047-06-15")?.lumpSumAddedPension).toBeCloseTo(
+      1000,
+      6
+    );
     expect(findRowByDate(rows, "2047-07-15")?.lumpSumAddedPension).toBe(0);
-    expect(findRowByDate(rows, "2047-05-15")?.annualAccruedAlphaPension).toBeCloseTo(
-      8412.4,
-      6,
-    );
-    expect(findRowByDate(rows, "2047-06-15")?.annualAccruedAlphaPension).toBeCloseTo(
-      9493.6,
-      6,
-    );
-    expect(findRowByDate(rows, "2047-07-15")?.annualAccruedAlphaPension).toBeCloseTo(
-      9493.6,
-      6,
-    );
-    expect(findRowByDate(rows, "2047-06-15")?.monthlyAlphaPensionTakeHome).toBeCloseTo(
-      512.6544,
-      6,
-    );
+    expect(
+      findRowByDate(rows, "2047-05-15")?.annualAccruedAlphaPension
+    ).toBeCloseTo(8412.4, 6);
+    expect(
+      findRowByDate(rows, "2047-06-15")?.annualAccruedAlphaPension
+    ).toBeCloseTo(9493.6, 6);
+    expect(
+      findRowByDate(rows, "2047-07-15")?.annualAccruedAlphaPension
+    ).toBeCloseTo(9493.6, 6);
+    expect(
+      findRowByDate(rows, "2047-06-15")?.monthlyAlphaPensionGross
+    ).toBeCloseTo(512.6544, 6);
   });
 
   it("uses the calculated starting Alpha pension at the projection start instead of the raw ABS value", () => {
@@ -1619,10 +1692,9 @@ describe("projection calculations", () => {
     };
 
     const rows = createProjectionTable(settings);
-    expect(findRowByDate(rows, "2025-12-15")?.annualAccruedAlphaPension).toBeCloseTo(
-      8980.8,
-      6,
-    );
+    expect(
+      findRowByDate(rows, "2025-12-15")?.annualAccruedAlphaPension
+    ).toBeCloseTo(8980.8, 6);
   });
 
   it("prepends rows from the last ABS statement before the calculation start", () => {
@@ -1644,8 +1716,12 @@ describe("projection calculations", () => {
 
     expect(rows[0]?.date).toBe(alphaAbsDate);
     expect(rows[0]?.milestones).toEqual(["Last ABS"]);
-    expect(findRowByDate(rows, "2025-12-15")?.milestones).toContain("Calculation start");
-    expect(findRowByDate(rows, alphaAbsDate)?.annualAccruedAlphaPension).toBeCloseTo(8250, 6);
+    expect(findRowByDate(rows, "2025-12-15")?.milestones).toContain(
+      "Calculation start"
+    );
+    expect(
+      findRowByDate(rows, alphaAbsDate)?.annualAccruedAlphaPension
+    ).toBeCloseTo(8250, 6);
   });
 
   it("flags the correct row for the Alpha Pension Stop Date", () => {
@@ -1657,13 +1733,15 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2047-06-15",
         "2055-06-15",
-        "2055-08-15",
+        "2055-08-15"
       ),
       "2047-04-15",
-      "2047-08-15",
+      "2047-08-15"
     );
 
-    expect(milestoneMap.get("2047-05-15")).toContain("Leave Alpha Pension Scheme");
+    expect(milestoneMap.get("2047-05-15")).toContain(
+      "Leave Alpha Pension Scheme"
+    );
   });
 
   it("flags the correct row for the Alpha Pension Draw Date", () => {
@@ -1675,13 +1753,15 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2047-06-15",
         "2055-06-15",
-        "2055-08-15",
+        "2055-08-15"
       ),
       "2047-04-15",
-      "2047-08-15",
+      "2047-08-15"
     );
 
-    expect(milestoneMap.get("2047-06-15")).toContain("Starts Drawing Alpha Pension");
+    expect(milestoneMap.get("2047-06-15")).toContain(
+      "Starts Drawing Alpha Pension"
+    );
   });
 
   it("flags the correct row for the State Pension Start Date", () => {
@@ -1693,13 +1773,15 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2047-06-15",
         "2055-06-15",
-        "2055-08-15",
+        "2055-08-15"
       ),
       "2055-04-15",
-      "2055-08-15",
+      "2055-08-15"
     );
 
-    expect(milestoneMap.get("2055-06-15")).toContain("Starts Drawing State Pension");
+    expect(milestoneMap.get("2055-06-15")).toContain(
+      "Starts Drawing State Pension"
+    );
   });
 
   it("flags the correct rows for SIPP and ISA draw dates", () => {
@@ -1711,10 +1793,10 @@ describe("projection calculations", () => {
         "2047-07-15",
         "2047-08-15",
         "2055-06-15",
-        "2055-08-15",
+        "2055-08-15"
       ),
       "2047-04-15",
-      "2055-08-15",
+      "2055-08-15"
     );
 
     expect(milestoneMap.get("2047-07-15")).toContain("Starts Drawing SIPP");
@@ -1731,15 +1813,21 @@ describe("projection calculations", () => {
         "2047-06-20",
         "2055-06-20",
         "2055-08-15",
-        [],
+        []
       ),
       "2047-04-15",
-      "2055-08-15",
+      "2055-08-15"
     );
 
-    expect(milestoneMap.get("2047-06-15")).toContain("Leave Alpha Pension Scheme");
-    expect(milestoneMap.get("2047-07-15")).toContain("Starts Drawing Alpha Pension");
-    expect(milestoneMap.get("2055-07-15")).toContain("Starts Drawing State Pension");
+    expect(milestoneMap.get("2047-06-15")).toContain(
+      "Leave Alpha Pension Scheme"
+    );
+    expect(milestoneMap.get("2047-07-15")).toContain(
+      "Starts Drawing Alpha Pension"
+    );
+    expect(milestoneMap.get("2055-07-15")).toContain(
+      "Starts Drawing State Pension"
+    );
   });
 
   it("preserves multiple milestones when they land on the same row", () => {
@@ -1752,10 +1840,10 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2047-06-15",
         "2047-08-15",
-        [],
+        []
       ),
       "2047-04-15",
-      "2047-08-15",
+      "2047-08-15"
     );
 
     expect(milestoneMap.get("2047-06-15")).toEqual([
@@ -1777,10 +1865,10 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2055-06-15",
         "2055-08-15",
-        [],
+        []
       ),
       "2047-04-15",
-      "2047-08-15",
+      "2047-08-15"
     );
 
     expect(milestoneMap.get("2047-04-15")).toContain("Calculation start");
@@ -1797,10 +1885,10 @@ describe("projection calculations", () => {
         "2055-06-15",
         "2055-08-15",
         [],
-        "2047-04-01",
+        "2047-04-01"
       ),
       "2047-04-01",
-      "2047-08-15",
+      "2047-08-15"
     );
 
     expect(milestoneMap.get("2047-04-01")).toContain("Last ABS");
@@ -1816,10 +1904,10 @@ describe("projection calculations", () => {
         "2047-06-15",
         "2055-06-15",
         "2055-08-15",
-        [],
+        []
       ),
       "2055-04-15",
-      "2055-08-15",
+      "2055-08-15"
     );
 
     expect(milestoneMap.get("2055-08-15")).toContain("Life expectancy");
@@ -1841,7 +1929,9 @@ describe("projection calculations", () => {
 
     const rows = createProjectionTable(settings);
     expect(rows[0]?.milestones).toEqual(["Last ABS"]);
-    expect(findRowByDate(rows, "2047-05-15")?.milestones).toEqual(["Calculation start"]);
+    expect(findRowByDate(rows, "2047-05-15")?.milestones).toEqual([
+      "Calculation start",
+    ]);
     expect(findRowByDate(rows, "2047-06-15")?.milestones).toEqual([
       "Leave Alpha Pension Scheme",
       "Starts Drawing Alpha Pension",
@@ -1878,15 +1968,21 @@ describe("projection calculations", () => {
             cadence: "yearly",
             endDate: "2048-05-20",
           },
-        ],
+        ]
       ),
       "2047-04-15",
-      "2048-08-15",
+      "2048-08-15"
     );
 
-    expect(milestoneMap.get("2047-06-15")).toContain("Lump Sum Added Pension (£12,820)");
-    expect(milestoneMap.get("2047-06-15")).toContain("Lump Sum Added Pension (£5,000)");
-    expect(milestoneMap.get("2048-06-15")).toContain("Lump Sum Added Pension (£5,000)");
+    expect(milestoneMap.get("2047-06-15")).toContain(
+      "Lump Sum Added Pension (£12,820)"
+    );
+    expect(milestoneMap.get("2047-06-15")).toContain(
+      "Lump Sum Added Pension (£5,000)"
+    );
+    expect(milestoneMap.get("2048-06-15")).toContain(
+      "Lump Sum Added Pension (£5,000)"
+    );
   });
 
   it("shows lump sum milestones on the first projection row after the payment date", () => {
@@ -1914,10 +2010,10 @@ describe("projection calculations", () => {
 
     const rows = createProjectionTable(settings);
     expect(findRowByDate(rows, "2047-06-15")?.milestones).not.toContain(
-      "Lump Sum Added Pension (£12,820)",
+      "Lump Sum Added Pension (£12,820)"
     );
     expect(findRowByDate(rows, "2047-07-15")?.milestones).toContain(
-      "Lump Sum Added Pension (£12,820)",
+      "Lump Sum Added Pension (£12,820)"
     );
   });
 
@@ -1956,8 +2052,8 @@ describe("projection calculations", () => {
 
     expect(summary.keyDates.startsAlphaPension).toBe("2047-06-20");
     expect(summary.alphaPension.monthlyAtDraw).toBeCloseTo(
-      findRowByDate(rows, "2047-07-15")?.monthlyAlphaPensionTakeHome ?? 0,
-      6,
+      findRowByDate(rows, "2047-07-15")?.monthlyAlphaPensionGross ?? 0,
+      6
     );
   });
 
@@ -1974,12 +2070,12 @@ describe("projection calculations", () => {
     const summary = generatePensionSummary(rows, settings);
 
     expect(summary.incomeOverTime.monthlyAtStateStart).toBeCloseTo(
-      findRowByDate(rows, "2055-07-15")?.totalMonthlyPensionTakeHomePay ?? 0,
-      6,
+      findRowByDate(rows, "2055-07-15")?.totalMonthlyNetIncome ?? 0,
+      6
     );
     expect(summary.incomeOverTime.monthlyAfterStatePension).toBeCloseTo(
-      findRowByDate(rows, "2055-07-15")?.totalMonthlyPensionTakeHomePay ?? 0,
-      6,
+      findRowByDate(rows, "2055-07-15")?.totalMonthlyNetIncome ?? 0,
+      6
     );
   });
 
@@ -2023,13 +2119,13 @@ describe("projection calculations", () => {
     const stateRow = rows.find((row) => row.date === "2055-06-15");
 
     expect(summary.incomeOverTime.monthlyAtStateStart).toBeCloseTo(
-      (stateRow?.monthlyAlphaPensionTakeHome ?? 0) +
+      (stateRow?.monthlyAlphaPensionGross ?? 0) +
         (stateRow?.monthlyStatePension ?? 0),
-      6,
+      6
     );
     expect(summary.incomeOverTime.monthlyStatePension).toBeCloseTo(
       stateRow?.monthlyStatePension ?? 0,
-      6,
+      6
     );
     expect(summary.retirementIncome.sources).toEqual([
       expect.objectContaining({
@@ -2052,12 +2148,15 @@ describe("projection calculations", () => {
       }),
     ]);
     expect(summary.retirementIncome.totalMonthlyIncome).toBeCloseTo(
-      summary.retirementIncome.sources.reduce((total, source) => total + source.monthlyIncome, 0),
-      6,
+      summary.retirementIncome.sources.reduce(
+        (total, source) => total + source.monthlyIncome,
+        0
+      ),
+      6
     );
     expect(summary.retirementIncome.totalAnnualIncome).toBeCloseTo(
       summary.retirementIncome.totalMonthlyIncome * 12,
-      6,
+      6
     );
   });
 
@@ -2096,7 +2195,7 @@ describe("projection calculations", () => {
     ]);
     expect(summary.retirementIncome.totalMonthlyIncome).toBeCloseTo(
       summary.alphaPension.monthlyAtDraw + summary.nuvosPension.monthlyAtDraw,
-      6,
+      6
     );
   });
 
@@ -2113,10 +2212,10 @@ describe("projection calculations", () => {
     const updatedSummary = generatePensionSummary(updatedRows, updatedSettings);
 
     expect(updatedSummary.alphaPension.monthlyAtDraw).not.toBe(
-      baseSummary.alphaPension.monthlyAtDraw,
+      baseSummary.alphaPension.monthlyAtDraw
     );
     expect(updatedSummary.incomeOverTime.monthlyAtStateStart).not.toBe(
-      baseSummary.incomeOverTime.monthlyAtStateStart,
+      baseSummary.incomeOverTime.monthlyAtStateStart
     );
     expect(updatedSummary.keyDates.startsAlphaPension).toBe("2048-06-15");
   });
@@ -2148,19 +2247,23 @@ describe("projection calculations", () => {
     const summary = generatePensionSummary(rows, settings);
 
     expect(stateRow?.monthlyStatePension).toBe(0);
-    expect(stateRow?.monthlyNuvosPensionTakeHome).toBe(0);
+    expect(stateRow?.monthlyNuvosPensionGross).toBe(0);
     expect(stateRow?.monthlySippPension).toBe(0);
     expect(stateRow?.monthlyIsaPension).toBe(0);
-    expect(stateRow?.totalMonthlyPensionTakeHomePay).toBeCloseTo(
-      stateRow?.monthlyAlphaPensionTakeHome ?? 0,
-      6,
+    expect(stateRow?.totalMonthlyNetIncome).toBeCloseTo(
+      stateRow?.monthlyAlphaPensionGross ?? 0,
+      6
     );
-    expect(rows.some((row) => row.milestones.includes("Starts Drawing State Pension"))).toBe(
-      false,
-    );
-    expect(rows.some((row) => row.milestones.includes("Starts Drawing nuvos Pension"))).toBe(
-      false,
-    );
+    expect(
+      rows.some((row) =>
+        row.milestones.includes("Starts Drawing State Pension")
+      )
+    ).toBe(false);
+    expect(
+      rows.some((row) =>
+        row.milestones.includes("Starts Drawing nuvos Pension")
+      )
+    ).toBe(false);
     expect(summary.nuvosPension.monthlyAtDraw).toBe(0);
     expect(summary.nuvosPension.maximumAnnualAccrued).toBe(0);
     expect(summary.sippPension.potAtDraw).toBe(0);
@@ -2174,7 +2277,7 @@ describe("projection calculations", () => {
     ]);
     expect(summary.retirementIncome.totalMonthlyIncome).toBeCloseTo(
       summary.alphaPension.monthlyAtDraw,
-      6,
+      6
     );
   });
 
@@ -2223,7 +2326,7 @@ describe("projection calculations", () => {
     expect(
       analysis.potProjection
         .filter((row) => row.age < 57)
-        .every((row) => row.sippDrawdown === 0),
+        .every((row) => row.sippDrawdown === 0)
     ).toBe(true);
   });
 
@@ -2253,7 +2356,7 @@ describe("projection calculations", () => {
 
     const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
     const bridgeMilestones = analysis.potProjection.flatMap(
-      (row) => row.milestones,
+      (row) => row.milestones
     );
 
     expect(bridgeMilestones).toEqual([
@@ -2291,7 +2394,7 @@ describe("projection calculations", () => {
 
     const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
     const partialRetirementRow = analysis.potProjection.find((row) =>
-      row.milestones.includes("Partial retirement starts"),
+      row.milestones.includes("Partial retirement starts")
     );
 
     expect(partialRetirementRow).toBeDefined();
@@ -2325,7 +2428,7 @@ describe("projection calculations", () => {
 
     const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
     const alphaStartRow = analysis.potProjection.find((row) =>
-      row.milestones.includes("Alpha starts"),
+      row.milestones.includes("Alpha starts")
     );
 
     expect(alphaStartRow).toBeDefined();
@@ -2390,7 +2493,7 @@ describe("projection calculations", () => {
     const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
 
     expect(analysis.phases.map((phase) => phase.label)).toContain(
-      "SIPP access and Alpha to State Pension",
+      "SIPP access and Alpha to State Pension"
     );
   });
 
@@ -2417,9 +2520,9 @@ describe("projection calculations", () => {
     const summary = generatePensionSummary(pensionRows, settings);
     const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
 
-    expect(summary.retirementIncome.sources.some((source) => source.key === "alpha")).toBe(
-      false,
-    );
+    expect(
+      summary.retirementIncome.sources.some((source) => source.key === "alpha")
+    ).toBe(false);
     expect(analysis.planWorks).toBe(true);
     expect(analysis.phases[0]?.incomeSourcesActive).toEqual(["None"]);
   });
@@ -2454,8 +2557,8 @@ describe("projection calculations", () => {
     expect(analysis.planWorks).toBe(true);
     expect(
       analysis.phases.some((phase) =>
-        phase.incomeSourcesActive.includes("State Pension"),
-      ),
+        phase.incomeSourcesActive.includes("State Pension")
+      )
     ).toBe(true);
     expect(analysis.stableAnnualGuaranteedIncome).toBeCloseTo(12000, 6);
   });
@@ -2487,7 +2590,7 @@ describe("projection calculations", () => {
 
     const analysis = generateRetirementBridgeAnalysis(pensionRows, settings);
     const statePensionPhase = analysis.phases.find((phase) =>
-      phase.incomeSourcesActive.includes("State Pension"),
+      phase.incomeSourcesActive.includes("State Pension")
     );
 
     expect(analysis.fullSecureIncomeStartDate).toBe("2026-05-06");
@@ -2531,7 +2634,7 @@ describe("projection calculations", () => {
 
     expect(analysis.earliestSustainablePensionDrawAge).toBeNull();
     expect(analysis.stableAnnualGuaranteedIncome).toBeLessThan(
-      settings.desiredRetirementIncome,
+      settings.desiredRetirementIncome
     );
   });
 });

@@ -8,7 +8,9 @@ const GUIDANCE_NOTES_STORAGE_KEY = "cs-pension-modeller.guidanceNotes";
 export type AppMode = "bridge" | "simple" | "expert";
 
 export function loadAcknowledgementState() {
-  return readStorageItem(ACKNOWLEDGEMENT_STORAGE_KEY) === ACKNOWLEDGEMENT_VERSION;
+  return (
+    readStorageItem(ACKNOWLEDGEMENT_STORAGE_KEY) === ACKNOWLEDGEMENT_VERSION
+  );
 }
 
 export function saveAcknowledgementState() {
@@ -40,6 +42,6 @@ export function loadStoredGuidanceNotes() {
 export function saveStoredGuidanceNotes(showGuidanceNotes: boolean) {
   writeStorageItem(
     GUIDANCE_NOTES_STORAGE_KEY,
-    showGuidanceNotes ? "true" : "false",
+    showGuidanceNotes ? "true" : "false"
   );
 }

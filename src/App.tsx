@@ -8,9 +8,7 @@ import {
   useState,
   type RefObject,
 } from "react";
-import {
-  type SettingsKey,
-} from "./fieldDefinitions";
+import { type SettingsKey } from "./fieldDefinitions";
 import {
   calculateRetirementIncomeTargetAtDate,
   createProjectionTable,
@@ -86,9 +84,7 @@ import {
   type ComparisonScenario,
   type JourneyDefinition,
 } from "./app-domains";
-import {
-  useMobileDateDropdowns as useMobileDateDropdownsHook,
-} from "./app/form-fields";
+import { useMobileDateDropdowns as useMobileDateDropdownsHook } from "./app/form-fields";
 import {
   JourneyStepContent,
   type JourneyStepViewModel,
@@ -146,7 +142,7 @@ function App() {
   const [settingsFormVersion, setSettingsFormVersion] = useState(0);
   const [appMode, setAppMode] = useState<AppMode | null>(loadStoredAppMode);
   const [showGuidanceNotes, setShowGuidanceNotes] = useState(
-    loadStoredGuidanceNotes,
+    loadStoredGuidanceNotes
   );
   const [retirementIncomeDisplay, setRetirementIncomeDisplay] =
     useState<RetirementIncomeDisplay>("monthly");
@@ -155,13 +151,15 @@ function App() {
   >(loadStoredComparisonScenarios);
   const [showLimitations, setShowLimitations] = useState(false);
   const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(
-    loadAcknowledgementState,
+    loadAcknowledgementState
   );
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
-  const savedFeedbackTimer = useRef<ReturnType<typeof window.setTimeout> | null>(
-    null,
+  const savedFeedbackTimer = useRef<ReturnType<
+    typeof window.setTimeout
+  > | null>(null);
+  const [comparisonResultCache] = useState<ComparisonResultCache>(
+    () => new Map()
   );
-  const [comparisonResultCache] = useState<ComparisonResultCache>(() => new Map());
   const activeModeRef = useRef<HTMLDivElement | null>(null);
   const shouldFocusActiveMode = useRef(false);
   const scrollActiveModeIntoView = useCallback(() => {
@@ -180,35 +178,35 @@ function App() {
   const visibleSettings = settings;
   const validationIssues = useMemo(
     () => validateSettings(deferredSettings),
-    [deferredSettings],
+    [deferredSettings]
   );
   const projectionRows = useMemo(
     () => createProjectionTable(deferredSettings),
-    [deferredSettings],
+    [deferredSettings]
   );
   const pensionSummary = useMemo(
     () => generatePensionSummary(projectionRows, deferredSettings),
-    [projectionRows, deferredSettings],
+    [projectionRows, deferredSettings]
   );
   const retirementIncomeSeries = useMemo(
     () => createRetirementIncomeSeries(projectionRows, deferredSettings),
-    [projectionRows, deferredSettings],
+    [projectionRows, deferredSettings]
   );
   const bridgeChartParameters = useMemo(
     () => createBridgeChartParameters(settings),
-    [settings],
+    [settings]
   );
   const bridgeChartLimits = useMemo(
     () => createBridgeChartLimits(settings),
-    [settings],
+    [settings]
   );
   const derivedInflationAssumptions = useMemo(
     () => deriveInflationAssumptions(deferredSettings),
-    [deferredSettings],
+    [deferredSettings]
   );
   const retirementIncomeTitle = getRetirementIncomeTitle(
     visibleSettings.taxationEnabled,
-    retirementIncomeDisplay,
+    retirementIncomeDisplay
   );
   const retirementIncomeItems = pensionSummary
     ? buildRetirementIncomeItems(pensionSummary, retirementIncomeDisplay)
@@ -216,18 +214,19 @@ function App() {
   const retirementIncomeTotal = formatCurrencyDetailed(
     retirementIncomeDisplay === "monthly"
       ? (pensionSummary?.retirementIncome.totalMonthlyIncome ?? 0)
-      : (pensionSummary?.retirementIncome.totalAnnualIncome ?? 0),
+      : (pensionSummary?.retirementIncome.totalAnnualIncome ?? 0)
   );
-  const retirementIncomeTargetTitle =
-    getRetirementIncomeTargetTitle(retirementIncomeDisplay);
+  const retirementIncomeTargetTitle = getRetirementIncomeTargetTitle(
+    retirementIncomeDisplay
+  );
   const annualRetirementIncomeTarget = calculateRetirementIncomeTargetAtDate(
     settings,
-    addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge),
+    addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge)
   );
   const retirementIncomeTarget = formatCurrencyDetailed(
     retirementIncomeDisplay === "monthly"
       ? annualRetirementIncomeTarget / 12
-      : annualRetirementIncomeTarget,
+      : annualRetirementIncomeTarget
   );
   const currentComparisonResult = useMemo(
     () =>
@@ -241,10 +240,10 @@ function App() {
               updatedAt: "",
             },
             getSettingsSignature(settings),
-            comparisonResultCache,
+            comparisonResultCache
           )
         : null,
-    [appMode, comparisonResultCache, retirementIncomeDisplay, settings],
+    [appMode, comparisonResultCache, retirementIncomeDisplay, settings]
   );
 
   useEffect(() => {
@@ -308,7 +307,10 @@ function App() {
     return () => window.removeEventListener("keydown", handleUndoShortcut);
   }, [chartUndoStack.length]);
 
-  function updateSetting<K extends SettingsKey>(key: K, value: PensionSettings[K]) {
+  function updateSetting<K extends SettingsKey>(
+    key: K,
+    value: PensionSettings[K]
+  ) {
     updateSettingAction({
       key,
       value,
@@ -320,7 +322,7 @@ function App() {
   }
 
   function updateBridgeChartParameters(
-    patch: Partial<RetirementIncomeBridgeParameters>,
+    patch: Partial<RetirementIncomeBridgeParameters>
   ) {
     updateBridgeChartParametersAction({
       patch,
@@ -416,24 +418,30 @@ function App() {
   return (
     <>
       {!hasAcknowledgedNotice ? (
-        <div className="acknowledgement-overlay" role="dialog" aria-modal="true" aria-labelledby="acknowledgement-title">
+        <div
+          className="acknowledgement-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="acknowledgement-title"
+        >
           <section className="acknowledgement-card">
             <p className="eyebrow">Before you continue</p>
             <h2 id="acknowledgement-title">Important information</h2>
             <p className="section-copy">
-              This modeller is for planning and illustration only. It is not financial
-              advice and is not affiliated with the Civil Service Pension Scheme, Capita,
-              the Cabinet Office, or the Alpha Pension Scheme.
+              This modeller is for planning and illustration only. It is not
+              financial advice and is not affiliated with the Civil Service
+              Pension Scheme, Capita, the Cabinet Office, or the Alpha Pension
+              Scheme.
             </p>
             <p className="section-copy">
-              Results depend entirely on the assumptions you enter. Check important
-              decisions against your official pension statement and, where appropriate, a
-              regulated financial adviser.
+              Results depend entirely on the assumptions you enter. Check
+              important decisions against your official pension statement and,
+              where appropriate, a regulated financial adviser.
             </p>
             <p className="section-copy">
-              Your inputs are saved locally in your browser so you can come back to the
-              same assumptions later. This site does not use analytics cookies, and no
-              financial or personal information is transmitted.
+              Your inputs are saved locally in your browser so you can come back
+              to the same assumptions later. This site does not use analytics
+              cookies, and no financial or personal information is transmitted.
             </p>
             <button
               type="button"
@@ -458,8 +466,8 @@ function App() {
             <p className="eyebrow">Civil Service</p>
             <h1>Retirement Income Modeller</h1>
             <p className="lead">
-              Work through a Civil Service pension journey, then review your retirement
-              income, funding gaps, key dates, and assumptions.
+              Work through a Civil Service pension journey, then review your
+              retirement income, funding gaps, key dates, and assumptions.
             </p>
           </div>
 
@@ -492,9 +500,15 @@ function App() {
                 retirementIncomeTotal={retirementIncomeTotal}
                 retirementIncomeTargetTitle={retirementIncomeTargetTitle}
                 retirementIncomeTarget={retirementIncomeTarget}
-                statusItems={currentComparisonResult ? buildComparisonStatusItems(currentComparisonResult) : []}
+                statusItems={
+                  currentComparisonResult
+                    ? buildComparisonStatusItems(currentComparisonResult)
+                    : []
+                }
                 showLimitations={showLimitations}
-                onToggleLimitations={() => setShowLimitations((current) => !current)}
+                onToggleLimitations={() =>
+                  setShowLimitations((current) => !current)
+                }
               />
             </ResultsSummarySection>
 
@@ -527,7 +541,6 @@ function App() {
               onChangeParameters={updateBridgeChartParameters}
               {...bridgeChartParameters}
             />
-
           </JourneySection>
         ) : null}
 
@@ -546,7 +559,10 @@ function App() {
 
         {appMode === "expert" ? (
           <ProjectionTableSectionContainer>
-            <ProjectionTableSectionFeature rows={projectionRows} settings={settings} />
+            <ProjectionTableSectionFeature
+              rows={projectionRows}
+              settings={settings}
+            />
           </ProjectionTableSectionContainer>
         ) : null}
 
@@ -560,7 +576,7 @@ function App() {
     saveAcknowledgementState();
   }
 
-function selectAppMode(mode: AppMode) {
+  function selectAppMode(mode: AppMode) {
     selectAppModeAction({
       mode,
       currentMode: appMode,

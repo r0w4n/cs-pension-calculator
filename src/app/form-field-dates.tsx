@@ -30,9 +30,14 @@ import {
   getFieldCardClassName,
 } from "./form-fields-shared";
 
-export function useMobileDateDropdowns(mobileBreakpoint = "(max-width: 480px)") {
+export function useMobileDateDropdowns(
+  mobileBreakpoint = "(max-width: 480px)"
+) {
   const [matches, setMatches] = useState(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
       return false;
     }
 
@@ -40,7 +45,10 @@ export function useMobileDateDropdowns(mobileBreakpoint = "(max-width: 480px)") 
   });
 
   useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
       return;
     }
 
@@ -118,15 +126,15 @@ export function StatePensionAgeField({
   validationIssue?: PensionValidationIssue;
 }) {
   const minimumStatePensionAge = calculateMinimumStatePensionDrawAge(
-    settings.dateOfBirth,
+    settings.dateOfBirth
   );
   const maximumStatePensionAge = Math.max(
     minimumStatePensionAge,
-    settings.lifeExpectancy,
+    settings.lifeExpectancy
   );
   const currentStatePensionAge = calculateStatePensionDrawAge(
     settings.dateOfBirth,
-    value,
+    value
   );
   const [draftValue, setDraftValue] = useState<number | null>(null);
   const [draftExactValue, setDraftExactValue] = useState<string | null>(null);
@@ -142,20 +150,23 @@ export function StatePensionAgeField({
     ? parsedDraftExactValue
     : Math.min(
         maximumStatePensionAge,
-        Math.max(minimumStatePensionAge, draftValue ?? currentStatePensionAge),
+        Math.max(minimumStatePensionAge, draftValue ?? currentStatePensionAge)
       );
   const displayedExactValue = draftExactValue ?? displayedRangeValue.toString();
   const validationId = validationIssue ? `${field.id}-validation` : undefined;
 
   const commitAgeValue = (nextValue: number) => {
     const normalizedAge = normalizeStatePensionDrawAge(
-      Math.min(maximumStatePensionAge, Math.max(minimumStatePensionAge, nextValue)),
-      settings.dateOfBirth,
+      Math.min(
+        maximumStatePensionAge,
+        Math.max(minimumStatePensionAge, nextValue)
+      ),
+      settings.dateOfBirth
     );
 
     onChange(
       "statePensionDrawDate",
-      calculateStatePensionDrawDateFromAge(settings.dateOfBirth, normalizedAge),
+      calculateStatePensionDrawDateFromAge(settings.dateOfBirth, normalizedAge)
     );
     setDraftValue(null);
     setDraftExactValue(null);
@@ -185,7 +196,13 @@ export function StatePensionAgeField({
   };
 
   return (
-    <div className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
+    <div
+      className={getFieldCardClassName(
+        disabled,
+        hideOnMobile,
+        Boolean(validationIssue)
+      )}
+    >
       <span className="field-header">
         <FieldLabel field={field} />
       </span>
@@ -207,9 +224,15 @@ export function StatePensionAgeField({
               setDraftValue(nextValue);
               setDraftExactValue(null);
             }}
-            onMouseUp={(event) => commitAgeValue(Number(event.currentTarget.value))}
-            onTouchEnd={(event) => commitAgeValue(Number(event.currentTarget.value))}
-            onBlur={(event) => commitAgeValue(Number(event.currentTarget.value))}
+            onMouseUp={(event) =>
+              commitAgeValue(Number(event.currentTarget.value))
+            }
+            onTouchEnd={(event) =>
+              commitAgeValue(Number(event.currentTarget.value))
+            }
+            onBlur={(event) =>
+              commitAgeValue(Number(event.currentTarget.value))
+            }
           />
           <div className="range-scale">
             <span>{formatAgeValue(minimumStatePensionAge)}</span>
@@ -257,8 +280,8 @@ export function StatePensionAgeField({
             "statePensionDrawDate",
             calculateStatePensionDrawDateFromAge(
               settings.dateOfBirth,
-              minimumStatePensionAge,
-            ),
+              minimumStatePensionAge
+            )
           );
           setDraftValue(null);
           setDraftExactValue(null);
@@ -291,7 +314,7 @@ export function YearSettingField({
   const resetValue = defaultSettings[field.id];
   const yearOptions = Array.from(
     { length: currentYear - firstAbsYear + 1 },
-    (_, index) => currentYear - index,
+    (_, index) => currentYear - index
   );
 
   return (
@@ -328,7 +351,9 @@ function YearSettingFieldEditor({
   const validationId = validationIssue ? `${field.id}-validation` : undefined;
 
   return (
-    <label className={getFieldCardClassName(false, false, Boolean(validationIssue))}>
+    <label
+      className={getFieldCardClassName(false, false, Boolean(validationIssue))}
+    >
       <span className="field-header">
         <FieldLabel field={field} />
       </span>
@@ -384,19 +409,19 @@ export function DateSelectField({
   const selectedMonth = Number(parts.month);
   const minYear = Math.min(
     yearRange.min,
-    Number.isFinite(selectedYear) ? selectedYear : yearRange.min,
+    Number.isFinite(selectedYear) ? selectedYear : yearRange.min
   );
   const maxYear = Math.max(
     yearRange.max,
-    Number.isFinite(selectedYear) ? selectedYear : yearRange.max,
+    Number.isFinite(selectedYear) ? selectedYear : yearRange.max
   );
   const yearOptions = Array.from(
     { length: maxYear - minYear + 1 },
-    (_, index) => String(maxYear - index),
+    (_, index) => String(maxYear - index)
   );
   const dayCount = getDaysInMonth(selectedYear, selectedMonth);
   const dayOptions = Array.from({ length: dayCount }, (_, index) =>
-    String(index + 1).padStart(2, "0"),
+    String(index + 1).padStart(2, "0")
   );
 
   const commit = (nextParts: DateParts) => {
@@ -517,7 +542,13 @@ export function DateSettingField({
   }
 
   return (
-    <div className={getFieldCardClassName(disabled, hideOnMobile, Boolean(validationIssue))}>
+    <div
+      className={getFieldCardClassName(
+        disabled,
+        hideOnMobile,
+        Boolean(validationIssue)
+      )}
+    >
       <span className="field-header">
         <FieldLabel field={field} />
       </span>
@@ -587,7 +618,12 @@ function getDateParts(value: string): DateParts {
 }
 
 function getDaysInMonth(year: number, month: number) {
-  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    month < 1 ||
+    month > 12
+  ) {
     return 31;
   }
 

@@ -20,9 +20,7 @@ describe("tax domain", () => {
       taxSippTaxFreeWithdrawalPercent: "25",
     } as unknown as Partial<StoredPensionSettings>;
 
-    expect(
-      coerceTaxSettings(storedSettings),
-    ).toEqual({
+    expect(coerceTaxSettings(storedSettings)).toEqual({
       taxationEnabled: true,
       taxPersonalAllowance: 12570,
       taxPersonalAllowanceTaperThreshold: 100000,

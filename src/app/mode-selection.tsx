@@ -14,8 +14,9 @@ export function ModeSelection({
       <div className="panel-heading">
         <h2 id="mode-selection-title">Choose the level of detail</h2>
         <p className="section-copy">
-          The simplified journey asks fewer questions and keeps assumptions simple.
-          Switch to expert mode any time if you want every modelling control.
+          The simplified journey asks fewer questions and keeps assumptions
+          simple. Switch to expert mode any time if you want every modelling
+          control.
         </p>
       </div>
 
@@ -30,9 +31,9 @@ export function ModeSelection({
           <strong>Simplified retirement journey</strong>
           <span>
             Answer a smaller set of questions to see what your retirement could
-            look like financially. This journey keeps the main assumptions simple
-            and shows your projected income, key dates, and funding gaps at the
-            end.
+            look like financially. This journey keeps the main assumptions
+            simple and shows your projected income, key dates, and funding gaps
+            at the end.
           </span>
         </button>
 
@@ -45,8 +46,8 @@ export function ModeSelection({
           <span className="card-label">Early retirement</span>
           <strong>Work out what I need to retire early</strong>
           <span>
-            Follow a statement-led flow that closely matches the main Civil Service
-            calculator inputs, then review the full results breakdown.
+            Follow a statement-led flow that closely matches the main Civil
+            Service calculator inputs, then review the full results breakdown.
           </span>
         </button>
 

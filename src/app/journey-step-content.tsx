@@ -12,10 +12,7 @@ import {
   type RetirementIncomeBridgeParameters,
   type RetirementIncomePoint,
 } from "../RetirementIncomeBridgeChart";
-import type {
-  PensionSettings,
-  PensionValidationIssue,
-} from "../settings";
+import type { PensionSettings, PensionValidationIssue } from "../settings";
 import {
   OPTIONAL_SECTION_TOGGLES,
   buildComparisonStatusItems,
@@ -73,7 +70,7 @@ export type JourneyStepViewModel = {
   useDropdownDates: boolean;
   onChange: SettingsFieldOnChange;
   onChangeChartParameters: (
-    patch: Partial<RetirementIncomeBridgeParameters>,
+    patch: Partial<RetirementIncomeBridgeParameters>
   ) => void;
   comparisonScenarios: ComparisonScenario[];
   comparisonResultCache: ComparisonResultCache;
@@ -132,9 +129,9 @@ export function JourneyStepContent({
           updatedAt: "",
         },
         getSettingsSignature(settings),
-        comparisonResultCache,
+        comparisonResultCache
       ),
-    [comparisonResultCache, settings],
+    [comparisonResultCache, settings]
   );
 
   if (step.kind === "optional-sections") {
@@ -190,7 +187,9 @@ export function JourneyStepContent({
               ? [
                   {
                     label: "Alpha pension starts",
-                    value: formatDate(pensionSummary.keyDates.startsAlphaPension),
+                    value: formatDate(
+                      pensionSummary.keyDates.startsAlphaPension
+                    ),
                   },
                 ]
               : []),
@@ -198,13 +197,17 @@ export function JourneyStepContent({
               ? [
                   {
                     label: "State Pension starts",
-                    value: formatDate(pensionSummary.keyDates.startsStatePension),
+                    value: formatDate(
+                      pensionSummary.keyDates.startsStatePension
+                    ),
                   },
                 ]
               : []),
             {
               label: "Normal Pension Age",
-              value: formatDecimalAge(pensionSummary.calculated.normalPensionAge),
+              value: formatDecimalAge(
+                pensionSummary.calculated.normalPensionAge
+              ),
             },
           ]}
         />
@@ -295,7 +298,10 @@ export function JourneyStepContent({
 
         {step.showProjectionTable !== false ? (
           <ProjectionTableSectionContainer>
-            <ProjectionTableSectionFeature rows={projectionRows} settings={settings} />
+            <ProjectionTableSectionFeature
+              rows={projectionRows}
+              settings={settings}
+            />
           </ProjectionTableSectionContainer>
         ) : null}
       </>
@@ -324,7 +330,7 @@ export function JourneyStepContent({
             showFactorType
             validationIssues={getValidationIssuesForField(
               validationIssues,
-              "alphaAddedPensionLumpSums",
+              "alphaAddedPensionLumpSums"
             )}
             onChange={(nextLumpSums) =>
               onChange("alphaAddedPensionLumpSums", nextLumpSums)
@@ -348,7 +354,9 @@ export function OptionalSectionToggleGrid({
   toggleKeys?: readonly OptionalSectionToggleKey[];
 }) {
   const visibleToggles = toggleKeys
-    ? OPTIONAL_SECTION_TOGGLES.filter((toggle) => toggleKeys.includes(toggle.key))
+    ? OPTIONAL_SECTION_TOGGLES.filter((toggle) =>
+        toggleKeys.includes(toggle.key)
+      )
     : OPTIONAL_SECTION_TOGGLES;
 
   return (
@@ -377,7 +385,7 @@ export function OptionalSectionToggleGrid({
 
 function getFieldsByIds(
   fieldIds: readonly FieldDefinition["id"][],
-  fieldLabels: JourneyFieldLabels = {},
+  fieldLabels: JourneyFieldLabels = {}
 ) {
   return fieldIds
     .map((fieldId) => {
@@ -389,7 +397,9 @@ function getFieldsByIds(
         return undefined;
       }
 
-      return fieldLabels[fieldId] ? { ...field, label: fieldLabels[fieldId] } : field;
+      return fieldLabels[fieldId]
+        ? { ...field, label: fieldLabels[fieldId] }
+        : field;
     })
     .filter((field): field is FieldDefinition => Boolean(field));
 }

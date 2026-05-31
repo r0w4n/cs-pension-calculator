@@ -632,7 +632,11 @@ h3 {
   overflow-wrap: anywhere;
 }
 
-.bridge-table-section .projection-table tbody tr.comparison-summary-row td:first-child,
+.bridge-table-section
+  .projection-table
+  tbody
+  tr.comparison-summary-row
+  td:first-child,
 .bridge-table-section .projection-table thead th:first-child {
   position: sticky;
   left: 0;
@@ -644,7 +648,11 @@ h3 {
   z-index: 3;
 }
 
-.bridge-table-section .projection-table tbody tr.comparison-summary-row--divider td:first-child {
+.bridge-table-section
+  .projection-table
+  tbody
+  tr.comparison-summary-row--divider
+  td:first-child {
   background: #f3f6f8;
 }
 
@@ -699,7 +707,11 @@ h3 {
   border: 1px solid rgba(191, 44, 44, 0.24);
   border-radius: 0.9rem;
   padding: 0.85rem 0.95rem;
-  background: linear-gradient(180deg, rgba(255, 245, 245, 0.96), rgba(255, 252, 250, 0.96));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 245, 245, 0.96),
+    rgba(255, 252, 250, 0.96)
+  );
   color: #7f1d1d;
 }
 
@@ -971,12 +983,11 @@ h3 {
 
 .bridge-shortfall-key {
   border-radius: 0.15rem;
-  background:
-    repeating-linear-gradient(
-      45deg,
-      rgba(191, 44, 44, 0.8) 0 2px,
-      rgba(191, 44, 44, 0.15) 2px 5px
-    );
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(191, 44, 44, 0.8) 0 2px,
+    rgba(191, 44, 44, 0.15) 2px 5px
+  );
 }
 
 .bridge-build-up-key {
@@ -1773,7 +1784,6 @@ h3 {
     padding: 2rem;
     gap: 1.5rem;
   }
-
 }
 
 @media (min-width: 860px) {

@@ -16,20 +16,20 @@ export function isStatePensionGrowthField(fieldId: FieldDefinition["id"]) {
 
 export function getStatePensionDefaultDrawDate(settings?: PensionSettings) {
   return calculateStatePensionDrawDate(
-    settings?.dateOfBirth ?? defaultSettings.dateOfBirth,
+    settings?.dateOfBirth ?? defaultSettings.dateOfBirth
   );
 }
 
 export function getStatePensionDateYearRange(
   fieldId: DateField["id"],
-  settings?: PensionSettings,
+  settings?: PensionSettings
 ) {
   if (fieldId !== "statePensionDrawDate") {
     return null;
   }
 
   const defaultDrawYear = Number(
-    getStatePensionDefaultDrawDate(settings).slice(0, 4),
+    getStatePensionDefaultDrawDate(settings).slice(0, 4)
   );
 
   return { min: defaultDrawYear, max: defaultDrawYear + 30 };

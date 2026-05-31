@@ -10,8 +10,8 @@ export type ProjectionRowLike = {
   date: string;
   age: number;
   ageMonths: number;
-  monthlyAlphaPensionTakeHome: number;
-  monthlyNuvosPensionTakeHome: number;
+  monthlyAlphaPensionGross: number;
+  monthlyNuvosPensionGross: number;
   monthlyStatePension: number;
 };
 
@@ -84,7 +84,9 @@ export type RetirementBridgeAnalysis = {
   potProjection: BridgePotProjectionRow[];
 };
 
-export function prepareBridgeProjectionSettings(settings: PensionSettings): PensionSettings {
+export function prepareBridgeProjectionSettings(
+  settings: PensionSettings
+): PensionSettings {
   return {
     ...settings,
     alphaPensionLeaveAge: settings.requirementAge,
@@ -96,15 +98,20 @@ export function prepareBridgeProjectionSettings(settings: PensionSettings): Pens
 export function generateRetirementBridgeAnalysis(
   pensionRows: ProjectionRowLike[],
   settings: PensionSettings,
-  options: { calculateSafeDrawAge?: boolean } = {},
+  options: { calculateSafeDrawAge?: boolean } = {}
 ): RetirementBridgeAnalysis {
-  const retirementDate = addYears(settings.dateOfBirth, settings.requirementAge);
+  const retirementDate = addYears(
+    settings.dateOfBirth,
+    settings.requirementAge
+  );
   const endDate = addYears(settings.dateOfBirth, settings.lifeExpectancy);
   const sippAccessDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
   const monthlyTargetIncome = settings.desiredRetirementIncome / 12;
   const bridgeRows = generateMonthlyDateRange(retirementDate, endDate);
-  const isaMonthlyGrowthRate = (1 + settings.isaRealInterestPercent / 100) ** (1 / 12) - 1;
-  const sippMonthlyGrowthRate = (1 + settings.sippRealInterestPercent / 100) ** (1 / 12) - 1;
+  const isaMonthlyGrowthRate =
+    (1 + settings.isaRealInterestPercent / 100) ** (1 / 12) - 1;
+  const sippMonthlyGrowthRate =
+    (1 + settings.sippRealInterestPercent / 100) ** (1 / 12) - 1;
   let isaBalance = settings.showIsa
     ? calculateIsaPotAtDate({
         settings: { ...settings, showIsa: true },
@@ -132,13 +139,20 @@ export function generateRetirementBridgeAnalysis(
     isaBalance += isaGrowth;
     sippBalance += sippGrowth;
 
-    const pensionRow = findFirstRowAtOrAfterDate(pensionRows, rowDate) ?? pensionRows.at(-1);
+    const pensionRow =
+      findFirstRowAtOrAfterDate(pensionRows, rowDate) ?? pensionRows.at(-1);
     const monthlyAlphaPension =
-      settings.showAlpha && pensionRow ? pensionRow.monthlyAlphaPensionTakeHome : 0;
+      settings.showAlpha && pensionRow
+        ? pensionRow.monthlyAlphaPensionGross
+        : 0;
     const monthlyNuvosPension =
-      settings.showNuvos && pensionRow ? pensionRow.monthlyNuvosPensionTakeHome : 0;
+      settings.showNuvos && pensionRow
+        ? pensionRow.monthlyNuvosPensionGross
+        : 0;
     const monthlyStatePension =
-      settings.showStatePension && pensionRow ? pensionRow.monthlyStatePension : 0;
+      settings.showStatePension && pensionRow
+        ? pensionRow.monthlyStatePension
+        : 0;
     const monthlyIncomeTax = calculateMonthlyIncomeTax({
       settings,
       monthlyAlphaPension,
@@ -148,7 +162,10 @@ export function generateRetirementBridgeAnalysis(
     });
     const guaranteedIncome = Math.max(
       0,
-      monthlyAlphaPension + monthlyNuvosPension + monthlyStatePension - monthlyIncomeTax,
+      monthlyAlphaPension +
+        monthlyNuvosPension +
+        monthlyStatePension -
+        monthlyIncomeTax
     );
     const shortfall = Math.max(0, monthlyTargetIncome - guaranteedIncome);
     const surplus = Math.max(0, guaranteedIncome - monthlyTargetIncome);
@@ -217,12 +234,20 @@ export function generateRetirementBridgeAnalysis(
 
   const stableRow = monthlyRows.at(-1);
   const stableAnnualGuaranteedIncome = (stableRow?.guaranteedIncome ?? 0) * 12;
-  const fullSecureIncomeStartDate = getFullSecureIncomeStartDate(settings, retirementDate, endDate);
+  const fullSecureIncomeStartDate = getFullSecureIncomeStartDate(
+    settings,
+    retirementDate,
+    endDate
+  );
   const fullSecureIncomeStartRow = fullSecureIncomeStartDate
     ? monthlyRows.find((row) => row.date >= fullSecureIncomeStartDate)
     : undefined;
-  const fullSecureAnnualGuaranteedIncome = (fullSecureIncomeStartRow?.guaranteedIncome ?? 0) * 12;
-  const monthsUntilRetirement = Math.max(1, calculateWholeMonthDifference(settings.startDate, retirementDate));
+  const fullSecureAnnualGuaranteedIncome =
+    (fullSecureIncomeStartRow?.guaranteedIncome ?? 0) * 12;
+  const monthsUntilRetirement = Math.max(
+    1,
+    calculateWholeMonthDifference(settings.startDate, retirementDate)
+  );
 
   const analysisWithoutSafeDrawAge: RetirementBridgeAnalysis = {
     target: {
@@ -240,9 +265,13 @@ export function generateRetirementBridgeAnalysis(
     requiredIsaAtRetirement,
     requiredSippAtAccess,
     additionalMonthlyContributionRequired:
-      totalUnfundedShortfall > 0 ? totalUnfundedShortfall / monthsUntilRetirement : 0,
+      totalUnfundedShortfall > 0
+        ? totalUnfundedShortfall / monthsUntilRetirement
+        : 0,
     earliestSustainablePensionDrawAge: null,
-    fullSecureIncomeStartDate: fullSecureIncomeStartRow ? fullSecureIncomeStartDate : null,
+    fullSecureIncomeStartDate: fullSecureIncomeStartRow
+      ? fullSecureIncomeStartDate
+      : null,
     fullSecureIncomeStartAge:
       fullSecureIncomeStartRow && fullSecureIncomeStartDate
         ? calculateAge(settings.dateOfBirth, fullSecureIncomeStartDate)
@@ -267,18 +296,23 @@ export function generateRetirementBridgeAnalysis(
 
   return {
     ...analysisWithoutSafeDrawAge,
-    earliestSustainablePensionDrawAge: calculateEarliestSustainablePensionDrawAge(settings),
+    earliestSustainablePensionDrawAge:
+      calculateEarliestSustainablePensionDrawAge(settings),
   };
 }
 
 function getFullSecureIncomeStartDate(
   settings: PensionSettings,
   retirementDate: string,
-  endDate: string,
+  endDate: string
 ) {
   const secureStartDates = [
-    ...(settings.showAlpha ? [addYears(settings.dateOfBirth, settings.alphaPensionDrawAge)] : []),
-    ...(settings.showNuvos ? [addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge)] : []),
+    ...(settings.showAlpha
+      ? [addYears(settings.dateOfBirth, settings.alphaPensionDrawAge)]
+      : []),
+    ...(settings.showNuvos
+      ? [addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge)]
+      : []),
     ...(settings.showStatePension ? [settings.statePensionDrawDate] : []),
   ];
 
@@ -292,7 +326,9 @@ function getFullSecureIncomeStartDate(
     return null;
   }
 
-  return latestSecureStartDate < retirementDate ? retirementDate : latestSecureStartDate;
+  return latestSecureStartDate < retirementDate
+    ? retirementDate
+    : latestSecureStartDate;
 }
 
 function getActiveBridgeIncomeSources(input: {
@@ -302,9 +338,15 @@ function getActiveBridgeIncomeSources(input: {
   monthlyStatePension: number;
 }) {
   const sources = [
-    ...(input.settings.showAlpha && input.monthlyAlphaPension > 0 ? ["Alpha"] : []),
-    ...(input.settings.showNuvos && input.monthlyNuvosPension > 0 ? ["nuvos"] : []),
-    ...(input.settings.showStatePension && input.monthlyStatePension > 0 ? ["State Pension"] : []),
+    ...(input.settings.showAlpha && input.monthlyAlphaPension > 0
+      ? ["Alpha"]
+      : []),
+    ...(input.settings.showNuvos && input.monthlyNuvosPension > 0
+      ? ["nuvos"]
+      : []),
+    ...(input.settings.showStatePension && input.monthlyStatePension > 0
+      ? ["State Pension"]
+      : []),
   ];
 
   return sources.length > 0 ? sources : ["None"];
@@ -328,7 +370,7 @@ function buildBridgePhases(
   }>,
   settings: PensionSettings,
   retirementDate: string,
-  endDate: string,
+  endDate: string
 ): BridgePhase[] {
   if (monthlyRows.length === 0) {
     return [];
@@ -336,9 +378,15 @@ function buildBridgePhases(
 
   const eventDates = [
     retirementDate,
-    ...(settings.showSipp ? [addYears(settings.dateOfBirth, settings.sippDrawAge)] : []),
-    ...(settings.showAlpha ? [addYears(settings.dateOfBirth, settings.alphaPensionDrawAge)] : []),
-    ...(settings.showNuvos ? [addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge)] : []),
+    ...(settings.showSipp
+      ? [addYears(settings.dateOfBirth, settings.sippDrawAge)]
+      : []),
+    ...(settings.showAlpha
+      ? [addYears(settings.dateOfBirth, settings.alphaPensionDrawAge)]
+      : []),
+    ...(settings.showNuvos
+      ? [addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge)]
+      : []),
     ...(settings.showStatePension ? [settings.statePensionDrawDate] : []),
     endDate,
   ]
@@ -351,7 +399,7 @@ function buildBridgePhases(
     const rows = monthlyRows.filter((row) =>
       index === uniqueEventDates.length - 2
         ? row.date >= phaseStart && row.date <= nextPhaseStart
-        : row.date >= phaseStart && row.date < nextPhaseStart,
+        : row.date >= phaseStart && row.date < nextPhaseStart
     );
 
     if (rows.length === 0) {
@@ -360,21 +408,52 @@ function buildBridgePhases(
 
     const firstRow = rows[0];
     const boundaryEndAge = calculateAge(settings.dateOfBirth, nextPhaseStart);
-    const boundaryEndAgeMonths = calculateAgeMonths(settings.dateOfBirth, nextPhaseStart);
-    const totalDrawdown = rows.reduce((total, row) => total + row.isaDrawdown + row.sippDrawdown, 0);
-    const totalIsaBridge = rows.reduce((total, row) => total + row.isaDrawdown, 0);
-    const totalSippBridge = rows.reduce((total, row) => total + row.sippDrawdown, 0);
-    const totalUnfunded = rows.reduce((total, row) => total + row.unfundedShortfall, 0);
+    const boundaryEndAgeMonths = calculateAgeMonths(
+      settings.dateOfBirth,
+      nextPhaseStart
+    );
+    const totalDrawdown = rows.reduce(
+      (total, row) => total + row.isaDrawdown + row.sippDrawdown,
+      0
+    );
+    const totalIsaBridge = rows.reduce(
+      (total, row) => total + row.isaDrawdown,
+      0
+    );
+    const totalSippBridge = rows.reduce(
+      (total, row) => total + row.sippDrawdown,
+      0
+    );
+    const totalUnfunded = rows.reduce(
+      (total, row) => total + row.unfundedShortfall,
+      0
+    );
     const annualiseAverage = (monthlyValues: number[]) =>
-      (monthlyValues.reduce((total, value) => total + value, 0) / rows.length) * 12;
-    const averageAnnualTarget = annualiseAverage(rows.map((row) => row.monthlyTargetIncome));
-    const averageAnnualAlphaPension = annualiseAverage(rows.map((row) => row.monthlyAlphaPension));
-    const averageAnnualNuvosPension = annualiseAverage(rows.map((row) => row.monthlyNuvosPension));
-    const averageAnnualStatePension = annualiseAverage(rows.map((row) => row.monthlyStatePension));
-    const averageAnnualIsaBridge = annualiseAverage(rows.map((row) => row.isaDrawdown));
-    const averageAnnualSippBridge = annualiseAverage(rows.map((row) => row.sippDrawdown));
-    const averageAnnualShortfall = (rows.reduce((total, row) => total + row.shortfall, 0) / rows.length) * 12;
-    const averageAnnualSurplus = (rows.reduce((total, row) => total + row.surplus, 0) / rows.length) * 12;
+      (monthlyValues.reduce((total, value) => total + value, 0) / rows.length) *
+      12;
+    const averageAnnualTarget = annualiseAverage(
+      rows.map((row) => row.monthlyTargetIncome)
+    );
+    const averageAnnualAlphaPension = annualiseAverage(
+      rows.map((row) => row.monthlyAlphaPension)
+    );
+    const averageAnnualNuvosPension = annualiseAverage(
+      rows.map((row) => row.monthlyNuvosPension)
+    );
+    const averageAnnualStatePension = annualiseAverage(
+      rows.map((row) => row.monthlyStatePension)
+    );
+    const averageAnnualIsaBridge = annualiseAverage(
+      rows.map((row) => row.isaDrawdown)
+    );
+    const averageAnnualSippBridge = annualiseAverage(
+      rows.map((row) => row.sippDrawdown)
+    );
+    const averageAnnualShortfall =
+      (rows.reduce((total, row) => total + row.shortfall, 0) / rows.length) *
+      12;
+    const averageAnnualSurplus =
+      (rows.reduce((total, row) => total + row.surplus, 0) / rows.length) * 12;
     const potLabels = [
       rows.some((row) => row.isaDrawdown > 0) ? "ISA bridge" : "",
       rows.some((row) => row.sippDrawdown > 0) ? "SIPP bridge" : "",
@@ -389,7 +468,13 @@ function buildBridgePhases(
         startAgeMonths: firstRow.ageMonths,
         endAge: boundaryEndAge,
         endAgeMonths: boundaryEndAgeMonths,
-        label: formatBridgePhaseLabel(phaseStart, nextPhaseStart, settings, retirementDate, endDate),
+        label: formatBridgePhaseLabel(
+          phaseStart,
+          nextPhaseStart,
+          settings,
+          retirementDate,
+          endDate
+        ),
         incomeSourcesActive: firstRow.activeSources,
         potUsed: potLabels.length > 0 ? potLabels.join(" + ") : "None",
         annualTargetIncome: averageAnnualTarget,
@@ -414,10 +499,20 @@ function formatBridgePhaseLabel(
   nextPhaseStart: string,
   settings: PensionSettings,
   retirementDate: string,
-  endDate: string,
+  endDate: string
 ) {
-  const startLabel = formatBridgeBoundaryLabel(phaseStart, settings, retirementDate, endDate);
-  const nextLabel = formatBridgeBoundaryLabel(nextPhaseStart, settings, retirementDate, endDate);
+  const startLabel = formatBridgeBoundaryLabel(
+    phaseStart,
+    settings,
+    retirementDate,
+    endDate
+  );
+  const nextLabel = formatBridgeBoundaryLabel(
+    nextPhaseStart,
+    settings,
+    retirementDate,
+    endDate
+  );
 
   return `${startLabel} to ${nextLabel}`;
 }
@@ -426,17 +521,25 @@ function formatBridgeBoundaryLabel(
   date: string,
   settings: PensionSettings,
   retirementDate: string,
-  endDate: string,
+  endDate: string
 ) {
   const sippAccessDate = addYears(settings.dateOfBirth, settings.sippDrawAge);
-  const alphaDrawDate = addYears(settings.dateOfBirth, settings.alphaPensionDrawAge);
-  const nuvosDrawDate = addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge);
+  const alphaDrawDate = addYears(
+    settings.dateOfBirth,
+    settings.alphaPensionDrawAge
+  );
+  const nuvosDrawDate = addYears(
+    settings.dateOfBirth,
+    settings.nuvosPensionDrawAge
+  );
   const labels = [
     date === retirementDate ? "Retirement" : "",
     settings.showSipp && date === sippAccessDate ? "SIPP access" : "",
     settings.showAlpha && date === alphaDrawDate ? "Alpha" : "",
     settings.showNuvos && date === nuvosDrawDate ? "nuvos" : "",
-    settings.showStatePension && date === settings.statePensionDrawDate ? "State Pension" : "",
+    settings.showStatePension && date === settings.statePensionDrawDate
+      ? "State Pension"
+      : "",
     date === endDate ? "modelling end" : "",
   ].filter(Boolean);
 
@@ -457,13 +560,21 @@ function formatList(items: string[]) {
 
 function buildBridgePotProjection(
   monthlyRows: BridgePotProjectionRow[],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
-  const incomeStartMilestonesByRowDate = new Map<string, Array<{ label: string; date: string }>>();
+  const incomeStartMilestonesByRowDate = new Map<
+    string,
+    Array<{ label: string; date: string }>
+  >();
   const firstRowDate = monthlyRows[0]?.date;
   const lastRowDate = monthlyRows.at(-1)?.date;
   const addIncomeStartMilestone = (date: string, label: string) => {
-    if (!firstRowDate || !lastRowDate || date < firstRowDate || date > lastRowDate) {
+    if (
+      !firstRowDate ||
+      !lastRowDate ||
+      date < firstRowDate ||
+      date > lastRowDate
+    ) {
       return;
     }
 
@@ -479,22 +590,37 @@ function buildBridgePotProjection(
     ]);
   };
 
-  addIncomeStartMilestone(addYears(settings.dateOfBirth, settings.requirementAge), "Retirement starts");
+  addIncomeStartMilestone(
+    addYears(settings.dateOfBirth, settings.requirementAge),
+    "Retirement starts"
+  );
 
   if (settings.showAlpha) {
-    addIncomeStartMilestone(addYears(settings.dateOfBirth, settings.alphaPensionDrawAge), "Alpha starts");
+    addIncomeStartMilestone(
+      addYears(settings.dateOfBirth, settings.alphaPensionDrawAge),
+      "Alpha starts"
+    );
   }
 
   if (settings.showNuvos) {
-    addIncomeStartMilestone(addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge), "nuvos starts");
+    addIncomeStartMilestone(
+      addYears(settings.dateOfBirth, settings.nuvosPensionDrawAge),
+      "nuvos starts"
+    );
   }
 
   if (settings.showStatePension) {
-    addIncomeStartMilestone(settings.statePensionDrawDate, "State Pension starts");
+    addIncomeStartMilestone(
+      settings.statePensionDrawDate,
+      "State Pension starts"
+    );
   }
 
   if (settings.partialRetirementEnabled) {
-    addIncomeStartMilestone(getPartialRetirementStartDate(settings), "Partial retirement starts");
+    addIncomeStartMilestone(
+      getPartialRetirementStartDate(settings),
+      "Partial retirement starts"
+    );
   }
 
   let hasStartedIsaDrawdown = false;
@@ -543,7 +669,8 @@ function buildBridgePotProjection(
       milestoneDates.push(row.date);
     }
 
-    for (const milestone of incomeStartMilestonesByRowDate.get(row.date) ?? []) {
+    for (const milestone of incomeStartMilestonesByRowDate.get(row.date) ??
+      []) {
       milestones.push(milestone.label);
       milestoneDates.push(milestone.date);
     }
@@ -564,24 +691,31 @@ function calculateEarliestSustainablePensionDrawAge(settings: PensionSettings) {
   const earliestAge = Math.max(55, Math.ceil(settings.requirementAge));
   const latestAge = Math.min(
     settings.showAlpha ? settings.normalPensionAge : 70,
-    settings.showNuvos ? 65 : 70,
+    settings.showNuvos ? 65 : 70
   );
 
   for (let age = earliestAge; age <= latestAge; age += 1) {
     const candidateSettings = prepareBridgeProjectionSettings({
       ...settings,
-      alphaPensionDrawAge: settings.showAlpha ? age : settings.alphaPensionDrawAge,
-      nuvosPensionDrawAge: settings.showNuvos ? age : settings.nuvosPensionDrawAge,
+      alphaPensionDrawAge: settings.showAlpha
+        ? age
+        : settings.alphaPensionDrawAge,
+      nuvosPensionDrawAge: settings.showNuvos
+        ? age
+        : settings.nuvosPensionDrawAge,
       showSipp: false,
       showIsa: false,
     });
 
-    const rows = generateMonthlyDateRange(settings.startDate, addYears(settings.dateOfBirth, settings.lifeExpectancy)).map((date) => ({
+    const rows = generateMonthlyDateRange(
+      settings.startDate,
+      addYears(settings.dateOfBirth, settings.lifeExpectancy)
+    ).map((date) => ({
       date,
       age: calculateAge(settings.dateOfBirth, date),
       ageMonths: calculateAgeMonths(settings.dateOfBirth, date),
-      monthlyAlphaPensionTakeHome: 0,
-      monthlyNuvosPensionTakeHome: 0,
+      monthlyAlphaPensionGross: 0,
+      monthlyNuvosPensionGross: 0,
       monthlyStatePension: 0,
     }));
 
@@ -591,7 +725,10 @@ function calculateEarliestSustainablePensionDrawAge(settings: PensionSettings) {
       showIsa: settings.showIsa,
     });
 
-    if (analysis.planWorks && analysis.stableAnnualGuaranteedIncome >= settings.desiredRetirementIncome) {
+    if (
+      analysis.planWorks &&
+      analysis.stableAnnualGuaranteedIncome >= settings.desiredRetirementIncome
+    ) {
       return age;
     }
   }
@@ -599,7 +736,10 @@ function calculateEarliestSustainablePensionDrawAge(settings: PensionSettings) {
   return null;
 }
 
-function findFirstRowAtOrAfterDate(tableData: ProjectionRowLike[], milestoneDate: string) {
+function findFirstRowAtOrAfterDate(
+  tableData: ProjectionRowLike[],
+  milestoneDate: string
+) {
   return tableData.find((row) => row.date >= milestoneDate);
 }
 
@@ -640,7 +780,8 @@ function calculateAge(dateOfBirth: string, rowDate: string) {
   let age = row.getUTCFullYear() - birth.getUTCFullYear();
   const hasHadBirthday =
     row.getUTCMonth() > birth.getUTCMonth() ||
-    (row.getUTCMonth() === birth.getUTCMonth() && row.getUTCDate() >= birth.getUTCDate());
+    (row.getUTCMonth() === birth.getUTCMonth() &&
+      row.getUTCDate() >= birth.getUTCDate());
 
   if (!hasHadBirthday) {
     age -= 1;

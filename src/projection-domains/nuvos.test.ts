@@ -26,7 +26,7 @@ describe("projection nuvos domain", () => {
         rowDate: "2026-04-01",
         nuvosAbsDate: "2025-04-01",
         accrualStopDate: "2026-04-01",
-      }),
+      })
     ).toBeCloseTo(1276, 6);
   });
 
@@ -36,7 +36,7 @@ describe("projection nuvos domain", () => {
         fromDate: "2025-04-01",
         rowDate: "2027-04-01",
         cpiPercent: 2,
-      }),
+      })
     ).toBeCloseTo(1.0404, 6);
   });
 });

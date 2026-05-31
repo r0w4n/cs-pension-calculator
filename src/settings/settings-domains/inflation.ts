@@ -10,13 +10,17 @@ export const inflationNumericSettingRules = {
 } as const;
 
 export function normalizeProjectionBasis(value: unknown): ProjectionBasis {
-  return value === "nominal" || value === "real" ? value : inflationDefaults.projectionBasis;
+  return value === "nominal" || value === "real"
+    ? value
+    : inflationDefaults.projectionBasis;
 }
 
-export function normalizeInflationSetting<K extends "projectionBasis" | "inflationRateAnnual">(
+export function normalizeInflationSetting<
+  K extends "projectionBasis" | "inflationRateAnnual",
+>(
   key: K,
   value: PensionSettings[K],
-  normalizeNumeric: (key: "inflationRateAnnual", value: unknown) => number,
+  normalizeNumeric: (key: "inflationRateAnnual", value: unknown) => number
 ) {
   if (key === "projectionBasis") {
     return normalizeProjectionBasis(value) as PensionSettings[K];

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  calculateMonthlySippPension,
-  calculateSippPotAtDate,
-} from "./sipp";
+import { calculateMonthlySippPension, calculateSippPotAtDate } from "./sipp";
 import { defaultSettings, type PensionSettings } from "../settings";
 
 describe("projection sipp domain", () => {
@@ -32,7 +29,7 @@ describe("projection sipp domain", () => {
         settings,
         rowDate: "2026-03-01",
         drawDate: "2026-04-01",
-      }),
+      })
     ).toBeCloseTo(11671.028074, 6);
   });
 
@@ -44,7 +41,7 @@ describe("projection sipp domain", () => {
         endDate: "2056-01-01",
         strategy: "zero_at_death",
         withdrawalPercent: 4,
-      }),
+      })
     ).toBeCloseTo(1000, 6);
     expect(
       calculateMonthlySippPension({
@@ -53,7 +50,7 @@ describe("projection sipp domain", () => {
         endDate: "2056-01-01",
         strategy: "percentage",
         withdrawalPercent: 4,
-      }),
+      })
     ).toBeCloseTo(400, 6);
   });
 });

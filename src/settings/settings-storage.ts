@@ -8,7 +8,15 @@ import { coerceSippTaxReliefRate } from "./settings-domains/sipp";
 import { coerceTaxSettings } from "./settings-domains/tax";
 import { createDefaultSettings } from "./settings-defaults";
 import { normalizeSettings } from "./settings-normalize";
-import { SETTINGS_STORAGE_KEY, type AddedPensionFactorType, type IsaWithdrawalStrategy, type ProjectionBasis, type SippWithdrawalStrategy, type StoredPensionSettings, type PensionSettings } from "./settings-types";
+import {
+  SETTINGS_STORAGE_KEY,
+  type AddedPensionFactorType,
+  type IsaWithdrawalStrategy,
+  type ProjectionBasis,
+  type SippWithdrawalStrategy,
+  type StoredPensionSettings,
+  type PensionSettings,
+} from "./settings-types";
 
 export function readStorageItem(key: string) {
   if (typeof window === "undefined") {
@@ -50,13 +58,15 @@ function coerceBoolean(value: unknown) {
 
 function removeUndefinedValues<T extends object>(input: T) {
   return Object.fromEntries(
-    Object.entries(input).filter(([, value]) => value !== undefined),
+    Object.entries(input).filter(([, value]) => value !== undefined)
   ) as Partial<T>;
 }
 
-function coerceSettings(input: Partial<StoredPensionSettings>): Partial<StoredPensionSettings> {
+function coerceSettings(
+  input: Partial<StoredPensionSettings>
+): Partial<StoredPensionSettings> {
   const legacySippLumpSumContribution = coerceNumber(
-    (input as { sippLumpSumContribution?: unknown }).sippLumpSumContribution,
+    (input as { sippLumpSumContribution?: unknown }).sippLumpSumContribution
   );
 
   return {
@@ -64,25 +74,31 @@ function coerceSettings(input: Partial<StoredPensionSettings>): Partial<StoredPe
     lifeExpectancy: coerceNumber(input.lifeExpectancy),
     requirementAge:
       coerceNumber(input.requirementAge) ??
-      coerceNumber((input as { targetRetirementAge?: unknown }).targetRetirementAge) ??
+      coerceNumber(
+        (input as { targetRetirementAge?: unknown }).targetRetirementAge
+      ) ??
       coerceNumber(input.isaDrawAge),
     showAlpha: coerceBoolean(input.showAlpha),
-    projectionBasis: coerceString(input.projectionBasis) as ProjectionBasis | undefined,
+    projectionBasis: coerceString(input.projectionBasis) as
+      | ProjectionBasis
+      | undefined,
     inflationRateAnnual: coerceNumber(input.inflationRateAnnual),
     showSipp: coerceBoolean(input.showSipp),
     showIsa: coerceBoolean(input.showIsa),
     partialRetirementEnabled: coerceBoolean(input.partialRetirementEnabled),
     partialRetirementStartAge: coerceNumber(input.partialRetirementStartAge),
-    partialRetirementWorkPercent: coerceNumber(input.partialRetirementWorkPercent),
+    partialRetirementWorkPercent: coerceNumber(
+      input.partialRetirementWorkPercent
+    ),
     fullSalary: coerceNumber(input.fullSalary),
     desiredRetirementIncome: coerceNumber(input.desiredRetirementIncome),
     applyPensionIncreases: coerceBoolean(input.applyPensionIncreases),
     assumedCpiPercent: coerceNumber(input.assumedCpiPercent),
     alphaPensionAbsDate: coerceString(input.alphaPensionAbsDate),
     alphaAddedPensionMonthly: coerceNumber(input.alphaAddedPensionMonthly),
-    alphaAddedPensionFactorType: coerceString(input.alphaAddedPensionFactorType) as
-      | AddedPensionFactorType
-      | undefined,
+    alphaAddedPensionFactorType: coerceString(
+      input.alphaAddedPensionFactorType
+    ) as AddedPensionFactorType | undefined,
     alphaPensionLeaveAge: coerceNumber(input.alphaPensionLeaveAge),
     accruedPensionAtLastAbs: coerceNumber(input.accruedPensionAtLastAbs),
     pensionableEarnings: coerceNumber(input.pensionableEarnings),
@@ -91,9 +107,12 @@ function coerceSettings(input: Partial<StoredPensionSettings>): Partial<StoredPe
     alphaEpaYearsBeforeNpa: coerceNumber(input.alphaEpaYearsBeforeNpa),
     alphaEpaStartDate: coerceString(input.alphaEpaStartDate),
     alphaEpaEndDate: coerceString(input.alphaEpaEndDate),
-    alphaAddedPensionLumpSums: coerceAddedPensionLumpSums(input.alphaAddedPensionLumpSums, {
-      includeFactorType: true,
-    }),
+    alphaAddedPensionLumpSums: coerceAddedPensionLumpSums(
+      input.alphaAddedPensionLumpSums,
+      {
+        includeFactorType: true,
+      }
+    ),
     sippCurrentPot: coerceNumber(input.sippCurrentPot),
     sippMonthlyContribution: coerceNumber(input.sippMonthlyContribution),
     sippDrawAge: coerceNumber(input.sippDrawAge),
@@ -103,7 +122,7 @@ function coerceSettings(input: Partial<StoredPensionSettings>): Partial<StoredPe
     sippRealInterestPercent: coerceNumber(input.sippRealInterestPercent),
     sippTaxReliefRate: coerceSippTaxReliefRate(
       (input as { sippTaxReliefRate?: unknown }).sippTaxReliefRate,
-      (input as { sippApplyTaxRelief?: unknown }).sippApplyTaxRelief,
+      (input as { sippApplyTaxRelief?: unknown }).sippApplyTaxRelief
     ),
     sippWithdrawalStrategy: coerceString(input.sippWithdrawalStrategy) as
       | SippWithdrawalStrategy
@@ -153,10 +172,13 @@ export function saveSettings(settings: PensionSettings) {
 }
 
 export function getStoredSettingsSnapshot(
-  settings: PensionSettings,
+  settings: PensionSettings
 ): StoredPensionSettings {
   const normalizedSettings = normalizeSettings(settings);
-  const { startDate: _startDate, normalPensionAge: _normalPensionAge, ...storedSettings } =
-    normalizedSettings;
+  const {
+    startDate: _startDate,
+    normalPensionAge: _normalPensionAge,
+    ...storedSettings
+  } = normalizedSettings;
   return storedSettings;
 }

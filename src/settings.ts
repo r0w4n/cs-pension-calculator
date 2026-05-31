@@ -45,9 +45,7 @@ export {
   writeStorageItem,
 } from "./settings/settings-storage";
 
-export {
-  calculateDateAge,
-} from "./settings/settings-domains/personal-details";
+export { calculateDateAge } from "./settings/settings-domains/personal-details";
 
 export {
   calculateMinimumStatePensionDrawAge,

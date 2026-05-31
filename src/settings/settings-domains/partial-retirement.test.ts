@@ -9,7 +9,9 @@ import {
 describe("partial-retirement settings module", () => {
   it("computes partial retirement start date", () => {
     const settings = createDefaultSettings();
-    expect(getPartialRetirementStartDate(settings)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(getPartialRetirementStartDate(settings)).toMatch(
+      /^\d{4}-\d{2}-\d{2}$/
+    );
   });
 
   it("calculates contribution multipliers", () => {
@@ -21,8 +23,12 @@ describe("partial-retirement settings module", () => {
     };
     const startDate = getPartialRetirementStartDate(settings);
 
-    expect(getPartialRetirementContributionMultiplier(settings, startDate)).toBe(0.5);
-    expect(getPartialRetirementSavingsContributionMultiplier(settings, startDate)).toBe(0.5);
+    expect(
+      getPartialRetirementContributionMultiplier(settings, startDate)
+    ).toBe(0.5);
+    expect(
+      getPartialRetirementSavingsContributionMultiplier(settings, startDate)
+    ).toBe(0.5);
   });
 
   it("validates partial retirement window", () => {

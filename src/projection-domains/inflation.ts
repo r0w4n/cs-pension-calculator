@@ -2,20 +2,23 @@ import type { PensionSettings } from "../settings";
 
 export function calculateRealAnnualRate(
   nominalRateAnnual: number,
-  inflationRateAnnual: number,
+  inflationRateAnnual: number
 ) {
   return (1 + nominalRateAnnual) / (1 + inflationRateAnnual) - 1;
 }
 
 export function getModelledAnnualGrowthRate(
   settings: PensionSettings,
-  nominalRateAnnual: number,
+  nominalRateAnnual: number
 ) {
   if (settings.projectionBasis === "nominal") {
     return nominalRateAnnual;
   }
 
-  return calculateRealAnnualRate(nominalRateAnnual, settings.inflationRateAnnual / 100);
+  return calculateRealAnnualRate(
+    nominalRateAnnual,
+    settings.inflationRateAnnual / 100
+  );
 }
 
 export function getModelledPensionInflationPercent(settings: PensionSettings) {
@@ -24,7 +27,7 @@ export function getModelledPensionInflationPercent(settings: PensionSettings) {
 
 export function calculateRetirementIncomeTargetAtDate(
   settings: PensionSettings,
-  rowDate: string,
+  rowDate: string
 ) {
   if (settings.projectionBasis === "real") {
     return settings.desiredRetirementIncome;
@@ -34,10 +37,13 @@ export function calculateRetirementIncomeTargetAtDate(
     (1 + settings.inflationRateAnnual / 100) ** (1 / 12) - 1;
   const monthsUntilRow = Math.max(
     0,
-    calculateWholeMonthDifference(settings.startDate, rowDate),
+    calculateWholeMonthDifference(settings.startDate, rowDate)
   );
 
-  return settings.desiredRetirementIncome * (1 + monthlyInflationRate) ** monthsUntilRow;
+  return (
+    settings.desiredRetirementIncome *
+    (1 + monthlyInflationRate) ** monthsUntilRow
+  );
 }
 
 function calculateWholeMonthDifference(startDate: string, endDate: string) {

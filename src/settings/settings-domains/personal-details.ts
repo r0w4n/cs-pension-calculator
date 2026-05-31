@@ -1,4 +1,7 @@
-import type { PensionSettings, PensionValidationIssue } from "../settings-types";
+import type {
+  PensionSettings,
+  PensionValidationIssue,
+} from "../settings-types";
 import { getTodayIsoDate } from "../settings-shared/date";
 
 export const personalDetailsDefaults = {
@@ -18,7 +21,7 @@ export const personalDetailsNumericSettingRules = {
 export function normalizePersonalDateSetting(
   key: "startDate" | "dateOfBirth",
   value: string,
-  normalizeDate: (value: string, fallback: string) => string,
+  normalizeDate: (value: string, fallback: string) => string
 ) {
   if (key === "startDate") {
     return normalizeDate(value, getTodayIsoDate());
@@ -52,7 +55,7 @@ export function calculateDateAge(dateOfBirth: string, date: string) {
 
 export function validatePersonalDetailsRules(
   settings: Pick<PensionSettings, "dateOfBirth" | "startDate">,
-  lifeExpectancyDate: string,
+  lifeExpectancyDate: string
 ): PensionValidationIssue[] {
   const issues: PensionValidationIssue[] = [];
 
@@ -66,7 +69,8 @@ export function validatePersonalDetailsRules(
   if (settings.startDate > lifeExpectancyDate) {
     issues.push({
       field: "startDate",
-      message: "Calculation start date must be on or before the life expectancy date.",
+      message:
+        "Calculation start date must be on or before the life expectancy date.",
     });
   }
 

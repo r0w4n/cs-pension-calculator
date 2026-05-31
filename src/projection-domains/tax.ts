@@ -32,7 +32,7 @@ export function calculateMonthlyIncomeTax(input: {
 
 export function calculateAnnualIncomeTax(
   settings: PensionSettings,
-  annualTaxableIncome: number,
+  annualTaxableIncome: number
 ) {
   if (!settings.taxationEnabled || annualTaxableIncome <= 0) {
     return 0;
@@ -40,26 +40,29 @@ export function calculateAnnualIncomeTax(
 
   const personalAllowance = calculateTaxPersonalAllowance(
     settings,
-    annualTaxableIncome,
+    annualTaxableIncome
   );
-  const taxableAfterAllowance = Math.max(0, annualTaxableIncome - personalAllowance);
+  const taxableAfterAllowance = Math.max(
+    0,
+    annualTaxableIncome - personalAllowance
+  );
   const basicBand = Math.max(0, settings.taxBasicRateLimit);
   const additionalThreshold = Math.max(
     settings.taxAdditionalRateThreshold,
-    settings.taxPersonalAllowance,
+    settings.taxPersonalAllowance
   );
   const higherBand = Math.max(
     0,
-    additionalThreshold - personalAllowance - basicBand,
+    additionalThreshold - personalAllowance - basicBand
   );
   const basicTaxable = Math.min(taxableAfterAllowance, basicBand);
   const higherTaxable = Math.min(
     Math.max(0, taxableAfterAllowance - basicBand),
-    higherBand,
+    higherBand
   );
   const additionalTaxable = Math.max(
     0,
-    taxableAfterAllowance - basicBand - higherBand,
+    taxableAfterAllowance - basicBand - higherBand
   );
 
   return (
@@ -71,11 +74,11 @@ export function calculateAnnualIncomeTax(
 
 function calculateTaxPersonalAllowance(
   settings: PensionSettings,
-  annualTaxableIncome: number,
+  annualTaxableIncome: number
 ) {
   const taper = Math.max(
     0,
-    annualTaxableIncome - settings.taxPersonalAllowanceTaperThreshold,
+    annualTaxableIncome - settings.taxPersonalAllowanceTaperThreshold
   );
 
   return Math.max(0, settings.taxPersonalAllowance - taper / 2);

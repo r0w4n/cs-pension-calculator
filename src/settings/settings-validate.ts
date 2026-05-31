@@ -6,16 +6,12 @@ import {
 } from "./settings-domains/alpha-pension";
 import { validateIsaRules } from "./settings-domains/isa";
 import { validateNuvosRules } from "./settings-domains/nuvos";
-import {
-  validateStatePensionRules,
-} from "./settings-domains/state-pension";
+import { validateStatePensionRules } from "./settings-domains/state-pension";
 import {
   getPartialRetirementStartDate,
   validatePartialRetirementRules,
 } from "./settings-domains/partial-retirement";
-import {
-  validatePersonalDetailsRules,
-} from "./settings-domains/personal-details";
+import { validatePersonalDetailsRules } from "./settings-domains/personal-details";
 import { validateSippRules } from "./settings-domains/sipp";
 import { addYearsToIsoDate } from "./settings-shared/date";
 import { calculateStatePensionDrawDate } from "./settings-shared/state";
@@ -49,24 +45,49 @@ type ValidationContext = {
 };
 
 function createValidationContext(settings: PensionSettings): ValidationContext {
-  const alphaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.alphaPensionDrawAge);
-  const alphaLeaveDate = addYearsToIsoDate(settings.dateOfBirth, settings.alphaPensionLeaveAge);
-  const nuvosDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.nuvosPensionDrawAge);
-  const nuvosLeaveDate = addYearsToIsoDate(settings.dateOfBirth, settings.nuvosPensionLeaveAge);
-  const sippDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.sippDrawAge);
-  const isaDrawDate = addYearsToIsoDate(settings.dateOfBirth, settings.isaDrawAge);
-  const retirementDate = addYearsToIsoDate(settings.dateOfBirth, settings.requirementAge);
+  const alphaDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.alphaPensionDrawAge
+  );
+  const alphaLeaveDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.alphaPensionLeaveAge
+  );
+  const nuvosDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.nuvosPensionDrawAge
+  );
+  const nuvosLeaveDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.nuvosPensionLeaveAge
+  );
+  const sippDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.sippDrawAge
+  );
+  const isaDrawDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.isaDrawAge
+  );
+  const retirementDate = addYearsToIsoDate(
+    settings.dateOfBirth,
+    settings.requirementAge
+  );
 
   return {
     settings,
-    lifeExpectancyDate: addYearsToIsoDate(settings.dateOfBirth, settings.lifeExpectancy),
+    lifeExpectancyDate: addYearsToIsoDate(
+      settings.dateOfBirth,
+      settings.lifeExpectancy
+    ),
     alphaDrawDate,
     alphaLeaveDate,
-    alphaAccrualStopDate: alphaDrawDate <= alphaLeaveDate ? alphaDrawDate : alphaLeaveDate,
+    alphaAccrualStopDate:
+      alphaDrawDate <= alphaLeaveDate ? alphaDrawDate : alphaLeaveDate,
     alphaAbsDate: resolveAlphaAbsDate(settings.alphaPensionAbsDate),
     alphaEpaAgeDate: getAlphaEpaDate(settings),
     latestAlphaAddedPensionPurchaseDate: getLatestAlphaAddedPensionPurchaseDate(
-      settings.dateOfBirth,
+      settings.dateOfBirth
     ),
     nuvosDrawDate,
     nuvosLeaveDate,
@@ -74,22 +95,28 @@ function createValidationContext(settings: PensionSettings): ValidationContext {
     sippDrawDate,
     isaDrawDate,
     retirementDate,
-    sippContributionStopDate: sippDrawDate <= retirementDate ? sippDrawDate : retirementDate,
-    isaContributionStopDate: isaDrawDate <= retirementDate ? isaDrawDate : retirementDate,
+    sippContributionStopDate:
+      sippDrawDate <= retirementDate ? sippDrawDate : retirementDate,
+    isaContributionStopDate:
+      isaDrawDate <= retirementDate ? isaDrawDate : retirementDate,
     sippWithdrawalTargetDate: addYearsToIsoDate(
       settings.dateOfBirth,
-      settings.sippWithdrawalTargetAge,
+      settings.sippWithdrawalTargetAge
     ),
     isaWithdrawalTargetDate: addYearsToIsoDate(
       settings.dateOfBirth,
-      settings.isaWithdrawalTargetAge,
+      settings.isaWithdrawalTargetAge
     ),
     partialRetirementStartDate: getPartialRetirementStartDate(settings),
-    defaultStatePensionDrawDate: calculateStatePensionDrawDate(settings.dateOfBirth),
+    defaultStatePensionDrawDate: calculateStatePensionDrawDate(
+      settings.dateOfBirth
+    ),
   };
 }
 
-export function validateSettings(settings: PensionSettings): PensionValidationIssue[] {
+export function validateSettings(
+  settings: PensionSettings
+): PensionValidationIssue[] {
   const context = createValidationContext(settings);
 
   return [
@@ -112,11 +139,12 @@ function validateLumpSums(
     earliestDate: string;
     latestDate: string;
     rangeMessage: string;
-  },
+  }
 ) {
   return lumpSums.flatMap((lumpSum) => {
     const issues: PensionValidationIssue[] = [];
-    const scheduleEndDate = lumpSum.cadence === "yearly" ? lumpSum.endDate : lumpSum.startDate;
+    const scheduleEndDate =
+      lumpSum.cadence === "yearly" ? lumpSum.endDate : lumpSum.startDate;
 
     if (lumpSum.cadence === "yearly" && lumpSum.endDate < lumpSum.startDate) {
       issues.push({
@@ -126,7 +154,10 @@ function validateLumpSums(
       });
     }
 
-    if (lumpSum.startDate < options.earliestDate || scheduleEndDate > options.latestDate) {
+    if (
+      lumpSum.startDate < options.earliestDate ||
+      scheduleEndDate > options.latestDate
+    ) {
       issues.push({
         field: options.field,
         itemId: lumpSum.id,
@@ -144,10 +175,11 @@ function validateLumpSumScheduleEndsByDate(
     field: "alphaAddedPensionLumpSums" | "sippLumpSums" | "isaLumpSums";
     latestDate: string;
     message: string;
-  },
+  }
 ) {
   return lumpSums.flatMap((lumpSum) => {
-    const scheduleEndDate = lumpSum.cadence === "yearly" ? lumpSum.endDate : lumpSum.startDate;
+    const scheduleEndDate =
+      lumpSum.cadence === "yearly" ? lumpSum.endDate : lumpSum.startDate;
 
     if (scheduleEndDate <= options.latestDate) {
       return [];
@@ -163,7 +195,9 @@ function validateLumpSumScheduleEndsByDate(
   });
 }
 
-function validateLumpSumRules(context: ValidationContext): PensionValidationIssue[] {
+function validateLumpSumRules(
+  context: ValidationContext
+): PensionValidationIssue[] {
   const { settings } = context;
 
   return [
@@ -177,12 +211,15 @@ function validateLumpSumRules(context: ValidationContext): PensionValidationIssu
             rangeMessage:
               "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
           }),
-          ...validateLumpSumScheduleEndsByDate(settings.alphaAddedPensionLumpSums, {
-            field: "alphaAddedPensionLumpSums",
-            latestDate: context.alphaAccrualStopDate,
-            message:
-              "Alpha lump sums must be scheduled on or before Alpha pensionable service stops.",
-          }),
+          ...validateLumpSumScheduleEndsByDate(
+            settings.alphaAddedPensionLumpSums,
+            {
+              field: "alphaAddedPensionLumpSums",
+              latestDate: context.alphaAccrualStopDate,
+              message:
+                "Alpha lump sums must be scheduled on or before Alpha pensionable service stops.",
+            }
+          ),
         ]
       : []),
     ...(settings.showSipp

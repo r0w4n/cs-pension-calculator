@@ -29,7 +29,7 @@ export function calculateMonthlyAlphaAccrual(pensionableEarnings: number) {
 
 export function calculateMonthlyStandardAlphaAccrual(
   settings: PensionSettings,
-  rowDate: string,
+  rowDate: string
 ) {
   if (!settings.showAlpha) {
     return 0;
@@ -43,7 +43,7 @@ export function calculateMonthlyStandardAlphaAccrual(
 
 export function calculateMonthlyEpaAlphaAccrual(
   settings: PensionSettings,
-  rowDate: string,
+  rowDate: string
 ) {
   if (!settings.showAlpha) {
     return 0;
@@ -71,7 +71,7 @@ export function calculateStartingAlphaPensionAtStartDate(input: {
   } = input;
   const monthsBetween = Math.max(
     0,
-    calculateWholeMonthDifference(alphaPensionAbsDate, startDate),
+    calculateWholeMonthDifference(alphaPensionAbsDate, startDate)
   );
   const additionalAccruedAlpha =
     pensionableEarnings * alphaAccrualRate * (monthsBetween / 12);
@@ -81,7 +81,7 @@ export function calculateStartingAlphaPensionAtStartDate(input: {
 
 export function calculateAccruedAlphaPension(
   startingAccruedAlphaPension: number,
-  cumulativeMonthlyAccrual: number,
+  cumulativeMonthlyAccrual: number
 ) {
   return startingAccruedAlphaPension + cumulativeMonthlyAccrual;
 }
@@ -98,7 +98,7 @@ export function calculateAlphaPensionRevaluationFactor(input: {
   const totalYears = calculateWholeYearDifference(fromDate, rowDate);
   const activeYears = Math.min(
     totalYears,
-    calculateWholeYearDifference(fromDate, activeUntilDate),
+    calculateWholeYearDifference(fromDate, activeUntilDate)
   );
   const deferredYears = totalYears - activeYears;
 
@@ -139,7 +139,10 @@ export function calculateMonthlyAddedPension(input: {
     return 0;
   }
 
-  return (addedPensionMonthlyContribution * contributionMultiplier) / (factor * revaluationFactor);
+  return (
+    (addedPensionMonthlyContribution * contributionMultiplier) /
+    (factor * revaluationFactor)
+  );
 }
 
 export function calculateLumpSumAddedPension(input: {
@@ -149,31 +152,46 @@ export function calculateLumpSumAddedPension(input: {
   lumpSums: AddedPensionLumpSum[];
   factorType?: AddedPensionFactorType;
 }) {
-  const { rowDate, previousRowDate, dateOfBirth, lumpSums, factorType = "self" } = input;
+  const {
+    rowDate,
+    previousRowDate,
+    dateOfBirth,
+    lumpSums,
+    factorType = "self",
+  } = input;
 
   return lumpSums.reduce((total, lumpSum) => {
     const matchingPaymentDates = getScheduledPaymentDatesThroughRow(
       lumpSum,
       previousRowDate,
-      rowDate,
+      rowDate
     );
 
-    const purchasedPension = matchingPaymentDates.reduce((runningTotal, paymentDate) => {
-      const age = calculateAge(dateOfBirth, paymentDate);
-      const factor = getAddedPensionFactorForAge(age, lumpSum.factorType ?? factorType);
+    const purchasedPension = matchingPaymentDates.reduce(
+      (runningTotal, paymentDate) => {
+        const age = calculateAge(dateOfBirth, paymentDate);
+        const factor = getAddedPensionFactorForAge(
+          age,
+          lumpSum.factorType ?? factorType
+        );
 
-      if (!factor) {
-        return runningTotal;
-      }
+        if (!factor) {
+          return runningTotal;
+        }
 
-      const revaluationFactor = getAddedPensionRevaluationFactor(paymentDate, lumpSum.endDate);
+        const revaluationFactor = getAddedPensionRevaluationFactor(
+          paymentDate,
+          lumpSum.endDate
+        );
 
-      if (!revaluationFactor) {
-        return runningTotal;
-      }
+        if (!revaluationFactor) {
+          return runningTotal;
+        }
 
-      return runningTotal + lumpSum.amount / (factor * revaluationFactor);
-    }, 0);
+        return runningTotal + lumpSum.amount / (factor * revaluationFactor);
+      },
+      0
+    );
 
     return total + purchasedPension;
   }, 0);
@@ -181,22 +199,25 @@ export function calculateLumpSumAddedPension(input: {
 
 export function getAddedPensionFactorForAge(
   age: number,
-  factorType: AddedPensionFactorType = "self",
+  factorType: AddedPensionFactorType = "self"
 ) {
   const match = (addedPensionFactors as AddedPensionFactorRecord[]).find(
-    (record) => record.age === age,
+    (record) => record.age === age
   );
 
   return match?.[factorType] ?? 0;
 }
 
-export function getAddedPensionRevaluationFactor(_rowDate: string, _stopDate: string) {
+export function getAddedPensionRevaluationFactor(
+  _rowDate: string,
+  _stopDate: string
+) {
   return 1;
 }
 
 export function getEarlyRetirementReductionFactor(
   normalPensionAge: number,
-  retirementAge: number,
+  retirementAge: number
 ) {
   if (retirementAge >= normalPensionAge) {
     return 1;
@@ -204,17 +225,17 @@ export function getEarlyRetirementReductionFactor(
 
   const records = reductionFactors as ReductionFactorRecord[];
   const normalPensionAges = Array.from(
-    new Set(records.map((record) => record.normal_pension_age)),
+    new Set(records.map((record) => record.normal_pension_age))
   ).sort((first, second) => first - second);
   const exactNormalPensionAge = normalPensionAges.find(
-    (age) => age === normalPensionAge,
+    (age) => age === normalPensionAge
   );
 
   if (exactNormalPensionAge !== undefined) {
     return getReductionFactorForNormalPensionAge(
       records,
       exactNormalPensionAge,
-      retirementAge,
+      retirementAge
     );
   }
 
@@ -222,22 +243,25 @@ export function getEarlyRetirementReductionFactor(
     .reverse()
     .find((age) => age < normalPensionAge);
   const upperNormalPensionAge = normalPensionAges.find(
-    (age) => age > normalPensionAge,
+    (age) => age > normalPensionAge
   );
 
-  if (lowerNormalPensionAge === undefined || upperNormalPensionAge === undefined) {
+  if (
+    lowerNormalPensionAge === undefined ||
+    upperNormalPensionAge === undefined
+  ) {
     return 1;
   }
 
   const lowerReductionFactor = getReductionFactorForNormalPensionAge(
     records,
     lowerNormalPensionAge,
-    retirementAge,
+    retirementAge
   );
   const upperReductionFactor = getReductionFactorForNormalPensionAge(
     records,
     upperNormalPensionAge,
-    retirementAge,
+    retirementAge
   );
   const normalPensionAgeProgress =
     (normalPensionAge - lowerNormalPensionAge) /
@@ -253,7 +277,7 @@ export function calculateAnnualAlphaPensionIncludingReduction(
   accruedAlphaPension: number,
   alphaPensionDrawDate: string,
   npaDate: string,
-  reductionFactor: number,
+  reductionFactor: number
 ) {
   return alphaPensionDrawDate > npaDate
     ? accruedAlphaPension
@@ -290,10 +314,10 @@ export function calculateAnnualAlphaPensionIncludingEpaReduction(input: {
   return standardPensionAfterReduction + epaPensionAfterReduction;
 }
 
-export function calculateMonthlyAlphaPensionTakeHome(
+export function calculateMonthlyAlphaPensionGross(
   rowDate: string,
   alphaPensionDrawDate: string,
-  annualAlphaPensionIncludingReduction: number,
+  annualAlphaPensionIncludingReduction: number
 ) {
   if (rowDate < alphaPensionDrawDate) {
     return 0;
@@ -306,7 +330,7 @@ export function calculateMonthlyAlphaPensionIncludingReduction(
   accruedAlphaPension: number,
   alphaPensionDrawDate: string,
   npaDate: string,
-  reductionFactor: number,
+  reductionFactor: number
 ) {
   const annualAlphaPensionIncludingReduction =
     alphaPensionDrawDate > npaDate
@@ -327,13 +351,13 @@ function isEpaAccrualDate(settings: PensionSettings, rowDate: string) {
 function getReductionFactorForNormalPensionAge(
   records: ReductionFactorRecord[],
   normalPensionAge: number,
-  retirementAge: number,
+  retirementAge: number
 ) {
   const recordsForNormalPensionAge = records
     .filter((record) => record.normal_pension_age === normalPensionAge)
     .sort((first, second) => first.retirement_age - second.retirement_age);
   const match = recordsForNormalPensionAge.find(
-    (record) => record.retirement_age === retirementAge,
+    (record) => record.retirement_age === retirementAge
   );
 
   if (match) {
@@ -344,7 +368,7 @@ function getReductionFactorForNormalPensionAge(
     .reverse()
     .find((record) => record.retirement_age < retirementAge);
   const upperRecord = recordsForNormalPensionAge.find(
-    (record) => record.retirement_age > retirementAge,
+    (record) => record.retirement_age > retirementAge
   );
 
   if (!lowerRecord || !upperRecord) {
@@ -368,7 +392,8 @@ function calculateAge(dateOfBirth: string, rowDate: string) {
   let age = row.getUTCFullYear() - birth.getUTCFullYear();
   const hasHadBirthday =
     row.getUTCMonth() > birth.getUTCMonth() ||
-    (row.getUTCMonth() === birth.getUTCMonth() && row.getUTCDate() >= birth.getUTCDate());
+    (row.getUTCMonth() === birth.getUTCMonth() &&
+      row.getUTCDate() >= birth.getUTCDate());
 
   if (!hasHadBirthday) {
     age -= 1;
@@ -380,11 +405,12 @@ function calculateAge(dateOfBirth: string, rowDate: string) {
 function getScheduledPaymentDatesThroughRow(
   lumpSum: AddedPensionLumpSum,
   previousRowDate: string | undefined,
-  rowDate: string,
+  rowDate: string
 ) {
   return getScheduledPaymentDates(lumpSum).filter(
     (scheduledDate) =>
-      scheduledDate <= rowDate && (!previousRowDate || scheduledDate > previousRowDate),
+      scheduledDate <= rowDate &&
+      (!previousRowDate || scheduledDate > previousRowDate)
   );
 }
 

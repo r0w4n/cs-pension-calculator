@@ -21,8 +21,14 @@ export type AddedPensionLumpSum = {
   factorType?: AddedPensionFactorType;
 };
 
-export type SippWithdrawalStrategy = "zero_at_death" | "percentage" | "use_by_age";
-export type IsaWithdrawalStrategy = "zero_at_death" | "percentage" | "use_by_age";
+export type SippWithdrawalStrategy =
+  | "zero_at_death"
+  | "percentage"
+  | "use_by_age";
+export type IsaWithdrawalStrategy =
+  | "zero_at_death"
+  | "percentage"
+  | "use_by_age";
 export type SippTaxReliefRate = "none" | "20" | "40";
 export type ProjectionBasis = "real" | "nominal";
 
@@ -104,4 +110,7 @@ export type PensionValidationIssue = {
   itemId?: string;
 };
 
-export type StoredPensionSettings = Omit<PensionSettings, "startDate" | "normalPensionAge">;
+export type StoredPensionSettings = Omit<
+  PensionSettings,
+  "startDate" | "normalPensionAge"
+>;

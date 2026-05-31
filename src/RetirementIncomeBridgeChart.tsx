@@ -56,14 +56,17 @@ export type RetirementIncomeBridgeParameters = {
   showStatePension: boolean;
 };
 
-export type RetirementIncomeBridgeChartProps = RetirementIncomeBridgeParameters & {
-  data: RetirementIncomePoint[];
-  alphaLabel?: string;
-  limits: RetirementIncomeBridgeLimits;
-  statePensionEditable?: boolean;
-  validationIssues?: PensionValidationIssue[];
-  onChangeParameters: (patch: Partial<RetirementIncomeBridgeParameters>) => void;
-};
+export type RetirementIncomeBridgeChartProps =
+  RetirementIncomeBridgeParameters & {
+    data: RetirementIncomePoint[];
+    alphaLabel?: string;
+    limits: RetirementIncomeBridgeLimits;
+    statePensionEditable?: boolean;
+    validationIssues?: PensionValidationIssue[];
+    onChangeParameters: (
+      patch: Partial<RetirementIncomeBridgeParameters>
+    ) => void;
+  };
 
 export type RetirementIncomeBridgeLimits = {
   targetIncomeAnnual: NumberLimit;
@@ -131,7 +134,10 @@ const incomeKeys: IncomeKey[] = [
   "statePensionIncomeAnnual",
 ];
 
-const sourceMeta: Record<IncomeKey, { label: string; shortLabel: string; colour: string }> = {
+const sourceMeta: Record<
+  IncomeKey,
+  { label: string; shortLabel: string; colour: string }
+> = {
   isaIncomeAnnual: {
     label: "ISA bridge",
     shortLabel: "ISA",
@@ -217,22 +223,24 @@ export function RetirementIncomeBridgeChart({
   const targetLineRef = useRef<SVGPathElement | null>(null);
   const markerRefs = useRef(new Map<MilestoneKey, SVGGElement>());
   const [width, setWidth] = useState(960);
-  const [displayMode, setDisplayMode] = useState<"annual" | "monthly">("annual");
-  const [draftTargetIncomeAnnual, setDraftTargetIncomeAnnual] = useState<number | null>(
-    null,
+  const [displayMode, setDisplayMode] = useState<"annual" | "monthly">(
+    "annual"
   );
-  const [pendingTargetIncomeAnnual, setPendingTargetIncomeAnnual] = useState<number | null>(
-    null,
-  );
+  const [draftTargetIncomeAnnual, setDraftTargetIncomeAnnual] = useState<
+    number | null
+  >(null);
+  const [pendingTargetIncomeAnnual, setPendingTargetIncomeAnnual] = useState<
+    number | null
+  >(null);
   const [draftMarkerAges, setDraftMarkerAges] = useState<
     Partial<Record<MilestoneKey, { age: number; baseAge: number }>>
   >({});
-  const [activeMarkerDragKey, setActiveMarkerDragKey] = useState<MilestoneKey | null>(
-    null,
-  );
+  const [activeMarkerDragKey, setActiveMarkerDragKey] =
+    useState<MilestoneKey | null>(null);
   const [selectedMobileMarkerKey, setSelectedMobileMarkerKey] =
     useState<MilestoneKey>("retirementAge");
-  const dataSourceTargetIncomeAnnual = data[0]?.targetIncomeAnnual ?? targetIncomeAnnual;
+  const dataSourceTargetIncomeAnnual =
+    data[0]?.targetIncomeAnnual ?? targetIncomeAnnual;
   const displayedTargetIncomeAnnual =
     draftTargetIncomeAnnual ??
     (pendingTargetIncomeAnnual !== null &&
@@ -240,7 +248,8 @@ export function RetirementIncomeBridgeChart({
       ? pendingTargetIncomeAnnual
       : targetIncomeAnnual);
   const divisor = displayMode === "monthly" ? 12 : 1;
-  const valueLabel = displayMode === "monthly" ? "Monthly income" : "Annual income";
+  const valueLabel =
+    displayMode === "monthly" ? "Monthly income" : "Annual income";
   const axisTargetLabel = formatCurrency(displayedTargetIncomeAnnual / divisor);
   const chartTitleId = "retirement-income-bridge-chart-title";
   const chartDescriptionId = "retirement-income-bridge-chart-description";
@@ -253,7 +262,8 @@ export function RetirementIncomeBridgeChart({
       }));
     }
 
-    const scaleFactor = displayedTargetIncomeAnnual / dataSourceTargetIncomeAnnual;
+    const scaleFactor =
+      displayedTargetIncomeAnnual / dataSourceTargetIncomeAnnual;
 
     return data.map((point) => {
       const nextTargetIncomeAnnual = point.targetIncomeAnnual * scaleFactor;
@@ -267,7 +277,12 @@ export function RetirementIncomeBridgeChart({
             : 0,
       };
     });
-  }, [data, dataSourceTargetIncomeAnnual, displayedTargetIncomeAnnual, retirementAge]);
+  }, [
+    data,
+    dataSourceTargetIncomeAnnual,
+    displayedTargetIncomeAnnual,
+    retirementAge,
+  ]);
   const visibleIncomeKeys = useMemo(
     () =>
       incomeKeys.filter((key) => {
@@ -293,7 +308,7 @@ export function RetirementIncomeBridgeChart({
 
         return true;
       }),
-    [partialRetirementEnabled, showIsa, showNuvos, showSipp, showStatePension],
+    [partialRetirementEnabled, showIsa, showNuvos, showSipp, showStatePension]
   );
 
   useEffect(() => {
@@ -327,31 +342,33 @@ export function RetirementIncomeBridgeChart({
   }, [width]);
   const plotWidth = Math.max(
     1,
-    dimensions.width - dimensions.marginLeft - dimensions.marginRight,
+    dimensions.width - dimensions.marginLeft - dimensions.marginRight
   );
   const plotHeight = Math.max(
     1,
-    dimensions.height - dimensions.marginTop - dimensions.marginBottom,
+    dimensions.height - dimensions.marginTop - dimensions.marginBottom
   );
   const ageExtent = d3.extent(displayedData, (point) => point.age);
   const minAge = Math.floor(ageExtent[0] ?? retirementAge - 5);
   const maxAge = Math.ceil(ageExtent[1] ?? statePensionAge + 20);
   const maxIncome =
-    d3.max(displayedData, (point) =>
-      Math.max(point.targetIncomeAnnual, point.totalIncomeAnnual) / divisor,
+    d3.max(
+      displayedData,
+      (point) =>
+        Math.max(point.targetIncomeAnnual, point.totalIncomeAnnual) / divisor
     ) ?? displayedTargetIncomeAnnual / divisor;
   const yMax = Math.max(
     (displayedTargetIncomeAnnual / divisor) * 1.18,
     maxIncome * 1.18,
-    10000 / divisor,
+    10000 / divisor
   );
   const xScale = useMemo(
     () => d3.scaleLinear().domain([minAge, maxAge]).range([0, plotWidth]),
-    [maxAge, minAge, plotWidth],
+    [maxAge, minAge, plotWidth]
   );
   const yScale = useMemo(
     () => d3.scaleLinear().domain([0, yMax]).nice().range([plotHeight, 0]),
-    [plotHeight, yMax],
+    [plotHeight, yMax]
   );
   const stack = d3
     .stack<RetirementIncomePoint>()
@@ -381,13 +398,12 @@ export function RetirementIncomeBridgeChart({
   const xTicks = xScale.ticks(width < 640 ? 5 : 8);
   const invalidMarkerKeys = useMemo(
     () => getInvalidMarkerKeys(validationIssues),
-    [validationIssues],
+    [validationIssues]
   );
   const hasValidationIssues = validationIssues.length > 0;
   const projectionReady = data.length > 0;
   const milestoneMarkers: MilestoneMarker[] = useMemo(
-    () =>
-      [
+    () => [
       {
         key: "retirementAge",
         label: "Retire",
@@ -502,7 +518,7 @@ export function RetirementIncomeBridgeChart({
       sippAccessAge,
       statePensionAge,
       statePensionEditable,
-    ],
+    ]
   );
   const displayedMilestoneMarkers = useMemo(
     () =>
@@ -511,27 +527,28 @@ export function RetirementIncomeBridgeChart({
         age: getDisplayMarkerAge(marker.age, draftMarkerAges[marker.key]),
         layoutAge: draftMarkerAges[marker.key]?.baseAge ?? marker.age,
       })),
-    [draftMarkerAges, milestoneMarkers],
+    [draftMarkerAges, milestoneMarkers]
   );
   const markerLayouts = createMarkerLayouts(
     displayedMilestoneMarkers,
     xScale,
-    plotHeight,
+    plotHeight
   );
   const draggingMobileMarker =
     activeMarkerDragKey === null
       ? undefined
-      : displayedMilestoneMarkers.find((marker) => marker.key === activeMarkerDragKey);
+      : displayedMilestoneMarkers.find(
+          (marker) => marker.key === activeMarkerDragKey
+        );
   const effectiveSelectedMobileMarkerKey = displayedMilestoneMarkers.some(
-    (marker) => marker.key === selectedMobileMarkerKey,
+    (marker) => marker.key === selectedMobileMarkerKey
   )
     ? selectedMobileMarkerKey
     : displayedMilestoneMarkers[0]?.key;
   const selectedMobileMarker =
     displayedMilestoneMarkers.find(
-      (marker) => marker.key === effectiveSelectedMobileMarkerKey,
-    ) ??
-    displayedMilestoneMarkers[0];
+      (marker) => marker.key === effectiveSelectedMobileMarkerKey
+    ) ?? displayedMilestoneMarkers[0];
   const mobileBridgeSummary = useMemo(
     () =>
       createMobileBridgeSummary({
@@ -549,7 +566,7 @@ export function RetirementIncomeBridgeChart({
       retirementAge,
       showStatePension,
       statePensionAge,
-    ],
+    ]
   );
   const buildUpWidth = Math.max(0, xScale(retirementAge) - xScale(minAge));
 
@@ -609,13 +626,20 @@ export function RetirementIncomeBridgeChart({
     const drag = d3
       .drag<SVGPathElement, unknown>()
       .on("start drag", (event: SvgDragEvent<SVGPathElement>) => {
-        const nextValue = yScale.invert(clampNumber(event.y, 0, plotHeight)) * divisor;
+        const nextValue =
+          yScale.invert(clampNumber(event.y, 0, plotHeight)) * divisor;
 
-        setDraftTargetIncomeAnnual(snapToLimit(nextValue, limits.targetIncomeAnnual));
+        setDraftTargetIncomeAnnual(
+          snapToLimit(nextValue, limits.targetIncomeAnnual)
+        );
       })
       .on("end", (event: SvgDragEvent<SVGPathElement>) => {
-        const nextValue = yScale.invert(clampNumber(event.y, 0, plotHeight)) * divisor;
-        const committedValue = snapToLimit(nextValue, limits.targetIncomeAnnual);
+        const nextValue =
+          yScale.invert(clampNumber(event.y, 0, plotHeight)) * divisor;
+        const committedValue = snapToLimit(
+          nextValue,
+          limits.targetIncomeAnnual
+        );
 
         setDraftTargetIncomeAnnual(null);
         setPendingTargetIncomeAnnual(committedValue);
@@ -627,45 +651,60 @@ export function RetirementIncomeBridgeChart({
     return () => {
       d3.select(node).on(".drag", null);
     };
-  }, [divisor, limits.targetIncomeAnnual, onChangeParameters, plotHeight, yScale]);
+  }, [
+    divisor,
+    limits.targetIncomeAnnual,
+    onChangeParameters,
+    plotHeight,
+    yScale,
+  ]);
 
   const handleMarkerKeyDown = (
     event: KeyboardEvent<SVGGElement>,
-    marker: MilestoneMarker,
+    marker: MilestoneMarker
   ) => {
-    if (!marker.editable || !["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp"].includes(event.key)) {
+    if (
+      !marker.editable ||
+      !["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp"].includes(event.key)
+    ) {
       return;
     }
 
     event.preventDefault();
-    const direction = event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 1;
+    const direction =
+      event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 1;
     onChangeParameters({
       [marker.key]: snapToLimit(
         marker.age + direction * limits[marker.key].step,
-        limits[marker.key],
+        limits[marker.key]
       ),
     });
   };
 
   const handleTargetLineKeyDown = (event: KeyboardEvent<SVGPathElement>) => {
-    if (!["ArrowDown", "ArrowLeft", "ArrowUp", "ArrowRight"].includes(event.key)) {
+    if (
+      !["ArrowDown", "ArrowLeft", "ArrowUp", "ArrowRight"].includes(event.key)
+    ) {
       return;
     }
 
     event.preventDefault();
-    const direction = event.key === "ArrowDown" || event.key === "ArrowLeft" ? -1 : 1;
+    const direction =
+      event.key === "ArrowDown" || event.key === "ArrowLeft" ? -1 : 1;
 
     onChangeParameters({
       targetIncomeAnnual: snapToLimit(
-        displayedTargetIncomeAnnual + direction * limits.targetIncomeAnnual.step,
-        limits.targetIncomeAnnual,
+        displayedTargetIncomeAnnual +
+          direction * limits.targetIncomeAnnual.step,
+        limits.targetIncomeAnnual
       ),
     });
     setPendingTargetIncomeAnnual(
       snapToLimit(
-        displayedTargetIncomeAnnual + direction * limits.targetIncomeAnnual.step,
-        limits.targetIncomeAnnual,
-      ),
+        displayedTargetIncomeAnnual +
+          direction * limits.targetIncomeAnnual.step,
+        limits.targetIncomeAnnual
+      )
     );
   };
 
@@ -722,7 +761,9 @@ export function RetirementIncomeBridgeChart({
           </strong>
           <ul>
             {validationIssues.slice(0, 4).map((issue) => (
-              <li key={`${issue.field}-${issue.itemId ?? issue.message}`}>{issue.message}</li>
+              <li key={`${issue.field}-${issue.itemId ?? issue.message}`}>
+                {issue.message}
+              </li>
             ))}
           </ul>
         </div>
@@ -761,7 +802,14 @@ export function RetirementIncomeBridgeChart({
               patternUnits="userSpaceOnUse"
               patternTransform="rotate(45)"
             >
-              <line x1="0" y1="0" x2="0" y2="8" stroke="#bf2c2c" strokeWidth="2" />
+              <line
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="8"
+                stroke="#bf2c2c"
+                strokeWidth="2"
+              />
             </pattern>
             {visibleIncomeKeys.map((key) => (
               <linearGradient
@@ -772,13 +820,23 @@ export function RetirementIncomeBridgeChart({
                 y1="0"
                 y2="1"
               >
-                <stop offset="0%" stopColor={sourceMeta[key].colour} stopOpacity="0.9" />
-                <stop offset="100%" stopColor={sourceMeta[key].colour} stopOpacity="0.68" />
+                <stop
+                  offset="0%"
+                  stopColor={sourceMeta[key].colour}
+                  stopOpacity="0.9"
+                />
+                <stop
+                  offset="100%"
+                  stopColor={sourceMeta[key].colour}
+                  stopOpacity="0.68"
+                />
               </linearGradient>
             ))}
           </defs>
 
-          <g transform={`translate(${dimensions.marginLeft},${dimensions.marginTop})`}>
+          <g
+            transform={`translate(${dimensions.marginLeft},${dimensions.marginTop})`}
+          >
             {buildUpWidth > 0 ? (
               <rect
                 x={xScale(minAge)}
@@ -791,7 +849,12 @@ export function RetirementIncomeBridgeChart({
 
             {yTicks.map((tick) => (
               <g key={tick} className="bridge-gridline">
-                <line x1={0} x2={plotWidth} y1={yScale(tick)} y2={yScale(tick)} />
+                <line
+                  x1={0}
+                  x2={plotWidth}
+                  y1={yScale(tick)}
+                  y2={yScale(tick)}
+                />
                 <text x={-12} y={yScale(tick)} dy="0.32em" textAnchor="end">
                   {formatCompactCurrency(tick)}
                 </text>
@@ -853,20 +916,18 @@ export function RetirementIncomeBridgeChart({
                       markerRefs.current.delete(marker.key);
                     }
                   }}
-                  className={
-                    [
-                      "bridge-milestone",
-                      marker.editable ? "bridge-milestone--editable" : "",
-                      invalidMarkerKeys.has(marker.key)
-                        ? "bridge-milestone--invalid"
-                        : "",
-                      marker.key === effectiveSelectedMobileMarkerKey
-                        ? "bridge-milestone--selected"
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")
-                  }
+                  className={[
+                    "bridge-milestone",
+                    marker.editable ? "bridge-milestone--editable" : "",
+                    invalidMarkerKeys.has(marker.key)
+                      ? "bridge-milestone--invalid"
+                      : "",
+                    marker.key === effectiveSelectedMobileMarkerKey
+                      ? "bridge-milestone--selected"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   role={marker.editable ? "slider" : "img"}
                   tabIndex={0}
                   aria-label={`${marker.label}, age ${formatAgeValue(marker.age)}`}
@@ -905,11 +966,28 @@ export function RetirementIncomeBridgeChart({
               );
             })}
 
-            <line className="bridge-axis" x1={0} x2={plotWidth} y1={plotHeight} y2={plotHeight} />
-            <line className="bridge-axis" x1={0} x2={0} y1={0} y2={plotHeight} />
+            <line
+              className="bridge-axis"
+              x1={0}
+              x2={plotWidth}
+              y1={plotHeight}
+              y2={plotHeight}
+            />
+            <line
+              className="bridge-axis"
+              x1={0}
+              x2={0}
+              y1={0}
+              y2={plotHeight}
+            />
             {xTicks.map((tick) => (
               <g key={tick} className="bridge-x-tick">
-                <line x1={xScale(tick)} x2={xScale(tick)} y1={plotHeight} y2={plotHeight + 6} />
+                <line
+                  x1={xScale(tick)}
+                  x2={xScale(tick)}
+                  y1={plotHeight}
+                  y2={plotHeight + 6}
+                />
                 <text x={xScale(tick)} y={plotHeight + 18} textAnchor="middle">
                   {Math.round(tick)}
                 </text>
@@ -939,13 +1017,17 @@ export function RetirementIncomeBridgeChart({
           </g>
         </svg>
 
-        <div className="bridge-legend bridge-legend--overlay" aria-label="Income sources">
+        <div
+          className="bridge-legend bridge-legend--overlay"
+          aria-label="Income sources"
+        >
           <span>
             <span className="bridge-build-up-key" />
             {BUILD_UP_META.label}
           </span>
           {incomeKeys.map((key) => {
-            const label = key === "alphaIncomeAnnual" ? alphaLabel : sourceMeta[key].label;
+            const label =
+              key === "alphaIncomeAnnual" ? alphaLabel : sourceMeta[key].label;
             const enabled = isIncomeSourceEnabled(key, {
               partialRetirementEnabled,
               showIsa,
@@ -983,7 +1065,6 @@ export function RetirementIncomeBridgeChart({
             Shortfall
           </span>
         </div>
-
       </div>
 
       {selectedMobileMarker ? (
@@ -1026,7 +1107,7 @@ export function RetirementIncomeBridgeChart({
                 onChangeParameters({
                   [selectedMobileMarker.key]: snapToLimit(
                     Number(event.target.value),
-                    limits[selectedMobileMarker.key],
+                    limits[selectedMobileMarker.key]
                   ),
                 })
               }
@@ -1044,7 +1125,7 @@ export function RetirementIncomeBridgeChart({
               onChangeParameters({
                 [selectedMobileMarker.key]: snapToLimit(
                   Number(event.target.value),
-                  limits[selectedMobileMarker.key],
+                  limits[selectedMobileMarker.key]
                 ),
               })
             }
@@ -1059,7 +1140,9 @@ export function RetirementIncomeBridgeChart({
           suffix="/ month"
           limit={limits.alphaMonthlyAddedPension}
           colour="#7353bf"
-          onChange={(value) => onChangeParameters({ alphaMonthlyAddedPension: value })}
+          onChange={(value) =>
+            onChangeParameters({ alphaMonthlyAddedPension: value })
+          }
         />
         {showIsa ? (
           <BridgeMetricControl
@@ -1068,7 +1151,9 @@ export function RetirementIncomeBridgeChart({
             suffix="/ month"
             limit={limits.isaMonthlyContribution}
             colour="#1f8ee6"
-            onChange={(value) => onChangeParameters({ isaMonthlyContribution: value })}
+            onChange={(value) =>
+              onChangeParameters({ isaMonthlyContribution: value })
+            }
           />
         ) : null}
         {showSipp ? (
@@ -1078,7 +1163,9 @@ export function RetirementIncomeBridgeChart({
             suffix="/ month"
             limit={limits.sippMonthlyContribution}
             colour="#148c55"
-            onChange={(value) => onChangeParameters({ sippMonthlyContribution: value })}
+            onChange={(value) =>
+              onChangeParameters({ sippMonthlyContribution: value })
+            }
           />
         ) : null}
         {partialRetirementEnabled ? (
@@ -1089,18 +1176,28 @@ export function RetirementIncomeBridgeChart({
             limit={limits.partialRetirementWorkPercent}
             colour="#c2410c"
             formatValue={(value) => String(Math.round(value))}
-            onChange={(value) => onChangeParameters({ partialRetirementWorkPercent: value })}
+            onChange={(value) =>
+              onChangeParameters({ partialRetirementWorkPercent: value })
+            }
           />
         ) : null}
         <BridgeMetricControl
           label="Target income"
-          value={displayMode === "monthly" ? targetIncomeAnnual / 12 : targetIncomeAnnual}
+          value={
+            displayMode === "monthly"
+              ? targetIncomeAnnual / 12
+              : targetIncomeAnnual
+          }
           suffix={displayMode === "monthly" ? "/ month" : "/ year"}
-          limit={getTargetIncomeControlLimit(limits.targetIncomeAnnual, displayMode)}
+          limit={getTargetIncomeControlLimit(
+            limits.targetIncomeAnnual,
+            displayMode
+          )}
           colour="#0b3c5d"
           onChange={(value) =>
             onChangeParameters({
-              targetIncomeAnnual: displayMode === "monthly" ? value * 12 : value,
+              targetIncomeAnnual:
+                displayMode === "monthly" ? value * 12 : value,
             })
           }
         />
@@ -1141,7 +1238,10 @@ function BridgeMetricControl({
   };
 
   return (
-    <div className="bridge-control-card" style={{ "--control-colour": colour } as React.CSSProperties}>
+    <div
+      className="bridge-control-card"
+      style={{ "--control-colour": colour } as React.CSSProperties}
+    >
       <span>{label}</span>
       <strong>
         {formatValue(roundedValue)} <small>{suffix}</small>
@@ -1157,10 +1257,18 @@ function BridgeMetricControl({
           onChange={(event) => {
             setDraftValue(clampToLimit(Number(event.target.value), limit));
           }}
-          onMouseUp={(event) => commitDraftValue(Number(event.currentTarget.value))}
-          onTouchEnd={(event) => commitDraftValue(Number(event.currentTarget.value))}
-          onBlur={(event) => commitDraftValue(Number(event.currentTarget.value))}
-          onKeyUp={(event) => commitDraftValue(Number(event.currentTarget.value))}
+          onMouseUp={(event) =>
+            commitDraftValue(Number(event.currentTarget.value))
+          }
+          onTouchEnd={(event) =>
+            commitDraftValue(Number(event.currentTarget.value))
+          }
+          onBlur={(event) =>
+            commitDraftValue(Number(event.currentTarget.value))
+          }
+          onKeyUp={(event) =>
+            commitDraftValue(Number(event.currentTarget.value))
+          }
         />
       </div>
     </div>
@@ -1170,7 +1278,7 @@ function BridgeMetricControl({
 function createMarkerLayouts(
   markers: Array<MilestoneMarker & { layoutAge?: number }>,
   xScale: d3.ScaleLinear<number, number>,
-  plotHeight: number,
+  plotHeight: number
 ) {
   const rowByKey = new Map<MilestoneKey, number>();
   const minimumGap = HANDLE_LABEL_WIDTH + 6;
@@ -1180,12 +1288,12 @@ function createMarkerLayouts(
     .sort(
       (first, second) =>
         xScale(first.layoutAge ?? first.age) -
-        xScale(second.layoutAge ?? second.age),
+        xScale(second.layoutAge ?? second.age)
     )
     .forEach((marker) => {
       const markerX = xScale(marker.layoutAge ?? marker.age);
       const row = rowRightEdges.findIndex(
-        (rightEdge) => markerX - rightEdge >= minimumGap,
+        (rightEdge) => markerX - rightEdge >= minimumGap
       );
       const nextRow = row === -1 ? rowRightEdges.length : row;
 
@@ -1198,15 +1306,11 @@ function createMarkerLayouts(
   const rowSpacing =
     maxRow === 0
       ? HANDLE_LABEL_STACK_SPACING
-      : Math.min(
-          HANDLE_LABEL_STACK_SPACING,
-          availableStackSpace / maxRow,
-        );
+      : Math.min(HANDLE_LABEL_STACK_SPACING, availableStackSpace / maxRow);
 
   return markers.map((marker) => {
     const row = rowByKey.get(marker.key) ?? 0;
-    const handleY =
-      HANDLE_LABEL_HEIGHT / 2 + row * rowSpacing;
+    const handleY = HANDLE_LABEL_HEIGHT / 2 + row * rowSpacing;
 
     return {
       ...marker,
@@ -1217,7 +1321,7 @@ function createMarkerLayouts(
 
 function getTargetIncomeControlLimit(
   limit: NumberLimit,
-  displayMode: "annual" | "monthly",
+  displayMode: "annual" | "monthly"
 ) {
   if (displayMode === "annual") {
     return limit;
@@ -1330,7 +1434,7 @@ function createMobileBridgeSummary({
   alphaStartAge: number;
 }) {
   const shortfallPoints = displayedData.filter(
-    (point) => point.age >= retirementAge && point.shortfallAnnual > 0,
+    (point) => point.age >= retirementAge && point.shortfallAnnual > 0
   );
   const firstShortfallPoint = shortfallPoints[0];
   const lastShortfallPoint = shortfallPoints.at(-1);
@@ -1351,7 +1455,7 @@ function createMobileBridgeSummary({
     {
       label: showStatePension ? "State Pension" : "Alpha pension",
       value: `Age ${formatAgeValue(
-        showStatePension ? statePensionAge : alphaStartAge,
+        showStatePension ? statePensionAge : alphaStartAge
       )}`,
     },
   ];
@@ -1361,8 +1465,12 @@ function isIncomeSourceEnabled(
   key: IncomeKey,
   state: Pick<
     RetirementIncomeBridgeParameters,
-    "partialRetirementEnabled" | "showIsa" | "showNuvos" | "showSipp" | "showStatePension"
-  >,
+    | "partialRetirementEnabled"
+    | "showIsa"
+    | "showNuvos"
+    | "showSipp"
+    | "showStatePension"
+  >
 ) {
   if (key === "isaIncomeAnnual") {
     return state.showIsa;
@@ -1389,7 +1497,7 @@ function isIncomeSourceEnabled(
 
 function getIncomeSourceTogglePatch(
   key: IncomeKey,
-  enabled: boolean,
+  enabled: boolean
 ): Partial<RetirementIncomeBridgeParameters> | null {
   if (key === "isaIncomeAnnual") {
     return { showIsa: enabled };
@@ -1436,7 +1544,7 @@ function formatAgeValue(value: number) {
 
 function getDisplayMarkerAge(
   sourceAge: number,
-  draftAge: { age: number; baseAge: number } | undefined,
+  draftAge: { age: number; baseAge: number } | undefined
 ) {
   if (!draftAge) {
     return sourceAge;

@@ -33,7 +33,7 @@ describe("settings-storage", () => {
     saveSettings(settings);
 
     const stored = JSON.parse(
-      window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}",
+      window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}"
     ) as Record<string, unknown>;
     expect(stored.startDate).toBeUndefined();
 

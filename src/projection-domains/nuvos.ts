@@ -38,7 +38,10 @@ export function calculateAnnualNuvosPensionAtDate(input: {
       ? calculateNuvosPensionRevaluationFactor({
           fromDate: component.startDate,
           rowDate,
-          cpiPercent: settings.projectionBasis === "real" ? 0 : settings.inflationRateAnnual,
+          cpiPercent:
+            settings.projectionBasis === "real"
+              ? 0
+              : settings.inflationRateAnnual,
         })
       : 1;
 
@@ -58,7 +61,10 @@ export function calculateNuvosPensionRevaluationFactor(input: {
   return (1 + cpiRate) ** totalYears;
 }
 
-function calculateMonthlyNuvosAccrual(settings: PensionSettings, rowDate: string) {
+function calculateMonthlyNuvosAccrual(
+  settings: PensionSettings,
+  rowDate: string
+) {
   if (!settings.showNuvos) {
     return 0;
   }

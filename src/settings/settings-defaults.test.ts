@@ -25,7 +25,7 @@ describe("settings-defaults", () => {
         getFullYear: () => 2026,
         getMonth: () => 3,
         getDate: () => 25,
-      }),
+      })
     ).toBe("2026-04-25");
   });
 });

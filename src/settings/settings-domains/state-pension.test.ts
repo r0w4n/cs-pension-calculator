@@ -10,7 +10,7 @@ describe("state-pension domain", () => {
   it("normalizes booleans and draw dates", () => {
     expect(normalizeStatePensionBooleanSetting(1)).toBe(true);
     expect(normalizeStatePensionDrawDate("bad-date", "1987-06-15")).toMatch(
-      /^\d{4}-\d{2}-\d{2}$/,
+      /^\d{4}-\d{2}-\d{2}$/
     );
   });
 
@@ -40,9 +40,7 @@ describe("state-pension domain", () => {
       statePensionWageGrowthPercent: "2.5",
     } as unknown as Partial<StoredPensionSettings>;
 
-    expect(
-      coerceStatePensionSettings(storedSettings),
-    ).toEqual({
+    expect(coerceStatePensionSettings(storedSettings)).toEqual({
       showStatePension: true,
       currentStatePension: 12000,
       statePensionDrawDate: "2045-01-01",

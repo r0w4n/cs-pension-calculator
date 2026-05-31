@@ -45,7 +45,7 @@ export function formatPercent(rate: number) {
 
 export function formatModelledReturn(
   rate: number,
-  projectionBasis: PensionSettings["projectionBasis"],
+  projectionBasis: PensionSettings["projectionBasis"]
 ) {
   return projectionBasis === "real"
     ? `${formatPercent(rate)} real return`
@@ -56,7 +56,9 @@ export function addYearsToIsoDate(value: string, years: number) {
   const [year, month, day] = value.split("-").map(Number);
   const wholeYears = Math.floor(years);
   const remainingMonths = Math.round((years - wholeYears) * 12);
-  const nextDate = new Date(Date.UTC(year + wholeYears, month - 1 + remainingMonths, day));
+  const nextDate = new Date(
+    Date.UTC(year + wholeYears, month - 1 + remainingMonths, day)
+  );
 
   return [
     nextDate.getUTCFullYear(),
@@ -85,7 +87,10 @@ export function formatAgeValue(value: number) {
   return value.toFixed(2).replace(/\.00$/, "");
 }
 
-export function isSettingsGroupVisible(groupId: string, settings: PensionSettings) {
+export function isSettingsGroupVisible(
+  groupId: string,
+  settings: PensionSettings
+) {
   if (groupId === "alpha") {
     return settings.showAlpha;
   }

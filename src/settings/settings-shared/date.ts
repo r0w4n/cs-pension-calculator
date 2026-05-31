@@ -3,7 +3,7 @@ export function getTodayIsoDate() {
 }
 
 export function formatLocalIsoDate(
-  date: Pick<Date, "getFullYear" | "getMonth" | "getDate">,
+  date: Pick<Date, "getFullYear" | "getMonth" | "getDate">
 ) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -24,7 +24,11 @@ export function isValidIsoDate(value: string) {
   const month = Number(monthText);
   const day = Number(dayText);
 
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
     return false;
   }
 
@@ -45,7 +49,9 @@ export function addMonthsToIsoDate(value: string, monthsToAdd: number) {
   const monthIndex = month - 1 + monthsToAdd;
   const nextYear = year + Math.floor(monthIndex / 12);
   const nextMonthIndex = ((monthIndex % 12) + 12) % 12;
-  const maxDay = new Date(Date.UTC(nextYear, nextMonthIndex + 1, 0)).getUTCDate();
+  const maxDay = new Date(
+    Date.UTC(nextYear, nextMonthIndex + 1, 0)
+  ).getUTCDate();
   const safeDay = Math.min(day, maxDay);
 
   return new Date(Date.UTC(nextYear, nextMonthIndex, safeDay))
@@ -65,7 +71,11 @@ export function addDaysToIsoDate(value: string, daysToAdd: number) {
     .slice(0, 10);
 }
 
-export function isIsoDateInRange(value: string, startDate: string, endDate: string) {
+export function isIsoDateInRange(
+  value: string,
+  startDate: string,
+  endDate: string
+) {
   return value >= startDate && value <= endDate;
 }
 

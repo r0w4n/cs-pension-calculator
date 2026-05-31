@@ -7,18 +7,21 @@ import { getModelledAnnualGrowthRate } from "./inflation";
 export function calculateMonthlyStatePension(
   rowDate: string,
   statePensionStartDate: string,
-  annualStatePensionAtDraw: number,
+  annualStatePensionAtDraw: number
 ) {
   return rowDate >= statePensionStartDate ? annualStatePensionAtDraw / 12 : 0;
 }
 
 export function calculateAnnualStatePensionAtDraw(settings: PensionSettings) {
-  return calculateAnnualStatePensionAtDate(settings, settings.statePensionDrawDate);
+  return calculateAnnualStatePensionAtDate(
+    settings,
+    settings.statePensionDrawDate
+  );
 }
 
 export function calculateAnnualStatePensionAtDate(
   settings: PensionSettings,
-  rowDate: string,
+  rowDate: string
 ) {
   if (!settings.showStatePension) {
     return 0;
@@ -26,11 +29,11 @@ export function calculateAnnualStatePensionAtDate(
 
   const baseAnnualStatePensionAtDraw = calculateBaseAnnualStatePensionAtDate(
     settings,
-    settings.statePensionDrawDate,
+    settings.statePensionDrawDate
   );
   const deferralIncreasePercent = calculateStatePensionDeferralIncreasePercent(
     settings.dateOfBirth,
-    settings.statePensionDrawDate,
+    settings.statePensionDrawDate
   );
   const annualDeferredExtraAtDraw =
     baseAnnualStatePensionAtDraw * (deferralIncreasePercent / 100);
@@ -41,7 +44,7 @@ export function calculateAnnualStatePensionAtDate(
 
   const baseAnnualStatePensionAtRow = calculateBaseAnnualStatePensionAtDate(
     settings,
-    rowDate,
+    rowDate
   );
   const annualDeferredExtraAtRow =
     annualDeferredExtraAtDraw *
@@ -53,9 +56,10 @@ export function calculateAnnualStatePensionAtDate(
 
 export function calculateStatePensionDeferralIncreasePercent(
   dateOfBirth: string,
-  statePensionDrawDate: string,
+  statePensionDrawDate: string
 ) {
-  const defaultStatePensionDrawDate = calculateStatePensionDrawDate(dateOfBirth);
+  const defaultStatePensionDrawDate =
+    calculateStatePensionDrawDate(dateOfBirth);
 
   if (statePensionDrawDate <= defaultStatePensionDrawDate) {
     return 0;
@@ -63,7 +67,7 @@ export function calculateStatePensionDeferralIncreasePercent(
 
   const deferredWeeks = calculateWholeWeekDifference(
     defaultStatePensionDrawDate,
-    statePensionDrawDate,
+    statePensionDrawDate
   );
 
   if (deferredWeeks < 9) {
@@ -78,14 +82,14 @@ export function getStatePensionNominalIncreaseRate(settings: PensionSettings) {
     Math.max(
       settings.inflationRateAnnual,
       settings.statePensionWageGrowthPercent,
-      2.5,
+      2.5
     ) / 100
   );
 }
 
 function calculateBaseAnnualStatePensionAtDate(
   settings: PensionSettings,
-  rowDate: string,
+  rowDate: string
 ) {
   if (!settings.statePensionApplyFutureGrowth) {
     return settings.currentStatePension;
@@ -100,7 +104,7 @@ function calculateBaseAnnualStatePensionAtDate(
 function getStatePensionModelledIncreaseRate(settings: PensionSettings) {
   return getModelledAnnualGrowthRate(
     settings,
-    getStatePensionNominalIncreaseRate(settings),
+    getStatePensionNominalIncreaseRate(settings)
   );
 }
 
@@ -109,7 +113,9 @@ function getStatePensionDeferredExtraGrowthRate(settings: PensionSettings) {
     return 0;
   }
 
-  return settings.projectionBasis === "real" ? 0 : settings.inflationRateAnnual / 100;
+  return settings.projectionBasis === "real"
+    ? 0
+    : settings.inflationRateAnnual / 100;
 }
 
 function calculateWholeYearDifference(startDate: string, endDate: string) {
@@ -133,7 +139,7 @@ function calculateWholeWeekDifference(startDate: string, endDate: string) {
 
   return Math.floor(
     (parseIsoDate(endDate).getTime() - parseIsoDate(startDate).getTime()) /
-      millisecondsPerWeek,
+      millisecondsPerWeek
   );
 }
 

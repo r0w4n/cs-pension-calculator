@@ -25,7 +25,10 @@ export function SavedScenariosSection({
   removeScenario: (id: string) => void;
 }) {
   return (
-    <section className="comparison-saved-section" aria-labelledby="saved-scenarios-title">
+    <section
+      className="comparison-saved-section"
+      aria-labelledby="saved-scenarios-title"
+    >
       <div className="summary-section-header">
         <h3 id="saved-scenarios-title">Saved scenarios</h3>
         <span className="table-status">
@@ -54,7 +57,11 @@ export function SavedScenariosSection({
                 />
               </label>
               <strong>{formatCurrencyDetailed(result.annualIncome)}</strong>
-              <span>{result.bridgeAnalysis.planWorks ? "Looks workable" : "Needs attention"}</span>
+              <span>
+                {result.bridgeAnalysis.planWorks
+                  ? "Looks workable"
+                  : "Needs attention"}
+              </span>
               <small>
                 {result.currentMatchesSaved
                   ? "Matches current model inputs"

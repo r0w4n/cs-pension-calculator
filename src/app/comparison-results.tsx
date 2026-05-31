@@ -25,7 +25,8 @@ export function ComparisonResults({
           <h3>Cannot calculate</h3>
         </div>
         <p className="section-copy">
-          Fix the current validation issues to populate the result and comparison view.
+          Fix the current validation issues to populate the result and
+          comparison view.
         </p>
       </section>
     );
@@ -33,23 +34,32 @@ export function ComparisonResults({
 
   return (
     <>
-      {results.length >= 2 ? <ComparisonInsightsGrid insights={insights} /> : null}
+      {results.length >= 2 ? (
+        <ComparisonInsightsGrid insights={insights} />
+      ) : null}
       <ComparisonSummaryTable results={results} />
     </>
   );
 }
 
-function ComparisonInsightsGrid({ insights }: { insights: ComparisonInsights }) {
+function ComparisonInsightsGrid({
+  insights,
+}: {
+  insights: ComparisonInsights;
+}) {
   return (
     <div className="comparison-insight-grid">
       <SummarySection
         title="Earliest retirement"
         items={[
           {
-            label: insights.earliestRetirementResult?.scenario.name ?? "Not available",
+            label:
+              insights.earliestRetirementResult?.scenario.name ??
+              "Not available",
             value: insights.earliestRetirementResult
               ? formatDecimalAge(
-                  insights.earliestRetirementResult.scenario.settings.requirementAge,
+                  insights.earliestRetirementResult.scenario.settings
+                    .requirementAge
                 )
               : "Not available",
           },
@@ -61,7 +71,9 @@ function ComparisonInsightsGrid({ insights }: { insights: ComparisonInsights }) 
           {
             label: insights.bestTargetResult?.scenario.name ?? "Not available",
             value: insights.bestTargetResult
-              ? formatTargetMissDuration(insights.bestTargetResult.targetMissMonths)
+              ? formatTargetMissDuration(
+                  insights.bestTargetResult.targetMissMonths
+                )
               : "Not available",
           },
         ]}
@@ -70,11 +82,13 @@ function ComparisonInsightsGrid({ insights }: { insights: ComparisonInsights }) 
         title="Lowest shortfall risk"
         items={[
           {
-            label: insights.lowestShortfallRiskResult?.scenario.name ?? "Not available",
+            label:
+              insights.lowestShortfallRiskResult?.scenario.name ??
+              "Not available",
             value: insights.lowestShortfallRiskResult
               ? formatShortfallOrSurplus(
                   Math.max(0, -insights.lowestShortfallRiskResult.annualGap),
-                  Math.max(0, insights.lowestShortfallRiskResult.annualGap),
+                  Math.max(0, insights.lowestShortfallRiskResult.annualGap)
                 )
               : "Not available",
           },
@@ -84,7 +98,8 @@ function ComparisonInsightsGrid({ insights }: { insights: ComparisonInsights }) 
         title="Preserves pots longest"
         items={[
           {
-            label: insights.longestCapitalResult?.scenario.name ?? "Not available",
+            label:
+              insights.longestCapitalResult?.scenario.name ?? "Not available",
             value: insights.longestCapitalResult
               ? formatCapitalPreservation(insights.longestCapitalResult)
               : "Not available",
@@ -95,10 +110,12 @@ function ComparisonInsightsGrid({ insights }: { insights: ComparisonInsights }) 
         title="Highest later income"
         items={[
           {
-            label: insights.highestLaterIncomeResult?.scenario.name ?? "Not available",
+            label:
+              insights.highestLaterIncomeResult?.scenario.name ??
+              "Not available",
             value: insights.highestLaterIncomeResult
               ? `${formatCurrencyDetailed(
-                  insights.highestLaterIncomeResult.lifeExpectancyAnnualIncome,
+                  insights.highestLaterIncomeResult.lifeExpectancyAnnualIncome
                 )} per year`
               : "Not available",
           },

@@ -40,7 +40,7 @@ export function DeferredBelowFold({
         setShouldRender(true);
         observer.disconnect();
       },
-      { rootMargin: "700px 0px" },
+      { rootMargin: "700px 0px" }
     );
 
     observer.observe(placeholder);
@@ -73,7 +73,7 @@ export function ComparisonBridgeChart({
   bridgeChartLimits?: RetirementIncomeBridgeLimits;
   validationIssues?: PensionValidationIssue[];
   onChangeChartParameters?: (
-    patch: Partial<RetirementIncomeBridgeParameters>,
+    patch: Partial<RetirementIncomeBridgeParameters>
   ) => void;
 }) {
   if (

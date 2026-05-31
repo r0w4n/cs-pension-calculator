@@ -39,7 +39,11 @@ type SettingsFieldsProps = {
   useDropdownDates: boolean;
 };
 
-export { AddedPensionLumpSumsEditor, DateInputFieldEditor, useMobileDateDropdowns };
+export {
+  AddedPensionLumpSumsEditor,
+  DateInputFieldEditor,
+  useMobileDateDropdowns,
+};
 export type { AddedPensionLumpSumsEditorProps } from "./form-field-types";
 export type { SettingsFieldOnChange } from "./form-field-types";
 
@@ -51,9 +55,10 @@ export function SettingsFields({
   showGuidanceNotes,
   useDropdownDates,
 }: SettingsFieldsProps) {
-  const { baseFields, alphaPensionIncreaseFields } = splitSettingsFields(fields);
+  const { baseFields, alphaPensionIncreaseFields } =
+    splitSettingsFields(fields);
   const visibleBaseFields = baseFields.filter((field) =>
-    shouldRenderField(field.id, settings),
+    shouldRenderField(field.id, settings)
   );
 
   return (
@@ -70,7 +75,10 @@ export function SettingsFields({
             useDropdownDates={useDropdownDates}
             disabled={isFieldDisabled(field.id, settings)}
             hideOnMobile={isFieldHiddenOnMobile(field.id, settings)}
-            validationIssue={getValidationIssueForField(validationIssues, field.id)}
+            validationIssue={getValidationIssueForField(
+              validationIssues,
+              field.id
+            )}
           />
         ))}
       </div>
@@ -80,8 +88,9 @@ export function SettingsFields({
           <div className="settings-subsection-heading">
             <h4>Pension increases</h4>
             <p className="section-copy">
-              Revalue Alpha benefits annually by CPI + 1.5% while active, and CPI
-              after leaving Alpha service, using the selected projection basis.
+              Revalue Alpha benefits annually by CPI + 1.5% while active, and
+              CPI after leaving Alpha service, using the selected projection
+              basis.
             </p>
           </div>
           <div className="field-grid">
@@ -96,7 +105,10 @@ export function SettingsFields({
                 useDropdownDates={useDropdownDates}
                 disabled={isFieldDisabled(field.id, settings)}
                 hideOnMobile={isFieldHiddenOnMobile(field.id, settings)}
-                validationIssue={getValidationIssueForField(validationIssues, field.id)}
+                validationIssue={getValidationIssueForField(
+                  validationIssues,
+                  field.id
+                )}
               />
             ))}
           </div>
@@ -108,7 +120,7 @@ export function SettingsFields({
 
 export function getValidationIssuesForField(
   validationIssues: PensionValidationIssue[],
-  fieldId: SettingsKey,
+  fieldId: SettingsKey
 ) {
   return validationIssues.filter((issue) => issue.field === fieldId);
 }
@@ -241,7 +253,7 @@ function Field({
 
 function getValidationIssueForField(
   validationIssues: PensionValidationIssue[],
-  fieldId: FieldDefinition["id"],
+  fieldId: FieldDefinition["id"]
 ) {
   return validationIssues.find((issue) => issue.field === fieldId);
 }

@@ -5,7 +5,8 @@ export const OPTIONAL_SECTION_TOGGLES = [
   {
     key: "showAlpha",
     label: "Alpha",
-    description: "Show Alpha inputs and include Alpha pension values in the modeller.",
+    description:
+      "Show Alpha inputs and include Alpha pension values in the modeller.",
   },
   {
     key: "partialRetirementEnabled",
@@ -42,14 +43,15 @@ export const OPTIONAL_SECTION_TOGGLES = [
   },
 ] as const;
 
-export type OptionalSectionToggleKey = (typeof OPTIONAL_SECTION_TOGGLES)[number]["key"];
+export type OptionalSectionToggleKey =
+  (typeof OPTIONAL_SECTION_TOGGLES)[number]["key"];
 
 const OPTIONAL_SECTION_TOGGLE_KEY_SET = new Set<OptionalSectionToggleKey>(
-  OPTIONAL_SECTION_TOGGLES.map((toggle) => toggle.key),
+  OPTIONAL_SECTION_TOGGLES.map((toggle) => toggle.key)
 );
 
 export function isOptionalSectionToggleKey(
-  key: SettingsKey,
+  key: SettingsKey
 ): key is OptionalSectionToggleKey {
   return OPTIONAL_SECTION_TOGGLE_KEY_SET.has(key as OptionalSectionToggleKey);
 }
@@ -199,9 +201,11 @@ export const JOURNEY_DEFINITIONS = [
         ],
         fieldLabels: {
           isaCurrentPot: "Current ISA balance (£)",
-          isaMonthlyContribution: "Planned monthly ISA contribution before retirement",
+          isaMonthlyContribution:
+            "Planned monthly ISA contribution before retirement",
           sippCurrentPot: "Current SIPP balance (£)",
-          sippMonthlyContribution: "Planned monthly SIPP contribution before retirement",
+          sippMonthlyContribution:
+            "Planned monthly SIPP contribution before retirement",
           sippDrawAge: "SIPP access age",
         },
       },
@@ -351,7 +355,9 @@ export const JOURNEY_DEFINITIONS = [
   },
 ] as const satisfies readonly JourneyDefinition[];
 
-export function applyBridgeJourneyDefaults(settings: PensionSettings): PensionSettings {
+export function applyBridgeJourneyDefaults(
+  settings: PensionSettings
+): PensionSettings {
   return {
     ...settings,
     showStatePension: true,
@@ -362,7 +368,9 @@ export function applyBridgeJourneyDefaults(settings: PensionSettings): PensionSe
   };
 }
 
-export function applySimpleJourneyDefaults(settings: PensionSettings): PensionSettings {
+export function applySimpleJourneyDefaults(
+  settings: PensionSettings
+): PensionSettings {
   return {
     ...settings,
     showStatePension: true,

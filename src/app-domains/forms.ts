@@ -1,4 +1,8 @@
-import type { DateField, FieldDefinition, RangeField } from "../fieldDefinitions";
+import type {
+  DateField,
+  FieldDefinition,
+  RangeField,
+} from "../fieldDefinitions";
 import type { PensionSettings } from "../settings";
 import {
   getAlphaDateYearRange,
@@ -6,7 +10,11 @@ import {
   isAlphaEpaField,
   isAlphaPensionIncreaseField,
 } from "./alpha";
-import { getIsaEffectiveRangeField, isIsaFieldDisabled, shouldRenderIsaField } from "./isa";
+import {
+  getIsaEffectiveRangeField,
+  isIsaFieldDisabled,
+  shouldRenderIsaField,
+} from "./isa";
 import { isNuvosPensionIncreaseField } from "./nuvos";
 import { isPartialRetirementField } from "./partial-retirement";
 import { calculateCurrentPlanningAge } from "./retirement-income";
@@ -23,21 +31,26 @@ import { isTaxAssumptionField } from "./tax";
 
 export function shouldRenderField(
   fieldId: FieldDefinition["id"],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
-  return shouldRenderSippField(fieldId, settings) && shouldRenderIsaField(fieldId, settings);
+  return (
+    shouldRenderSippField(fieldId, settings) &&
+    shouldRenderIsaField(fieldId, settings)
+  );
 }
 
 export function isFieldDisabled(
   fieldId: FieldDefinition["id"],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
   return (
     (isTaxAssumptionField(fieldId) && !settings.taxationEnabled) ||
     (isPartialRetirementField(fieldId) && !settings.partialRetirementEnabled) ||
     (fieldId === "assumedCpiPercent" && !settings.applyPensionIncreases) ||
-    (isNuvosPensionIncreaseField(fieldId) && !settings.nuvosApplyPensionIncreases) ||
-    (isStatePensionGrowthField(fieldId) && !settings.statePensionApplyFutureGrowth) ||
+    (isNuvosPensionIncreaseField(fieldId) &&
+      !settings.nuvosApplyPensionIncreases) ||
+    (isStatePensionGrowthField(fieldId) &&
+      !settings.statePensionApplyFutureGrowth) ||
     isSippFieldDisabled(fieldId, settings) ||
     isIsaFieldDisabled(fieldId, settings) ||
     (isAlphaEpaField(fieldId) && !settings.alphaEpaEnabled)
@@ -46,14 +59,14 @@ export function isFieldDisabled(
 
 export function isFieldHiddenOnMobile(
   fieldId: FieldDefinition["id"],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
   return isFieldDisabled(fieldId, settings);
 }
 
 export function getEffectiveRangeField(
   field: RangeField,
-  settings: PensionSettings,
+  settings: PensionSettings
 ): RangeField {
   let effectiveField = field;
 
@@ -73,7 +86,7 @@ export function getEffectiveRangeField(
 
 export function getPrimaryDateYearRange(
   fieldId: DateField["id"],
-  settings?: PensionSettings,
+  settings?: PensionSettings
 ) {
   const alphaRange = getAlphaDateYearRange(fieldId);
 
@@ -102,10 +115,10 @@ export function getPrimaryDateYearRange(
 export function splitSettingsFields(fields: readonly FieldDefinition[]) {
   return {
     baseFields: fields.filter(
-      (field) => !isAlphaPensionIncreaseField(field.id),
+      (field) => !isAlphaPensionIncreaseField(field.id)
     ),
     alphaPensionIncreaseFields: fields.filter((field) =>
-      isAlphaPensionIncreaseField(field.id),
+      isAlphaPensionIncreaseField(field.id)
     ),
   };
 }

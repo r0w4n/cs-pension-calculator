@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildComparisonTableRows,
-  createComparisonResult,
-} from "./comparison";
+import { buildComparisonTableRows, createComparisonResult } from "./comparison";
 import { createDefaultSettings } from "../settings";
 
 describe("comparison table rows", () => {
@@ -16,13 +13,15 @@ describe("comparison table rows", () => {
         createdAt: "",
         updatedAt: "",
       },
-      JSON.stringify(settings),
+      JSON.stringify(settings)
     );
 
     const rows = buildComparisonTableRows([result]);
-    expect(rows.some((row) => row.isSectionDivider && row.section === "Headline outcome")).toBe(
-      true,
-    );
+    expect(
+      rows.some(
+        (row) => row.isSectionDivider && row.section === "Headline outcome"
+      )
+    ).toBe(true);
     expect(rows.some((row) => row.metric === "Status")).toBe(true);
     expect(rows.some((row) => row.metric === "Section")).toBe(false);
     expect(rows.some((row) => row.metric === "Overall status")).toBe(false);

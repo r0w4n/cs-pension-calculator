@@ -1,6 +1,10 @@
 import { fieldGroups } from "../fieldDefinitions";
 import { knowledgeLinks } from "../knowledgeLinks";
-import { calculateStatePensionDrawAge, type PensionSettings, type PensionValidationIssue } from "../settings";
+import {
+  calculateStatePensionDrawAge,
+  type PensionSettings,
+  type PensionValidationIssue,
+} from "../settings";
 import {
   formatAgeValue,
   formatDecimalAge,
@@ -50,15 +54,11 @@ export function SettingsPanel({
       <div className="panel-heading">
         <h2>Your retirement assumptions</h2>
         <p className="section-copy">
-          These inputs define your pension scenario, letting you see how different
-          assumptions affect your outcome.
+          These inputs define your pension scenario, letting you see how
+          different assumptions affect your outcome.
         </p>
         <div className="settings-panel-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={onExport}
-          >
+          <button type="button" className="secondary-button" onClick={onExport}>
             Export parameters
           </button>
           <button
@@ -126,7 +126,9 @@ export function SettingsPanel({
             items={[
               {
                 label: "Normal Pension Age",
-                value: formatDecimalAge(pensionSummary.calculated.normalPensionAge),
+                value: formatDecimalAge(
+                  pensionSummary.calculated.normalPensionAge
+                ),
               },
               ...(settings.showStatePension
                 ? [
@@ -135,8 +137,8 @@ export function SettingsPanel({
                       value: formatAgeValue(
                         calculateStatePensionDrawAge(
                           settings.dateOfBirth,
-                          settings.statePensionDrawDate,
-                        ),
+                          settings.statePensionDrawDate
+                        )
                       ),
                       infoUrl: knowledgeLinks.statePensionAge,
                       infoLinkText: "Check State Pension age",
@@ -173,7 +175,7 @@ function SettingsGroupSupplementaryEditor({
         showFactorType
         validationIssues={getValidationIssuesForField(
           validationIssues,
-          "alphaAddedPensionLumpSums",
+          "alphaAddedPensionLumpSums"
         )}
         onChange={(nextLumpSums) =>
           onChange("alphaAddedPensionLumpSums", nextLumpSums)
@@ -196,7 +198,7 @@ function SettingsGroupSupplementaryEditor({
         removeButtonLabel="Remove SIPP lump sum"
         validationIssues={getValidationIssuesForField(
           validationIssues,
-          "sippLumpSums",
+          "sippLumpSums"
         )}
         onChange={(nextLumpSums) => onChange("sippLumpSums", nextLumpSums)}
       />
@@ -217,7 +219,7 @@ function SettingsGroupSupplementaryEditor({
         removeButtonLabel="Remove ISA lump sum"
         validationIssues={getValidationIssuesForField(
           validationIssues,
-          "isaLumpSums",
+          "isaLumpSums"
         )}
         onChange={(nextLumpSums) => onChange("isaLumpSums", nextLumpSums)}
       />

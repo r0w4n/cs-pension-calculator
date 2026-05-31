@@ -7,8 +7,12 @@ import {
 } from "../settings-types";
 import { addYearsToIsoDate } from "../settings-shared/date";
 
-export function normalizeSippWithdrawalStrategy(value: unknown): SippWithdrawalStrategy {
-  return value === "percentage" || value === "zero_at_death" || value === "use_by_age"
+export function normalizeSippWithdrawalStrategy(
+  value: unknown
+): SippWithdrawalStrategy {
+  return value === "percentage" ||
+    value === "zero_at_death" ||
+    value === "use_by_age"
     ? value
     : "zero_at_death";
 }
@@ -21,7 +25,10 @@ export function normalizeSippTaxReliefRate(value: unknown): SippTaxReliefRate {
   return value === "none" || value === "20" || value === "40" ? value : "20";
 }
 
-export function coerceSippTaxReliefRate(value: unknown, legacyBooleanValue: unknown) {
+export function coerceSippTaxReliefRate(
+  value: unknown,
+  legacyBooleanValue: unknown
+) {
   if (value === "none" || value === "20" || value === "40") {
     return value;
   }

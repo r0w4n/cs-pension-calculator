@@ -58,13 +58,9 @@ export {
   shouldRenderIsaField,
 } from "./app-domains/isa";
 
-export {
-  isNuvosPensionIncreaseField,
-} from "./app-domains/nuvos";
+export { isNuvosPensionIncreaseField } from "./app-domains/nuvos";
 
-export {
-  isPartialRetirementField,
-} from "./app-domains/partial-retirement";
+export { isPartialRetirementField } from "./app-domains/partial-retirement";
 
 export {
   addYearsToIsoDate,
@@ -99,6 +95,4 @@ export {
   isStatePensionGrowthField,
 } from "./app-domains/state-pension";
 
-export {
-  isTaxAssumptionField,
-} from "./app-domains/tax";
+export { isTaxAssumptionField } from "./app-domains/tax";

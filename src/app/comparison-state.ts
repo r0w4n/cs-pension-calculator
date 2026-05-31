@@ -48,20 +48,23 @@ export function buildComparisonPanelData({
   taxationEnabled: boolean;
 }): ComparisonPanelData {
   const savedBaseResults = scenarios.map((scenario) =>
-    createComparisonResult(scenario, "", comparisonResultCache),
+    createComparisonResult(scenario, "", comparisonResultCache)
   );
   const savedResults = savedBaseResults.map((result) => ({
     ...result,
     currentMatchesSaved:
-      getSettingsSignature(result.scenario.settings) === currentSettingsSignature,
+      getSettingsSignature(result.scenario.settings) ===
+      currentSettingsSignature,
   }));
-  const matchingSavedResult = savedResults.find((result) => result.currentMatchesSaved) ?? null;
+  const matchingSavedResult =
+    savedResults.find((result) => result.currentMatchesSaved) ?? null;
   const results = matchingSavedResult
     ? savedResults
     : currentResult
       ? [currentResult, ...savedResults]
       : savedResults;
-  const activeResult = matchingSavedResult ?? currentResult ?? savedResults[0] ?? null;
+  const activeResult =
+    matchingSavedResult ?? currentResult ?? savedResults[0] ?? null;
   const hasVisibleShortfall =
     retirementIncomeSeries?.some((point) => point.shortfallAnnual > 0) ?? false;
 
@@ -69,13 +72,15 @@ export function buildComparisonPanelData({
     activeResult,
     hasVisibleShortfall,
     insights: calculateComparisonInsights(results),
-    resultStatusItems: activeResult ? buildComparisonStatusItems(activeResult) : [],
+    resultStatusItems: activeResult
+      ? buildComparisonStatusItems(activeResult)
+      : [],
     results,
     savedResults,
     ...buildRetirementIncomeSummary(
       activeResult,
       retirementIncomeDisplay,
-      taxationEnabled,
+      taxationEnabled
     ),
   };
 }
@@ -83,7 +88,7 @@ export function buildComparisonPanelData({
 function buildRetirementIncomeSummary(
   activeResult: ComparisonResult | null,
   retirementIncomeDisplay: RetirementIncomeDisplay | undefined,
-  taxationEnabled: boolean,
+  taxationEnabled: boolean
 ) {
   if (!activeResult || !retirementIncomeDisplay) {
     return {
@@ -98,23 +103,24 @@ function buildRetirementIncomeSummary(
   return {
     retirementIncomeItems: buildRetirementIncomeItems(
       activeResult.summary,
-      retirementIncomeDisplay,
+      retirementIncomeDisplay
     ),
     retirementIncomeTarget: formatCurrencyDetailed(
       retirementIncomeDisplay === "monthly"
         ? activeResult.annualTarget / 12
-        : activeResult.annualTarget,
+        : activeResult.annualTarget
     ),
-    retirementIncomeTargetTitle:
-      getRetirementIncomeTargetTitle(retirementIncomeDisplay),
+    retirementIncomeTargetTitle: getRetirementIncomeTargetTitle(
+      retirementIncomeDisplay
+    ),
     retirementIncomeTitle: getRetirementIncomeTitle(
       taxationEnabled,
-      retirementIncomeDisplay,
+      retirementIncomeDisplay
     ),
     retirementIncomeTotal: formatCurrencyDetailed(
       retirementIncomeDisplay === "monthly"
         ? activeResult.summary.retirementIncome.totalMonthlyIncome
-        : activeResult.summary.retirementIncome.totalAnnualIncome,
+        : activeResult.summary.retirementIncome.totalAnnualIncome
     ),
   };
 }

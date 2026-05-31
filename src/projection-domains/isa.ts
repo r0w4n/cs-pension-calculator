@@ -21,7 +21,8 @@ export function calculateIsaPotAtDate(input: {
     settings,
     rowDate,
     drawDate,
-    endDate: input.endDate ?? addYears(settings.dateOfBirth, settings.lifeExpectancy),
+    endDate:
+      input.endDate ?? addYears(settings.dateOfBirth, settings.lifeExpectancy),
   }).isaPot;
 }
 
@@ -33,7 +34,14 @@ export function calculateMonthlyIsaPension(input: {
   withdrawalPercent: number;
   targetDate?: string;
 }) {
-  const { potAtDraw, drawDate, endDate, strategy, withdrawalPercent, targetDate } = input;
+  const {
+    potAtDraw,
+    drawDate,
+    endDate,
+    strategy,
+    withdrawalPercent,
+    targetDate,
+  } = input;
 
   if (strategy === "percentage") {
     return (potAtDraw * (withdrawalPercent / 100)) / 12;
@@ -43,13 +51,16 @@ export function calculateMonthlyIsaPension(input: {
     1,
     calculateWholeMonthDifference(
       drawDate,
-      strategy === "use_by_age" ? targetDate ?? endDate : endDate,
-    ),
+      strategy === "use_by_age" ? (targetDate ?? endDate) : endDate
+    )
   );
   return potAtDraw / drawdownMonths;
 }
 
-export function calculateTotalIsaContributions(settings: PensionSettings, drawDate: string) {
+export function calculateTotalIsaContributions(
+  settings: PensionSettings,
+  drawDate: string
+) {
   if (!settings.showIsa) {
     return 0;
   }
@@ -70,10 +81,16 @@ export function calculateTotalIsaContributions(settings: PensionSettings, drawDa
     const contributionDate = addMonths(settings.startDate, monthIndex);
     regularContributions +=
       settings.isaMonthlyContribution *
-      getPartialRetirementSavingsContributionMultiplier(settings, contributionDate);
+      getPartialRetirementSavingsContributionMultiplier(
+        settings,
+        contributionDate
+      );
   }
 
-  return calculateLumpSumsBeforeDate(settings.isaLumpSums, contributionStopDate) + regularContributions;
+  return (
+    calculateLumpSumsBeforeDate(settings.isaLumpSums, contributionStopDate) +
+    regularContributions
+  );
 }
 
 export function calculateIsaProjectionRow(input: {
@@ -144,8 +161,13 @@ function calculatePotProjectionAtDate(input: {
   }
 
   const monthlyInterestRate =
-    (1 + getModelledAnnualGrowthRate(settings, realInterestPercent / 100)) ** (1 / 12) - 1;
-  const projectionMonthCount = calculateWholeMonthDifference(settings.startDate, rowDate);
+    (1 + getModelledAnnualGrowthRate(settings, realInterestPercent / 100)) **
+      (1 / 12) -
+    1;
+  const projectionMonthCount = calculateWholeMonthDifference(
+    settings.startDate,
+    rowDate
+  );
   const withdrawalEndDate =
     withdrawalStrategy === "use_by_age"
       ? addYears(settings.dateOfBirth, withdrawalTargetAge)
@@ -156,7 +178,11 @@ function calculatePotProjectionAtDate(input: {
   let levelUseByAgeMonthlyWithdrawal: number | undefined;
   let previousProjectionMonthDate: string | undefined;
 
-  for (let monthIndex = 0; monthIndex <= projectionMonthCount; monthIndex += 1) {
+  for (
+    let monthIndex = 0;
+    monthIndex <= projectionMonthCount;
+    monthIndex += 1
+  ) {
     const projectionMonthDate = addMonths(settings.startDate, monthIndex);
 
     if (monthIndex > 0) {
@@ -167,7 +193,10 @@ function calculatePotProjectionAtDate(input: {
       pot +=
         monthlyContribution *
         contributionMultiplier *
-        getPartialRetirementSavingsContributionMultiplier(settings, projectionMonthDate);
+        getPartialRetirementSavingsContributionMultiplier(
+          settings,
+          projectionMonthDate
+        );
     }
     pot += calculateScheduledPotLumpSums({
       lumpSums,
@@ -179,12 +208,13 @@ function calculatePotProjectionAtDate(input: {
 
     if (projectionMonthDate >= drawDate) {
       if (withdrawalStrategy === "use_by_age") {
-        levelUseByAgeMonthlyWithdrawal ??= calculateLevelMonthlyWithdrawalFromPot({
-          pot,
-          rowDate: projectionMonthDate,
-          endDate: withdrawalEndDate,
-          monthlyInterestRate,
-        });
+        levelUseByAgeMonthlyWithdrawal ??=
+          calculateLevelMonthlyWithdrawalFromPot({
+            pot,
+            rowDate: projectionMonthDate,
+            endDate: withdrawalEndDate,
+            monthlyInterestRate,
+          });
         monthlyWithdrawal = Math.min(pot, levelUseByAgeMonthlyWithdrawal);
       } else {
         monthlyWithdrawal = calculateMonthlyWithdrawalFromPot({
@@ -218,7 +248,8 @@ function calculateMonthlyWithdrawalFromPot(input: {
   strategy: PensionSettings["isaWithdrawalStrategy"];
   withdrawalPercent: number;
 }) {
-  const { pot, rowDate, drawDate, endDate, strategy, withdrawalPercent } = input;
+  const { pot, rowDate, drawDate, endDate, strategy, withdrawalPercent } =
+    input;
 
   if (pot <= 0 || rowDate < drawDate) {
     return 0;
@@ -243,7 +274,10 @@ function calculateLevelMonthlyWithdrawalFromPot(input: {
   monthlyInterestRate: number;
 }) {
   const { pot, rowDate, endDate, monthlyInterestRate } = input;
-  const drawdownMonthsRemaining = countScheduledWithdrawalDatesRemaining(rowDate, endDate);
+  const drawdownMonthsRemaining = countScheduledWithdrawalDatesRemaining(
+    rowDate,
+    endDate
+  );
 
   if (pot <= 0) {
     return 0;
@@ -257,10 +291,15 @@ function calculateLevelMonthlyWithdrawalFromPot(input: {
   const annuityDueFactor =
     (1 - discountFactor ** drawdownMonthsRemaining) / (1 - discountFactor);
 
-  return annuityDueFactor > 0 ? pot / annuityDueFactor : pot / drawdownMonthsRemaining;
+  return annuityDueFactor > 0
+    ? pot / annuityDueFactor
+    : pot / drawdownMonthsRemaining;
 }
 
-function countScheduledWithdrawalDatesRemaining(rowDate: string, endDate: string) {
+function countScheduledWithdrawalDatesRemaining(
+  rowDate: string,
+  endDate: string
+) {
   if (endDate < rowDate) {
     return 1;
   }
@@ -268,11 +307,19 @@ function countScheduledWithdrawalDatesRemaining(rowDate: string, endDate: string
   const wholeMonths = calculateWholeMonthDifference(rowDate, endDate);
   const lastScheduledDate = addMonths(rowDate, wholeMonths);
 
-  return lastScheduledDate <= endDate ? wholeMonths + 1 : Math.max(1, wholeMonths);
+  return lastScheduledDate <= endDate
+    ? wholeMonths + 1
+    : Math.max(1, wholeMonths);
 }
 
-function getPotContributionStopDate(settings: PensionSettings, drawDate: string) {
-  return minIsoDate(drawDate, addYears(settings.dateOfBirth, settings.requirementAge));
+function getPotContributionStopDate(
+  settings: PensionSettings,
+  drawDate: string
+) {
+  return minIsoDate(
+    drawDate,
+    addYears(settings.dateOfBirth, settings.requirementAge)
+  );
 }
 
 function calculateScheduledPotLumpSums(input: {
@@ -282,32 +329,52 @@ function calculateScheduledPotLumpSums(input: {
   contributionMultiplier: number;
   latestPaymentDateExclusive: string;
 }) {
-  const { lumpSums, previousRowDate, rowDate, contributionMultiplier, latestPaymentDateExclusive } = input;
+  const {
+    lumpSums,
+    previousRowDate,
+    rowDate,
+    contributionMultiplier,
+    latestPaymentDateExclusive,
+  } = input;
 
   return lumpSums.reduce((total, lumpSum) => {
-    const matchingPaymentDates = getScheduledPaymentDatesThroughRow(lumpSum, previousRowDate, rowDate).filter(
-      (paymentDate) => paymentDate < latestPaymentDateExclusive,
-    );
+    const matchingPaymentDates = getScheduledPaymentDatesThroughRow(
+      lumpSum,
+      previousRowDate,
+      rowDate
+    ).filter((paymentDate) => paymentDate < latestPaymentDateExclusive);
 
-    return total + matchingPaymentDates.length * lumpSum.amount * contributionMultiplier;
+    return (
+      total +
+      matchingPaymentDates.length * lumpSum.amount * contributionMultiplier
+    );
   }, 0);
 }
 
-function calculateLumpSumsBeforeDate(lumpSums: AddedPensionLumpSum[], rowDate: string) {
+function calculateLumpSumsBeforeDate(
+  lumpSums: AddedPensionLumpSum[],
+  rowDate: string
+) {
   return lumpSums.reduce(
     (total, lumpSum) =>
-      total + getScheduledPaymentDates(lumpSum).filter((paymentDate) => paymentDate < rowDate).length * lumpSum.amount,
-    0,
+      total +
+      getScheduledPaymentDates(lumpSum).filter(
+        (paymentDate) => paymentDate < rowDate
+      ).length *
+        lumpSum.amount,
+    0
   );
 }
 
 function getScheduledPaymentDatesThroughRow(
   lumpSum: AddedPensionLumpSum,
   previousRowDate: string | undefined,
-  rowDate: string,
+  rowDate: string
 ) {
   return getScheduledPaymentDates(lumpSum).filter(
-    (scheduledDate) => scheduledDate <= rowDate && (!previousRowDate || scheduledDate > previousRowDate),
+    (scheduledDate) =>
+      scheduledDate <= rowDate &&
+      (!previousRowDate || scheduledDate > previousRowDate)
   );
 }
 

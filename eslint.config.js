@@ -7,6 +7,8 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefreshPlugin from "eslint-plugin-react-refresh";
 import sonarjs from "eslint-plugin-sonarjs";
+import testingLibrary from "eslint-plugin-testing-library";
+import vitest from "eslint-plugin-vitest";
 import tseslint from "typescript-eslint";
 
 const tsconfigRootDir = fileURLToPath(new URL(".", import.meta.url));
@@ -126,6 +128,7 @@ export default tseslint.config(
   },
   {
     files: ["**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
+    extends: [vitest.configs.recommended, testingLibrary.configs["flat/react"]],
     languageOptions: {
       globals: {
         ...globals.vitest,
@@ -134,6 +137,7 @@ export default tseslint.config(
     rules: {
       "sonarjs/cognitive-complexity": "off",
       "sonarjs/cyclomatic-complexity": "off",
+      "testing-library/no-node-access": "off",
     },
-  },
+  }
 );

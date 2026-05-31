@@ -37,17 +37,21 @@ function coerceBoolean(value: unknown) {
 }
 
 export function coerceTaxSettings(
-  input: Partial<StoredPensionSettings>,
+  input: Partial<StoredPensionSettings>
 ): Partial<StoredPensionSettings> {
   return {
     taxationEnabled: coerceBoolean(input.taxationEnabled),
     taxPersonalAllowance: coerceNumber(input.taxPersonalAllowance),
-    taxPersonalAllowanceTaperThreshold: coerceNumber(input.taxPersonalAllowanceTaperThreshold),
+    taxPersonalAllowanceTaperThreshold: coerceNumber(
+      input.taxPersonalAllowanceTaperThreshold
+    ),
     taxBasicRateLimit: coerceNumber(input.taxBasicRateLimit),
     taxAdditionalRateThreshold: coerceNumber(input.taxAdditionalRateThreshold),
     taxBasicRatePercent: coerceNumber(input.taxBasicRatePercent),
     taxHigherRatePercent: coerceNumber(input.taxHigherRatePercent),
     taxAdditionalRatePercent: coerceNumber(input.taxAdditionalRatePercent),
-    taxSippTaxFreeWithdrawalPercent: coerceNumber(input.taxSippTaxFreeWithdrawalPercent),
+    taxSippTaxFreeWithdrawalPercent: coerceNumber(
+      input.taxSippTaxFreeWithdrawalPercent
+    ),
   };
 }

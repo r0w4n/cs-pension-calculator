@@ -1,8 +1,4 @@
-import type {
-  Dispatch,
-  MutableRefObject,
-  SetStateAction,
-} from "react";
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { PensionSettings } from "../settings";
 import { createDefaultSettings } from "../settings";
 import {
@@ -22,7 +18,9 @@ export function showSavedLabel({
   savedFeedbackTimerRef,
   setShowSavedFeedback,
 }: {
-  savedFeedbackTimerRef: MutableRefObject<ReturnType<typeof window.setTimeout> | null>;
+  savedFeedbackTimerRef: MutableRefObject<ReturnType<
+    typeof window.setTimeout
+  > | null>;
   setShowSavedFeedback: SetBoolean;
 }) {
   if (savedFeedbackTimerRef.current) {
@@ -43,7 +41,9 @@ export function resetSettings({
   setSettingsFormVersion,
   setSettings,
 }: {
-  savedFeedbackTimerRef: MutableRefObject<ReturnType<typeof window.setTimeout> | null>;
+  savedFeedbackTimerRef: MutableRefObject<ReturnType<
+    typeof window.setTimeout
+  > | null>;
   setShowSavedFeedback: SetBoolean;
   setChartUndoStack: SetChartUndoStack;
   setSettingsFormVersion: SetNumber;
@@ -63,7 +63,9 @@ export function loadComparisonScenario({
   setSettingsFormVersion,
   setSettings,
 }: {
-  savedFeedbackTimerRef: MutableRefObject<ReturnType<typeof window.setTimeout> | null>;
+  savedFeedbackTimerRef: MutableRefObject<ReturnType<
+    typeof window.setTimeout
+  > | null>;
   setShowSavedFeedback: SetBoolean;
   scenarioSettings: PensionSettings;
   setChartUndoStack: SetChartUndoStack;

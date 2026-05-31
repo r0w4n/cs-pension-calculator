@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
-import {
-  ComparisonBridgeChart,
-  DeferredBelowFold,
-} from "./chart";
+import { ComparisonBridgeChart, DeferredBelowFold } from "./chart";
 import { createDefaultSettings } from "../settings";
-import { createBridgeChartLimits, createBridgeChartParameters } from "../app-domains";
+import {
+  createBridgeChartLimits,
+  createBridgeChartParameters,
+} from "../app-domains";
 
 vi.mock("../RetirementIncomeBridgeChart", () => ({
   RetirementIncomeBridgeChart: (props: { alphaLabel: string }) => (
@@ -17,7 +17,7 @@ describe("chart module", () => {
     render(
       <DeferredBelowFold estimatedHeight={120} forceRender>
         <p>Deferred body</p>
-      </DeferredBelowFold>,
+      </DeferredBelowFold>
     );
 
     expect(screen.getByText("Deferred body")).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe("chart module", () => {
         bridgeChartParameters={createBridgeChartParameters(settings)}
         bridgeChartLimits={createBridgeChartLimits(settings)}
         onChangeChartParameters={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByText("Chart Alpha pension")).toBeInTheDocument();

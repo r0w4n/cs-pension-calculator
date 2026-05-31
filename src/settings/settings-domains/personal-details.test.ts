@@ -20,20 +20,23 @@ describe("personal-details settings module", () => {
   });
 
   it("normalizes personal date fields", () => {
-    expect(normalizePersonalDateSetting("startDate", "bad", normalizeIsoDate)).toBe(
-      "2026-04-25",
-    );
-    expect(normalizePersonalDateSetting("dateOfBirth", "bad", normalizeIsoDate)).toBe(
-      "1987-06-15",
-    );
+    expect(
+      normalizePersonalDateSetting("startDate", "bad", normalizeIsoDate)
+    ).toBe("2026-04-25");
+    expect(
+      normalizePersonalDateSetting("dateOfBirth", "bad", normalizeIsoDate)
+    ).toBe("1987-06-15");
   });
 
   it("validates personal details dates", () => {
     const issues = validatePersonalDetailsRules(
       { dateOfBirth: "2030-01-01", startDate: "2026-01-01" },
-      "2025-01-01",
+      "2025-01-01"
     );
 
-    expect(issues.map((issue) => issue.field)).toEqual(["dateOfBirth", "startDate"]);
+    expect(issues.map((issue) => issue.field)).toEqual([
+      "dateOfBirth",
+      "startDate",
+    ]);
   });
 });

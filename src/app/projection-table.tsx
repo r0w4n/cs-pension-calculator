@@ -1,4 +1,10 @@
-import { startTransition, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  startTransition,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { ProjectionRow } from "../projection";
 import type { PensionSettings } from "../settings";
 import { useMobileDateDropdowns } from "./form-fields";
@@ -31,7 +37,7 @@ type ProjectionTableColumn = TableColumn & {
 const projectionTableColumns: ProjectionTableColumn[] = [
   { key: "date", label: "Date", width: "7rem" },
   {
-    key: "totalMonthlyPensionTakeHomePay",
+    key: "totalMonthlyNetIncome",
     label: "Total monthly income",
     width: "8rem",
   },
@@ -42,7 +48,7 @@ const projectionTableColumns: ProjectionTableColumn[] = [
     setting: "taxationEnabled",
   },
   {
-    key: "totalMonthlyPensionIncomeBeforeTax",
+    key: "totalMonthlyIncomeBeforeTax",
     label: "Total monthly income before tax",
     width: "8rem",
     setting: "taxationEnabled",
@@ -85,7 +91,7 @@ const projectionTableColumns: ProjectionTableColumn[] = [
     setting: "showAlpha",
   },
   {
-    key: "monthlyAlphaPensionTakeHome",
+    key: "monthlyAlphaPensionGross",
     label: "Monthly Alpha pension before tax",
     width: "7rem",
     setting: "showAlpha",
@@ -103,7 +109,7 @@ const projectionTableColumns: ProjectionTableColumn[] = [
     setting: "showNuvos",
   },
   {
-    key: "monthlyNuvosPensionTakeHome",
+    key: "monthlyNuvosPensionGross",
     label: "Monthly nuvos pension before tax",
     width: "7rem",
     setting: "showNuvos",
@@ -146,7 +152,10 @@ export function ProjectionTableSectionContainer({
   return <>{children}</>;
 }
 
-export function ProjectionTableSection({ rows, settings }: ProjectionTableProps) {
+export function ProjectionTableSection({
+  rows,
+  settings,
+}: ProjectionTableProps) {
   const [shouldRenderTable, setShouldRenderTable] = useState(false);
 
   useEffect(() => {
@@ -184,12 +193,14 @@ export function ProjectionTableSection({ rows, settings }: ProjectionTableProps)
 export function ProjectionTable({ rows, settings }: ProjectionTableProps) {
   const [showMilestonesOnly, setShowMilestonesOnly] = useState(true);
   const visibleColumns = projectionTableColumns.filter(
-    (column) => !column.setting || settings[column.setting],
+    (column) => !column.setting || settings[column.setting]
   );
   const visibleRows = showMilestonesOnly
     ? rows.filter((row) => row.milestones.length > 0)
     : rows;
-  const milestoneRowCount = rows.filter((row) => row.milestones.length > 0).length;
+  const milestoneRowCount = rows.filter(
+    (row) => row.milestones.length > 0
+  ).length;
 
   return (
     <ProjectionTableFrame
@@ -230,7 +241,9 @@ export function ProjectionTable({ rows, settings }: ProjectionTableProps) {
         </>
       }
       renderCells={(row) =>
-        visibleColumns.map((column) => renderProjectionTableCell(row, column.key))
+        visibleColumns.map((column) =>
+          renderProjectionTableCell(row, column.key)
+        )
       }
     />
   );
@@ -340,7 +353,10 @@ export function ProjectionTableFrame<Row>({
         className="table-body-shell"
         onScroll={(event) => syncHeaderScroll(event.currentTarget.scrollLeft)}
       >
-        <table className="projection-table projection-table--body" style={{ minWidth }}>
+        <table
+          className="projection-table projection-table--body"
+          style={{ minWidth }}
+        >
           <colgroup>
             {columns.map((column) => (
               <col key={column.key} style={{ width: column.width }} />
@@ -387,7 +403,7 @@ export function ProjectionTableFrame<Row>({
 // eslint-disable-next-line sonarjs/cyclomatic-complexity
 function renderProjectionTableCell(
   row: ProjectionRow,
-  columnKey: ProjectionTableColumn["key"],
+  columnKey: ProjectionTableColumn["key"]
 ): ReactNode {
   switch (columnKey) {
     case "date":
@@ -398,12 +414,12 @@ function renderProjectionTableCell(
           milestoneDates={row.milestoneDates}
         />
       );
-    case "totalMonthlyPensionTakeHomePay":
-      return formatCurrencyDetailed(row.totalMonthlyPensionTakeHomePay);
+    case "totalMonthlyNetIncome":
+      return formatCurrencyDetailed(row.totalMonthlyNetIncome);
     case "monthlyIncomeTax":
       return formatCurrencyDetailed(row.monthlyIncomeTax);
-    case "totalMonthlyPensionIncomeBeforeTax":
-      return formatCurrencyDetailed(row.totalMonthlyPensionIncomeBeforeTax);
+    case "totalMonthlyIncomeBeforeTax":
+      return formatCurrencyDetailed(row.totalMonthlyIncomeBeforeTax);
     case "age":
       return formatAge(row.age, row.ageMonths);
     case "monthlyAddedPension":
@@ -418,14 +434,14 @@ function renderProjectionTableCell(
       return formatCurrencyDetailed(row.annualAccruedAlphaPension);
     case "annualAlphaPensionIncludingReduction":
       return formatCurrencyDetailed(row.annualAlphaPensionIncludingReduction);
-    case "monthlyAlphaPensionTakeHome":
-      return formatCurrencyDetailed(row.monthlyAlphaPensionTakeHome);
+    case "monthlyAlphaPensionGross":
+      return formatCurrencyDetailed(row.monthlyAlphaPensionGross);
     case "annualNuvosPension":
       return formatCurrencyDetailed(row.annualNuvosPension);
     case "annualNuvosPensionIncludingReduction":
       return formatCurrencyDetailed(row.annualNuvosPensionIncludingReduction);
-    case "monthlyNuvosPensionTakeHome":
-      return formatCurrencyDetailed(row.monthlyNuvosPensionTakeHome);
+    case "monthlyNuvosPensionGross":
+      return formatCurrencyDetailed(row.monthlyNuvosPensionGross);
     case "monthlyStatePension":
       return formatCurrencyDetailed(row.monthlyStatePension);
     case "monthlySippPension":
@@ -468,9 +484,9 @@ function ProjectionDateCell({
 
 function getProjectionTableColumnLabel(
   column: ProjectionTableColumn,
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
-  if (column.key === "totalMonthlyPensionTakeHomePay") {
+  if (column.key === "totalMonthlyNetIncome") {
     return settings.taxationEnabled
       ? "Total monthly take-home income"
       : "Total monthly income before tax";

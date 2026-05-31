@@ -4,7 +4,7 @@ import { calculateCurrentPlanningAge } from "./retirement-income";
 
 export function shouldRenderIsaField(
   fieldId: FieldDefinition["id"],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
   return (
     (fieldId !== "isaWithdrawalPercent" ||
@@ -16,7 +16,7 @@ export function shouldRenderIsaField(
 
 export function isIsaFieldDisabled(
   fieldId: FieldDefinition["id"],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
   return (
     (fieldId === "isaWithdrawalPercent" &&
@@ -28,7 +28,7 @@ export function isIsaFieldDisabled(
 
 export function getIsaEffectiveRangeField(
   field: RangeField,
-  settings: PensionSettings,
+  settings: PensionSettings
 ): RangeField {
   if (field.id === "isaWithdrawalTargetAge") {
     return {
@@ -36,7 +36,7 @@ export function getIsaEffectiveRangeField(
       min: settings.isaDrawAge + 0.25,
       max: Math.max(
         settings.isaDrawAge + 0.25,
-        Math.min(field.max, settings.lifeExpectancy),
+        Math.min(field.max, settings.lifeExpectancy)
       ),
     };
   }

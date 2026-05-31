@@ -58,14 +58,16 @@ export function validateNuvosRules({
   if (settings.showNuvos && nuvosLeaveDate > lifeExpectancyDate) {
     issues.push({
       field: "nuvosPensionLeaveAge",
-      message: "nuvos pensionable service leave age must be within life expectancy.",
+      message:
+        "nuvos pensionable service leave age must be within life expectancy.",
     });
   }
 
   if (settings.showNuvos && nuvosAbsDate > settings.startDate) {
     issues.push({
       field: "nuvosPensionAbsDate",
-      message: "nuvos Annual Benefit Statement must be on or before the calculation start date.",
+      message:
+        "nuvos Annual Benefit Statement must be on or before the calculation start date.",
     });
   }
 
@@ -86,12 +88,14 @@ function coerceBoolean(value: unknown) {
 }
 
 export function coerceNuvosSettings(
-  input: Partial<StoredPensionSettings>,
+  input: Partial<StoredPensionSettings>
 ): Partial<StoredPensionSettings> {
   return {
     showNuvos: coerceBoolean(input.showNuvos),
     nuvosPensionAbsDate: coerceString(input.nuvosPensionAbsDate),
-    nuvosAccruedPensionAtLastAbs: coerceNumber(input.nuvosAccruedPensionAtLastAbs),
+    nuvosAccruedPensionAtLastAbs: coerceNumber(
+      input.nuvosAccruedPensionAtLastAbs
+    ),
     nuvosPensionableEarnings: coerceNumber(input.nuvosPensionableEarnings),
     nuvosPensionLeaveAge: coerceNumber(input.nuvosPensionLeaveAge),
     nuvosPensionDrawAge: coerceNumber(input.nuvosPensionDrawAge),

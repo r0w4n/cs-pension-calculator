@@ -1,4 +1,6 @@
 #!/bin/sh
 
 echo "Running pre-commit checks..."
-npm run lint:hook
+npm run format:check &&
+npm run lint:hook &&
+npm run typecheck

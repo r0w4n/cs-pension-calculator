@@ -1,5 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { type RetirementIncomeDisplay, type deriveInflationAssumptions } from "../projection";
+import {
+  type RetirementIncomeDisplay,
+  type deriveInflationAssumptions,
+} from "../projection";
 import type { PensionSettings, PensionValidationIssue } from "../settings";
 import type {
   RetirementIncomeBridgeLimits,
@@ -49,7 +52,7 @@ export type ComparisonPanelProps = {
   bridgeChartParameters?: RetirementIncomeBridgeParameters;
   bridgeChartLimits?: RetirementIncomeBridgeLimits;
   onChangeChartParameters?: (
-    patch: Partial<RetirementIncomeBridgeParameters>,
+    patch: Partial<RetirementIncomeBridgeParameters>
   ) => void;
 };
 
@@ -91,11 +94,15 @@ export function ComparisonBuilder({
   actions: ComparisonScenarioActions;
 }) {
   return (
-    <section className="comparison-builder" aria-labelledby="comparison-builder-title">
+    <section
+      className="comparison-builder"
+      aria-labelledby="comparison-builder-title"
+    >
       <div>
         <h3 id="comparison-builder-title">Save this result as a scenario</h3>
         <p className="section-copy">
-          You can save up to {MAX_COMPARISON_SCENARIOS} scenarios during this session.
+          You can save up to {MAX_COMPARISON_SCENARIOS} scenarios during this
+          session.
         </p>
       </div>
       <div className="comparison-add-row">
@@ -106,13 +113,17 @@ export function ComparisonBuilder({
             type="text"
             value={actions.scenarioNameDraft}
             placeholder={`Scenario ${scenarioCount + 1}`}
-            onChange={(event) => actions.setScenarioNameDraft(event.target.value)}
+            onChange={(event) =>
+              actions.setScenarioNameDraft(event.target.value)
+            }
           />
         </label>
         <button
           type="button"
           className="primary-button"
-          disabled={!actions.currentScenarioIsValid || actions.comparisonLimitReached}
+          disabled={
+            !actions.currentScenarioIsValid || actions.comparisonLimitReached
+          }
           onClick={actions.addCurrentScenario}
         >
           Add to comparison
@@ -120,7 +131,8 @@ export function ComparisonBuilder({
       </div>
       {!actions.currentScenarioIsValid ? (
         <p className="table-status">
-          Fix the current validation issues before adding or replacing a scenario.
+          Fix the current validation issues before adding or replacing a
+          scenario.
         </p>
       ) : null}
       {actions.comparisonLimitReached ? (
@@ -150,7 +162,10 @@ export function ComparisonPanel({
   onChangeChartParameters,
 }: ComparisonPanelProps) {
   const [scenarioNameDraft, setScenarioNameDraft] = useState("");
-  const currentSettingsSignature = useMemo(() => getSettingsSignature(settings), [settings]);
+  const currentSettingsSignature = useMemo(
+    () => getSettingsSignature(settings),
+    [settings]
+  );
   const currentScenarioIsValid = validationIssues.length === 0;
   const comparisonLimitReached = scenarios.length >= MAX_COMPARISON_SCENARIOS;
   const currentScenario = useMemo<ComparisonScenario>(
@@ -161,7 +176,7 @@ export function ComparisonPanel({
       createdAt: "",
       updatedAt: "",
     }),
-    [settings],
+    [settings]
   );
   const currentResult = useMemo(
     () =>
@@ -169,7 +184,7 @@ export function ComparisonPanel({
         ? createComparisonResult(
             currentScenario,
             currentSettingsSignature,
-            comparisonResultCache,
+            comparisonResultCache
           )
         : null,
     [
@@ -177,7 +192,7 @@ export function ComparisonPanel({
       currentScenario,
       currentScenarioIsValid,
       currentSettingsSignature,
-    ],
+    ]
   );
   const comparisonPanelData = useMemo(
     () =>
@@ -198,7 +213,7 @@ export function ComparisonPanel({
       retirementIncomeSeries,
       scenarios,
       settings.taxationEnabled,
-    ],
+    ]
   );
   const {
     activeResult,
@@ -244,8 +259,8 @@ export function ComparisonPanel({
               name: name.trim() || `Scenario ${index + 1}`,
               updatedAt: new Date().toISOString(),
             }
-          : scenario,
-      ),
+          : scenario
+      )
     );
   }
 
@@ -266,14 +281,13 @@ export function ComparisonPanel({
               settings: clonePensionSettings(settings),
               updatedAt: new Date().toISOString(),
             }
-          : scenario,
-      ),
+          : scenario
+      )
     );
   }
 
   return (
     <section className="panel comparison-panel" aria-label="Comparison results">
-
       <ComparisonPensionSummary
         activeResult={activeResult}
         retirementIncomeDisplay={retirementIncomeDisplay}
@@ -288,7 +302,10 @@ export function ComparisonPanel({
         onToggleLimitations={onToggleLimitations}
       />
 
-      <DeferredBelowFold estimatedHeight={420} forceRender={validationIssues.length > 0}>
+      <DeferredBelowFold
+        estimatedHeight={420}
+        forceRender={validationIssues.length > 0}
+      >
         <ComparisonBridgeChart
           retirementIncomeSeries={retirementIncomeSeries}
           bridgeChartParameters={bridgeChartParameters}
@@ -366,12 +383,14 @@ export function PensionSummarySection({
       variant="feature"
       description={description}
       items={retirementIncomeItems}
-      controls={onRetirementIncomeDisplayChange ? (
-        <RetirementIncomeDisplayToggle
-          value={retirementIncomeDisplay}
-          onChange={onRetirementIncomeDisplayChange}
-        />
-      ) : undefined}
+      controls={
+        onRetirementIncomeDisplayChange ? (
+          <RetirementIncomeDisplayToggle
+            value={retirementIncomeDisplay}
+            onChange={onRetirementIncomeDisplayChange}
+          />
+        ) : undefined
+      }
       footer={
         <>
           <RetirementIncomeSummaryFooter

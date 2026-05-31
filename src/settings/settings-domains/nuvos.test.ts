@@ -1,4 +1,8 @@
-import { coerceNuvosSettings, normalizeNuvosBooleanSetting, validateNuvosRules } from "./nuvos";
+import {
+  coerceNuvosSettings,
+  normalizeNuvosBooleanSetting,
+  validateNuvosRules,
+} from "./nuvos";
 import type { StoredPensionSettings } from "../settings-types";
 
 describe("nuvos domain", () => {
@@ -39,9 +43,7 @@ describe("nuvos domain", () => {
       nuvosAssumedCpiPercent: "2.5",
     } as unknown as Partial<StoredPensionSettings>;
 
-    expect(
-      coerceNuvosSettings(storedSettings),
-    ).toEqual({
+    expect(coerceNuvosSettings(storedSettings)).toEqual({
       showNuvos: true,
       nuvosPensionAbsDate: "2025",
       nuvosAccruedPensionAtLastAbs: 1000,

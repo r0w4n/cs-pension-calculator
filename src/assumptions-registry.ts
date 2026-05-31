@@ -35,7 +35,11 @@ export const GOVERNED_ASSUMPTIONS_REGISTRY: GovernedAssumptionsRegistry = {
       sourceUrl: "https://example.com/source-url-placeholder",
       effectiveDate: "2026-05-30",
       lastReviewedDate: "2026-05-30",
-      affectedFields: ["dateOfBirth", "statePensionDrawDate", "alphaPensionDrawAge"],
+      affectedFields: [
+        "dateOfBirth",
+        "statePensionDrawDate",
+        "alphaPensionDrawAge",
+      ],
     },
     {
       id: "state-pension-deferral",
@@ -78,7 +82,11 @@ export const GOVERNED_ASSUMPTIONS_REGISTRY: GovernedAssumptionsRegistry = {
       sourceUrl: "https://example.com/source-url-placeholder",
       effectiveDate: "2026-05-30",
       lastReviewedDate: "2026-05-30",
-      affectedFields: ["nuvosPensionDrawAge", "nuvosPensionLeaveAge", "dateOfBirth"],
+      affectedFields: [
+        "nuvosPensionDrawAge",
+        "nuvosPensionLeaveAge",
+        "dateOfBirth",
+      ],
     },
     {
       id: "minimum-pension-age",
@@ -95,7 +103,9 @@ export const GOVERNED_ASSUMPTIONS_REGISTRY: GovernedAssumptionsRegistry = {
 };
 
 const FIELD_LABELS_BY_ID = new Map<string, string>(
-  fieldGroups.flatMap((group) => group.fields.map((field) => [field.id, field.label] as const)),
+  fieldGroups.flatMap((group) =>
+    group.fields.map((field) => [field.id, field.label] as const)
+  )
 );
 
 export function getGovernedAssumptionsLatestReviewDate() {
@@ -104,7 +114,7 @@ export function getGovernedAssumptionsLatestReviewDate() {
       assumption.lastReviewedDate > latestDate
         ? assumption.lastReviewedDate
         : latestDate,
-    GOVERNED_ASSUMPTIONS_REGISTRY.releasedOn,
+    GOVERNED_ASSUMPTIONS_REGISTRY.releasedOn
   );
 }
 

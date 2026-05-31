@@ -1,7 +1,4 @@
-import type {
-  FieldDefinition,
-  SettingsKey,
-} from "../fieldDefinitions";
+import type { FieldDefinition, SettingsKey } from "../fieldDefinitions";
 import type {
   AddedPensionLumpSum,
   PensionSettings,
@@ -10,7 +7,7 @@ import type {
 
 export type SettingsFieldOnChange = <K extends SettingsKey>(
   key: K,
-  value: PensionSettings[K],
+  value: PensionSettings[K]
 ) => void;
 
 export type FieldProps = {

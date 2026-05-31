@@ -5,10 +5,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import type {
-  JourneyDefinition,
-  JourneyStepDefinition,
-} from "../app-domains";
+import type { JourneyDefinition, JourneyStepDefinition } from "../app-domains";
 import type { PensionSettings } from "../settings";
 
 type JourneySectionProps = {
@@ -16,7 +13,10 @@ type JourneySectionProps = {
   children: ReactNode;
 };
 
-export function JourneySection({ activeModeRef, children }: JourneySectionProps) {
+export function JourneySection({
+  activeModeRef,
+  children,
+}: JourneySectionProps) {
   return (
     <div ref={activeModeRef} className="active-mode-region" tabIndex={-1}>
       {children}
@@ -61,13 +61,14 @@ export function JourneyFlow({
   renderStepContent,
 }: JourneyFlowProps) {
   const visibleSteps = journey.steps.filter(
-    (step) => !step.visible || step.visible(settings),
+    (step) => !step.visible || step.visible(settings)
   );
   const [activeStepId, setActiveStepId] = useState(visibleSteps[0]?.id ?? "");
-  const activeStep = visibleSteps.find((step) => step.id === activeStepId) ?? visibleSteps[0];
+  const activeStep =
+    visibleSteps.find((step) => step.id === activeStepId) ?? visibleSteps[0];
   const activeStepIndex = Math.max(
     0,
-    visibleSteps.findIndex((step) => step.id === activeStep?.id),
+    visibleSteps.findIndex((step) => step.id === activeStep?.id)
   );
   const isFirstStep = activeStepIndex === 0;
   const isLastStep = activeStepIndex === visibleSteps.length - 1;
@@ -122,7 +123,11 @@ export function JourneyFlow({
         </div>
       </div>
 
-      <nav ref={stepperRef} className="journey-stepper" aria-label="Journey steps">
+      <nav
+        ref={stepperRef}
+        className="journey-stepper"
+        aria-label="Journey steps"
+      >
         {visibleSteps.map((step, index) => {
           const stepState = getStepState(index);
 
@@ -142,7 +147,10 @@ export function JourneyFlow({
         })}
       </nav>
 
-      <section className="journey-step" aria-labelledby={`journey-step-${activeStep.id}`}>
+      <section
+        className="journey-step"
+        aria-labelledby={`journey-step-${activeStep.id}`}
+      >
         <div className="section-heading">
           <p className="eyebrow">{activeStep.eyebrow}</p>
           <h3 id={`journey-step-${activeStep.id}`}>{activeStep.title}</h3>
@@ -166,7 +174,9 @@ export function JourneyFlow({
             disabled={isLastStep}
             onClick={() => goToStep(activeStepIndex + 1)}
           >
-            {activeStepIndex === visibleSteps.length - 2 ? "Show my answer" : "Next"}
+            {activeStepIndex === visibleSteps.length - 2
+              ? "Show my answer"
+              : "Next"}
           </button>
         </div>
       </section>

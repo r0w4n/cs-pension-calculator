@@ -1,8 +1,4 @@
-import type {
-  Dispatch,
-  SetStateAction,
-  TransitionStartFunction,
-} from "react";
+import type { Dispatch, SetStateAction, TransitionStartFunction } from "react";
 import type { SettingsKey } from "../fieldDefinitions";
 import type { RetirementIncomeBridgeParameters } from "../RetirementIncomeBridgeChart";
 import {
@@ -37,7 +33,7 @@ type ChartStateContext = {
 
 export function applyBridgeChartParameterPatch(
   current: PensionSettings,
-  patch: Partial<RetirementIncomeBridgeParameters>,
+  patch: Partial<RetirementIncomeBridgeParameters>
 ) {
   const next = { ...current };
   const context = createChartStateContext(next);
@@ -59,8 +55,12 @@ export function applyBridgeChartParameterPatch(
 function createChartStateContext(settings: PensionSettings): ChartStateContext {
   return {
     currentPlanningAge: calculateCurrentPlanningAge(settings),
-    defaultStatePensionAge: calculateMinimumStatePensionDrawAge(settings.dateOfBirth),
-    minimumAlphaAccessAge: calculateMinimumPensionAccessAge(settings.dateOfBirth),
+    defaultStatePensionAge: calculateMinimumStatePensionDrawAge(
+      settings.dateOfBirth
+    ),
+    minimumAlphaAccessAge: calculateMinimumPensionAccessAge(
+      settings.dateOfBirth
+    ),
     minimumSippAccessAge: calculateMinimumSippAccessAge(settings.dateOfBirth),
   };
 }
@@ -68,48 +68,48 @@ function createChartStateContext(settings: PensionSettings): ChartStateContext {
 function applyIncomeAndContributionPatch(
   next: PensionSettings,
   patch: Partial<RetirementIncomeBridgeParameters>,
-  context: ChartStateContext,
+  context: ChartStateContext
 ) {
   assignNormalizedNumber(
     next,
     "desiredRetirementIncome",
-    patch.targetIncomeAnnual,
+    patch.targetIncomeAnnual
   );
   assignNormalizedNumber(
     next,
     "alphaAddedPensionMonthly",
-    patch.alphaMonthlyAddedPension,
+    patch.alphaMonthlyAddedPension
   );
   assignNormalizedNumber(
     next,
     "isaMonthlyContribution",
-    patch.isaMonthlyContribution,
+    patch.isaMonthlyContribution
   );
   assignNormalizedNumber(
     next,
     "sippMonthlyContribution",
-    patch.sippMonthlyContribution,
+    patch.sippMonthlyContribution
   );
 
   if (patch.partialRetirementStartAge !== undefined) {
     const latestPartialRetirementStartAge = Math.max(
       context.currentPlanningAge,
-      Math.min(next.requirementAge - 0.25, 70, next.lifeExpectancy),
+      Math.min(next.requirementAge - 0.25, 70, next.lifeExpectancy)
     );
     next.partialRetirementStartAge = normalizeSetting(
       "partialRetirementStartAge",
       clampNumber(
         patch.partialRetirementStartAge,
         context.currentPlanningAge,
-        latestPartialRetirementStartAge,
-      ),
+        latestPartialRetirementStartAge
+      )
     );
   }
 
   assignNormalizedNumber(
     next,
     "partialRetirementWorkPercent",
-    patch.partialRetirementWorkPercent,
+    patch.partialRetirementWorkPercent
   );
 
   if (patch.partialRetirementEnabled !== undefined) {
@@ -119,7 +119,7 @@ function applyIncomeAndContributionPatch(
 
 function applyVisibilityPatch(
   next: PensionSettings,
-  patch: Partial<RetirementIncomeBridgeParameters>,
+  patch: Partial<RetirementIncomeBridgeParameters>
 ) {
   if (patch.showIsa !== undefined) {
     next.showIsa = patch.showIsa;
@@ -141,7 +141,7 @@ function applyVisibilityPatch(
 function applyStatePensionPatch(
   next: PensionSettings,
   patch: Partial<RetirementIncomeBridgeParameters>,
-  context: ChartStateContext,
+  context: ChartStateContext
 ) {
   const requestedStateAge =
     patch.statePensionAge ??
@@ -149,13 +149,13 @@ function applyStatePensionPatch(
   const statePensionAge = clampNumber(
     requestedStateAge,
     context.defaultStatePensionAge,
-    Math.max(context.defaultStatePensionAge, next.lifeExpectancy),
+    Math.max(context.defaultStatePensionAge, next.lifeExpectancy)
   );
 
   if (patch.statePensionAge !== undefined) {
     next.statePensionDrawDate = calculateStatePensionDrawDateFromAge(
       next.dateOfBirth,
-      normalizeStatePensionDrawAge(statePensionAge, next.dateOfBirth),
+      normalizeStatePensionDrawAge(statePensionAge, next.dateOfBirth)
     );
   }
 
@@ -166,7 +166,7 @@ function applyRetirementAgePatch(
   next: PensionSettings,
   patch: Partial<RetirementIncomeBridgeParameters>,
   context: ChartStateContext,
-  statePensionAge: number,
+  statePensionAge: number
 ) {
   if (patch.retirementAge === undefined) {
     return;
@@ -175,7 +175,7 @@ function applyRetirementAgePatch(
   const retirementAge = clampNumber(
     patch.retirementAge,
     context.currentPlanningAge,
-    Math.min(70, statePensionAge, next.alphaPensionDrawAge),
+    Math.min(70, statePensionAge, next.alphaPensionDrawAge)
   );
   next.requirementAge = normalizeSetting("requirementAge", retirementAge);
   next.isaDrawAge = normalizeSetting("isaDrawAge", retirementAge);
@@ -189,15 +189,18 @@ function applyRetirementAgePatch(
       clampNumber(
         next.requirementAge - 0.25,
         context.currentPlanningAge,
-        Math.min(70, next.lifeExpectancy),
-      ),
+        Math.min(70, next.lifeExpectancy)
+      )
     );
   }
 
-  if (next.showSipp && next.sippDrawAge < Math.max(retirementAge, context.minimumSippAccessAge)) {
+  if (
+    next.showSipp &&
+    next.sippDrawAge < Math.max(retirementAge, context.minimumSippAccessAge)
+  ) {
     next.sippDrawAge = normalizeSippDrawAge(
       Math.max(retirementAge, context.minimumSippAccessAge),
-      next.dateOfBirth,
+      next.dateOfBirth
     );
   }
 }
@@ -206,7 +209,7 @@ function applyAlphaLeaveAgePatch(
   next: PensionSettings,
   patch: Partial<RetirementIncomeBridgeParameters>,
   context: ChartStateContext,
-  statePensionAge: number,
+  statePensionAge: number
 ) {
   if (patch.alphaLeaveAge === undefined) {
     return;
@@ -215,11 +218,11 @@ function applyAlphaLeaveAgePatch(
   const alphaLeaveAge = clampNumber(
     patch.alphaLeaveAge,
     context.currentPlanningAge,
-    Math.min(70, statePensionAge),
+    Math.min(70, statePensionAge)
   );
   next.alphaPensionLeaveAge = normalizeSetting(
     "alphaPensionLeaveAge",
-    alphaLeaveAge,
+    alphaLeaveAge
   );
 }
 
@@ -227,13 +230,13 @@ function applyAccessAgePatch(
   next: PensionSettings,
   patch: Partial<RetirementIncomeBridgeParameters>,
   context: ChartStateContext,
-  statePensionAge: number,
+  statePensionAge: number
 ) {
   if (patch.sippAccessAge !== undefined) {
     const sippAccessAge = clampNumber(
       patch.sippAccessAge,
       Math.max(next.requirementAge, context.minimumSippAccessAge),
-      Math.min(70, statePensionAge),
+      Math.min(70, statePensionAge)
     );
     next.sippDrawAge = normalizeSippDrawAge(sippAccessAge, next.dateOfBirth);
     reconcileSippWithdrawalTarget(next);
@@ -245,8 +248,8 @@ function applyAccessAgePatch(
       clampNumber(
         patch.isaAccessAge,
         context.currentPlanningAge,
-        Math.min(70, statePensionAge),
-      ),
+        Math.min(70, statePensionAge)
+      )
     );
     reconcileIsaWithdrawalTarget(next);
   }
@@ -257,20 +260,20 @@ function applyAccessAgePatch(
       Math.max(
         next.alphaPensionLeaveAge,
         context.minimumAlphaAccessAge,
-        next.requirementAge,
+        next.requirementAge
       ),
-      Math.min(70, statePensionAge),
+      Math.min(70, statePensionAge)
     );
     next.alphaPensionDrawAge = normalizeAlphaPensionDrawAge(
       alphaStartAge,
-      next.dateOfBirth,
+      next.dateOfBirth
     );
   }
 }
 
 function applyUseByAgePatch(
   next: PensionSettings,
-  patch: Partial<RetirementIncomeBridgeParameters>,
+  patch: Partial<RetirementIncomeBridgeParameters>
 ) {
   if (patch.sippUseByAge !== undefined) {
     next.sippWithdrawalTargetAge = normalizeSetting(
@@ -278,8 +281,8 @@ function applyUseByAgePatch(
       clampNumber(
         patch.sippUseByAge,
         next.sippDrawAge + 0.25,
-        Math.min(100, next.lifeExpectancy),
-      ),
+        Math.min(100, next.lifeExpectancy)
+      )
     );
   }
 
@@ -289,8 +292,8 @@ function applyUseByAgePatch(
       clampNumber(
         patch.isaUseByAge,
         next.isaDrawAge + 0.25,
-        Math.min(100, next.lifeExpectancy),
-      ),
+        Math.min(100, next.lifeExpectancy)
+      )
     );
   }
 }
@@ -298,15 +301,16 @@ function applyUseByAgePatch(
 function reconcileChartState(
   next: PensionSettings,
   context: ChartStateContext,
-  statePensionAge: number,
+  statePensionAge: number
 ) {
   if (
     next.showSipp &&
-    next.sippDrawAge < Math.max(next.requirementAge, context.minimumSippAccessAge)
+    next.sippDrawAge <
+      Math.max(next.requirementAge, context.minimumSippAccessAge)
   ) {
     next.sippDrawAge = normalizeSippDrawAge(
       Math.max(next.requirementAge, context.minimumSippAccessAge),
-      next.dateOfBirth,
+      next.dateOfBirth
     );
   }
 
@@ -316,14 +320,14 @@ function reconcileChartState(
   if (next.alphaPensionLeaveAge > next.alphaPensionDrawAge) {
     next.alphaPensionDrawAge = normalizeAlphaPensionDrawAge(
       next.alphaPensionLeaveAge,
-      next.dateOfBirth,
+      next.dateOfBirth
     );
   }
 
   if (next.alphaPensionDrawAge > statePensionAge) {
     next.alphaPensionDrawAge = normalizeAlphaPensionDrawAge(
       Math.min(70, statePensionAge),
-      next.dateOfBirth,
+      next.dateOfBirth
     );
   }
 }
@@ -336,7 +340,7 @@ function reconcileSippWithdrawalTarget(next: PensionSettings) {
   ) {
     next.sippWithdrawalTargetAge = normalizeSetting(
       "sippWithdrawalTargetAge",
-      next.sippDrawAge + 0.25,
+      next.sippDrawAge + 0.25
     );
   }
 }
@@ -349,7 +353,7 @@ function reconcileIsaWithdrawalTarget(next: PensionSettings) {
   ) {
     next.isaWithdrawalTargetAge = normalizeSetting(
       "isaWithdrawalTargetAge",
-      next.isaDrawAge + 0.25,
+      next.isaDrawAge + 0.25
     );
   }
 }
@@ -364,7 +368,7 @@ type NormalizedNumberKey =
 function assignNormalizedNumber(
   settings: PensionSettings,
   key: NormalizedNumberKey,
-  value: number | undefined,
+  value: number | undefined
 ) {
   if (value === undefined) {
     return;
@@ -408,7 +412,7 @@ export function updateSetting({
     setSettings((current) =>
       applyBridgeChartParameterPatch(current, {
         retirementAge: value as number,
-      }),
+      })
     );
     return;
   }
@@ -428,18 +432,20 @@ export function updateSetting({
       [key]: normalizedValue,
       ...(key === "dateOfBirth"
         ? {
-            normalPensionAge: calculateNormalPensionAge(normalizedValue as string),
+            normalPensionAge: calculateNormalPensionAge(
+              normalizedValue as string
+            ),
             alphaPensionDrawAge: normalizeAlphaPensionDrawAge(
               current.alphaPensionDrawAge,
-              normalizedValue as string,
+              normalizedValue as string
             ),
             sippDrawAge: normalizeSippDrawAge(
               current.sippDrawAge,
-              normalizedValue as string,
+              normalizedValue as string
             ),
             statePensionDrawDate: calculateStatePensionDrawDateFromAge(
               normalizedValue as string,
-              calculateMinimumStatePensionDrawAge(normalizedValue as string),
+              calculateMinimumStatePensionDrawAge(normalizedValue as string)
             ),
           }
         : {}),

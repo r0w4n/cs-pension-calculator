@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   quality:
-    name: Test, Coverage, Lint, Build
+    name: Format, Typecheck, Test, Coverage, Lint, Build
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +28,12 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Test with coverage
         run: npm run test:coverage

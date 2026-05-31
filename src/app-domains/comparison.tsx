@@ -120,7 +120,9 @@ export function loadStoredComparisonScenarios(): ComparisonScenario[] {
     }
 
     return parsed
-      .map((scenario, index) => normalizeStoredComparisonScenario(scenario, index))
+      .map((scenario, index) =>
+        normalizeStoredComparisonScenario(scenario, index)
+      )
       .filter((scenario): scenario is ComparisonScenario => Boolean(scenario))
       .slice(0, MAX_COMPARISON_SCENARIOS);
   } catch {
@@ -131,7 +133,7 @@ export function loadStoredComparisonScenarios(): ComparisonScenario[] {
 export function saveStoredComparisonScenarios(scenarios: ComparisonScenario[]) {
   writeStorageItem(
     COMPARISON_SCENARIOS_STORAGE_KEY,
-    JSON.stringify(scenarios.slice(0, MAX_COMPARISON_SCENARIOS)),
+    JSON.stringify(scenarios.slice(0, MAX_COMPARISON_SCENARIOS))
   );
 }
 
@@ -143,7 +145,9 @@ export function createComparisonScenarioId() {
   return `scenario-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function clonePensionSettings(settings: PensionSettings): PensionSettings {
+export function clonePensionSettings(
+  settings: PensionSettings
+): PensionSettings {
   return JSON.parse(JSON.stringify(settings)) as PensionSettings;
 }
 
@@ -153,7 +157,7 @@ export function getSettingsSignature(settings: PensionSettings) {
 
 export function createBridgeAnswerResult(
   settings: PensionSettings,
-  cache: BridgeAnswerResultCache,
+  cache: BridgeAnswerResultCache
 ): BridgeAnswerResult {
   const settingsSignature = getSettingsSignature(settings);
   const cachedResult = cache.get(settingsSignature);
@@ -167,7 +171,10 @@ export function createBridgeAnswerResult(
   const result = {
     bridgeSettings,
     bridgeChartRows,
-    bridgeChartData: createRetirementIncomeSeries(bridgeChartRows, bridgeSettings),
+    bridgeChartData: createRetirementIncomeSeries(
+      bridgeChartRows,
+      bridgeSettings
+    ),
     bridgeChartParameters: createBridgeChartParameters(bridgeSettings),
     bridgeChartLimits: createBridgeChartLimits(bridgeSettings),
     derivedInflationAssumptions: deriveInflationAssumptions(settings),
@@ -181,7 +188,7 @@ export function createBridgeAnswerResult(
 export function createComparisonResult(
   scenario: ComparisonScenario,
   currentSettingsSignature: string,
-  cache?: ComparisonResultCache,
+  cache?: ComparisonResultCache
 ): ComparisonResult {
   const settingsSignature = getSettingsSignature(scenario.settings);
   const cachedResult = cache?.get(settingsSignature);
@@ -202,21 +209,25 @@ export function createComparisonResult(
     showSipp: false,
     showIsa: false,
   });
-  const bridgeAnalysis = generateRetirementBridgeAnalysis(bridgePensionRows, bridgeSettings, {
-    calculateSafeDrawAge: true,
-  });
+  const bridgeAnalysis = generateRetirementBridgeAnalysis(
+    bridgePensionRows,
+    bridgeSettings,
+    {
+      calculateSafeDrawAge: true,
+    }
+  );
   const retirementDate = addYearsToIsoDate(
     scenario.settings.dateOfBirth,
-    scenario.settings.requirementAge,
+    scenario.settings.requirementAge
   );
   const annualTarget = calculateRetirementIncomeTargetAtDate(
     scenario.settings,
-    retirementDate,
+    retirementDate
   );
   const annualIncome = summary.retirementIncome.totalAnnualIncome;
   const statePensionAge = calculateStatePensionDrawAge(
     scenario.settings.dateOfBirth,
-    scenario.settings.statePensionDrawDate,
+    scenario.settings.statePensionDrawDate
   );
   const result = {
     rows,
@@ -232,7 +243,7 @@ export function createComparisonResult(
       scenario.settings.showIsa &&
         scenario.settings.isaWithdrawalStrategy === "use_by_age"
         ? scenario.settings.isaWithdrawalTargetAge
-        : null,
+        : null
     ),
     sippDepletedAge: findPotDepletedAge(
       rows,
@@ -241,16 +252,16 @@ export function createComparisonResult(
       scenario.settings.showSipp &&
         scenario.settings.sippWithdrawalStrategy === "use_by_age"
         ? scenario.settings.sippWithdrawalTargetAge
-        : null,
+        : null
     ),
     retirementAnnualIncome: findAnnualIncomeAtAge(
       rows,
-      scenario.settings.requirementAge,
+      scenario.settings.requirementAge
     ),
     statePensionAnnualIncome: findAnnualIncomeAtAge(rows, statePensionAge),
     lifeExpectancyAnnualIncome: findAnnualIncomeAtAge(
       rows,
-      scenario.settings.lifeExpectancy,
+      scenario.settings.lifeExpectancy
     ),
     targetMissMonths: countTargetMissMonths(rows, scenario.settings),
   };
@@ -265,20 +276,21 @@ export function createComparisonResult(
 }
 
 export function calculateComparisonInsights(
-  results: ComparisonResult[],
+  results: ComparisonResult[]
 ): ComparisonInsights {
   const earliestRetirementResult = results.reduce<ComparisonResult | null>(
     (best, result) =>
       !best ||
-      result.scenario.settings.requirementAge < best.scenario.settings.requirementAge
+      result.scenario.settings.requirementAge <
+        best.scenario.settings.requirementAge
         ? result
         : best,
-    null,
+    null
   );
   const bestTargetResult = results.reduce<ComparisonResult | null>(
     (best, result) =>
       !best || result.targetMissMonths < best.targetMissMonths ? result : best,
-    null,
+    null
   );
   const lowestShortfallRiskResult = results.reduce<ComparisonResult | null>(
     (best, result) => {
@@ -291,7 +303,7 @@ export function calculateComparisonInsights(
 
       return resultShortfall < bestShortfall ? result : best;
     },
-    null,
+    null
   );
   const longestCapitalResult = results.reduce<ComparisonResult | null>(
     (best, result) => {
@@ -299,18 +311,20 @@ export function calculateComparisonInsights(
         return result;
       }
 
-      return getCapitalPreservationScore(result) > getCapitalPreservationScore(best)
+      return getCapitalPreservationScore(result) >
+        getCapitalPreservationScore(best)
         ? result
         : best;
     },
-    null,
+    null
   );
   const highestLaterIncomeResult = results.reduce<ComparisonResult | null>(
     (best, result) =>
-      !best || result.lifeExpectancyAnnualIncome > best.lifeExpectancyAnnualIncome
+      !best ||
+      result.lifeExpectancyAnnualIncome > best.lifeExpectancyAnnualIncome
         ? result
         : best,
-    null,
+    null
   );
 
   return {
@@ -323,7 +337,7 @@ export function calculateComparisonInsights(
 }
 
 export function buildComparisonTableRows(
-  results: ComparisonResult[],
+  results: ComparisonResult[]
 ): ComparisonTableRow[] {
   return [
     createComparisonSection("Headline outcome", results, [
@@ -340,7 +354,7 @@ export function buildComparisonTableRows(
         "Lowest income",
         (result) =>
           formatAnnualCurrency(
-            getLowestAnnualIncome(result.rows, result.scenario.settings),
+            getLowestAnnualIncome(result.rows, result.scenario.settings)
           ),
       ],
       [
@@ -348,7 +362,7 @@ export function buildComparisonTableRows(
         (result) =>
           renderComparisonToneCell(
             formatYearsBelowTarget(result.targetMissMonths),
-            result.targetMissMonths > 0 ? "caution" : "good",
+            result.targetMissMonths > 0 ? "caution" : "good"
           ),
       ],
       [
@@ -356,11 +370,11 @@ export function buildComparisonTableRows(
         (result) =>
           renderComparisonToneCell(
             formatAnnualCurrency(
-              getLargestAnnualShortfall(result.rows, result.scenario.settings),
+              getLargestAnnualShortfall(result.rows, result.scenario.settings)
             ),
             getLargestAnnualShortfall(result.rows, result.scenario.settings) > 0
               ? "caution"
-              : "good",
+              : "good"
           ),
       ],
       [
@@ -368,11 +382,11 @@ export function buildComparisonTableRows(
         (result) =>
           renderComparisonToneCell(
             formatCurrencyDetailed(
-              getTotalLifetimeShortfall(result.rows, result.scenario.settings),
+              getTotalLifetimeShortfall(result.rows, result.scenario.settings)
             ),
             getTotalLifetimeShortfall(result.rows, result.scenario.settings) > 0
               ? "caution"
-              : "good",
+              : "good"
           ),
       ],
     ]),
@@ -387,7 +401,8 @@ export function buildComparisonTableRows(
       ],
       [
         "Alpha age",
-        (result) => formatDecimalAge(result.scenario.settings.alphaPensionDrawAge),
+        (result) =>
+          formatDecimalAge(result.scenario.settings.alphaPensionDrawAge),
       ],
       [
         "ISA start",
@@ -414,13 +429,16 @@ export function buildComparisonTableRows(
     createComparisonSection("Secure pension income", results, [
       [
         "Alpha income",
-        (result) => formatAnnualCurrency(result.summary.alphaPension.annualAtDraw),
+        (result) =>
+          formatAnnualCurrency(result.summary.alphaPension.annualAtDraw),
       ],
       [
         "State Pension income",
         (result) =>
           result.scenario.settings.showStatePension
-            ? formatAnnualCurrency(result.summary.incomeOverTime.monthlyStatePension * 12)
+            ? formatAnnualCurrency(
+                result.summary.incomeOverTime.monthlyStatePension * 12
+              )
             : "n/a",
       ],
       [
@@ -431,8 +449,8 @@ export function buildComparisonTableRows(
                 getCombinedSecurePensionAtStateAge(result) /
                   calculateRetirementIncomeTargetAtDate(
                     result.scenario.settings,
-                    result.scenario.settings.statePensionDrawDate,
-                  ),
+                    result.scenario.settings.statePensionDrawDate
+                  )
               )
             : "n/a",
       ],
@@ -441,28 +459,38 @@ export function buildComparisonTableRows(
       [
         "Plan status",
         (result) =>
-          result.bridgeAnalysis.planWorks ? "Works on these assumptions" : "Shortfall remains",
+          result.bridgeAnalysis.planWorks
+            ? "Works on these assumptions"
+            : "Shortfall remains",
       ],
       [
         "ISA-only gap before SIPP access",
-        (result) => formatCurrencyDetailed(result.bridgeAnalysis.requiredIsaAtRetirement),
+        (result) =>
+          formatCurrencyDetailed(result.bridgeAnalysis.requiredIsaAtRetirement),
       ],
       [
         "Later top-up gap after SIPP access",
-        (result) => formatCurrencyDetailed(result.bridgeAnalysis.requiredSippAtAccess),
+        (result) =>
+          formatCurrencyDetailed(result.bridgeAnalysis.requiredSippAtAccess),
       ],
       [
         "Bridge still unfunded",
         (result) =>
           renderComparisonToneCell(
-            formatCurrencyDetailed(result.bridgeAnalysis.totalUnfundedShortfall),
-            result.bridgeAnalysis.totalUnfundedShortfall > 0 ? "caution" : "good",
+            formatCurrencyDetailed(
+              result.bridgeAnalysis.totalUnfundedShortfall
+            ),
+            result.bridgeAnalysis.totalUnfundedShortfall > 0
+              ? "caution"
+              : "good"
           ),
       ],
       [
         "Extra monthly saving",
         (result) =>
-          formatMonthlyCurrency(result.bridgeAnalysis.additionalMonthlyContributionRequired),
+          formatMonthlyCurrency(
+            result.bridgeAnalysis.additionalMonthlyContributionRequired
+          ),
       ],
     ]),
     createComparisonSection("Later secure income", results, [
@@ -471,14 +499,16 @@ export function buildComparisonTableRows(
         (result) =>
           result.bridgeAnalysis.fullSecureIncomeStartDate === null
             ? "Not available"
-            : formatAnnualCurrency(result.bridgeAnalysis.fullSecureAnnualGuaranteedIncome),
+            : formatAnnualCurrency(
+                result.bridgeAnalysis.fullSecureAnnualGuaranteedIncome
+              ),
       ],
       [
         "Later secure position",
         (result) =>
           renderComparisonToneCell(
             formatBridgeSecurePosition(result.bridgeAnalysis),
-            getBridgeSecurePositionTone(result.bridgeAnalysis),
+            getBridgeSecurePositionTone(result.bridgeAnalysis)
           ),
       ],
     ]),
@@ -502,14 +532,20 @@ export function buildComparisonTableRows(
           result.scenario.settings.taxationEnabled ? "After tax" : "Before tax",
       ],
     ]),
-  ].flat().filter((row) => !areAllValuesNa(row.values));
+  ]
+    .flat()
+    .filter((row) => !areAllValuesNa(row.values));
 }
 
 export function buildComparisonDetailedRows(
-  results: ComparisonResult[],
+  results: ComparisonResult[]
 ): ComparisonTableRow[] {
-  const anyScenarioUsesIsa = results.some((result) => result.scenario.settings.showIsa);
-  const anyScenarioUsesSipp = results.some((result) => result.scenario.settings.showSipp);
+  const anyScenarioUsesIsa = results.some(
+    (result) => result.scenario.settings.showIsa
+  );
+  const anyScenarioUsesSipp = results.some(
+    (result) => result.scenario.settings.showSipp
+  );
 
   return [
     createComparisonSection("Retirement timing details", results, [
@@ -517,29 +553,38 @@ export function buildComparisonDetailedRows(
         "Partial retirement start age",
         (result) =>
           result.scenario.settings.partialRetirementEnabled
-            ? formatDecimalAge(result.scenario.settings.partialRetirementStartAge)
+            ? formatDecimalAge(
+                result.scenario.settings.partialRetirementStartAge
+              )
             : "n/a",
       ],
       [
         "Pro-rata work level",
         (result) =>
           result.scenario.settings.partialRetirementEnabled
-            ? formatWholePercent(result.scenario.settings.partialRetirementWorkPercent / 100)
+            ? formatWholePercent(
+                result.scenario.settings.partialRetirementWorkPercent / 100
+              )
             : "n/a",
       ],
       [
         "Age leaving Alpha scheme",
-        (result) => formatDecimalAge(result.scenario.settings.alphaPensionLeaveAge),
+        (result) =>
+          formatDecimalAge(result.scenario.settings.alphaPensionLeaveAge),
       ],
     ]),
     createComparisonSection("Secure pension details", results, [
       [
         "Alpha Normal Pension Age",
-        (result) => formatDecimalAge(result.summary.calculated.normalPensionAge),
+        (result) =>
+          formatDecimalAge(result.summary.calculated.normalPensionAge),
       ],
       [
         "Alpha early reduction applied",
-        (result) => formatYesNo(result.summary.calculated.earlyRetirementReductionPercent > 0),
+        (result) =>
+          formatYesNo(
+            result.summary.calculated.earlyRetirementReductionPercent > 0
+          ),
       ],
       [
         "nuvos income at draw age",
@@ -559,14 +604,17 @@ export function buildComparisonDetailedRows(
     createComparisonSection("Bridge mechanics", results, [
       [
         "Bridge spending to cover",
-        (result) => formatCurrencyDetailed(result.bridgeAnalysis.totalBridgeRequired),
+        (result) =>
+          formatCurrencyDetailed(result.bridgeAnalysis.totalBridgeRequired),
       ],
       [
         "Earliest sustainable pension draw age",
         (result) =>
           result.bridgeAnalysis.earliestSustainablePensionDrawAge === null
             ? "Not found"
-            : formatDecimalAge(result.bridgeAnalysis.earliestSustainablePensionDrawAge),
+            : formatDecimalAge(
+                result.bridgeAnalysis.earliestSustainablePensionDrawAge
+              ),
       ],
       [
         "All secure pensions active from",
@@ -577,15 +625,19 @@ export function buildComparisonDetailedRows(
             ? "Not reached within this model"
             : `${formatDate(result.bridgeAnalysis.fullSecureIncomeStartDate)} (${formatAge(
                 result.bridgeAnalysis.fullSecureIncomeStartAge,
-                result.bridgeAnalysis.fullSecureIncomeStartAgeMonths,
+                result.bridgeAnalysis.fullSecureIncomeStartAgeMonths
               )})`,
       ],
       [
         "Position by modelling end",
         (result) =>
           renderComparisonToneCell(
-            formatAnnualPosition(result.bridgeAnalysis.stableAnnualGuaranteedSurplus),
-            result.bridgeAnalysis.stableAnnualGuaranteedSurplus >= 0 ? "good" : "caution",
+            formatAnnualPosition(
+              result.bridgeAnalysis.stableAnnualGuaranteedSurplus
+            ),
+            result.bridgeAnalysis.stableAnnualGuaranteedSurplus >= 0
+              ? "good"
+              : "caution"
           ),
       ],
       [
@@ -593,7 +645,7 @@ export function buildComparisonDetailedRows(
         (result) =>
           result.bridgeAnalysis.firstPotToFail
             ? `${result.bridgeAnalysis.firstPotToFail} (${formatDate(
-                result.bridgeAnalysis.firstFailureDate ?? "",
+                result.bridgeAnalysis.firstFailureDate ?? ""
               )})`
             : "None",
       ],
@@ -605,7 +657,9 @@ export function buildComparisonDetailedRows(
               "Current ISA balance",
               (result) =>
                 result.scenario.settings.showIsa
-                  ? formatCurrencyDetailed(result.scenario.settings.isaCurrentPot)
+                  ? formatCurrencyDetailed(
+                      result.scenario.settings.isaCurrentPot
+                    )
                   : "n/a",
             ],
             [
@@ -616,7 +670,9 @@ export function buildComparisonDetailedRows(
               "Total ISA withdrawals",
               (result) =>
                 result.scenario.settings.showIsa
-                  ? formatCurrencyDetailed(getTotalWithdrawals(result.rows, "monthlyIsaPension"))
+                  ? formatCurrencyDetailed(
+                      getTotalWithdrawals(result.rows, "monthlyIsaPension")
+                    )
                   : "n/a",
             ],
             [
@@ -625,7 +681,10 @@ export function buildComparisonDetailedRows(
                 result.scenario.settings.showIsa
                   ? renderComparisonToneCell(
                       formatDepletionAgeOrNa(result.isaDepletedAge),
-                      getPotDepletionTone(result.isaDepletedAge, result.scenario.settings),
+                      getPotDepletionTone(
+                        result.isaDepletedAge,
+                        result.scenario.settings
+                      )
                     )
                   : "n/a",
             ],
@@ -633,7 +692,9 @@ export function buildComparisonDetailedRows(
               "Final ISA balance",
               (result) =>
                 result.scenario.settings.showIsa
-                  ? formatCurrencyDetailed(getFinalPotBalance(result.rows, "isaPot"))
+                  ? formatCurrencyDetailed(
+                      getFinalPotBalance(result.rows, "isaPot")
+                    )
                   : "n/a",
             ],
           ]),
@@ -646,7 +707,9 @@ export function buildComparisonDetailedRows(
               "Current SIPP balance",
               (result) =>
                 result.scenario.settings.showSipp
-                  ? formatCurrencyDetailed(result.scenario.settings.sippCurrentPot)
+                  ? formatCurrencyDetailed(
+                      result.scenario.settings.sippCurrentPot
+                    )
                   : "n/a",
             ],
             [
@@ -655,13 +718,16 @@ export function buildComparisonDetailedRows(
             ],
             [
               "SIPP withdrawal strategy",
-              (result) => formatSippWithdrawalStrategy(result.scenario.settings),
+              (result) =>
+                formatSippWithdrawalStrategy(result.scenario.settings),
             ],
             [
               "Total SIPP withdrawals",
               (result) =>
                 result.scenario.settings.showSipp
-                  ? formatCurrencyDetailed(getTotalWithdrawals(result.rows, "monthlySippPension"))
+                  ? formatCurrencyDetailed(
+                      getTotalWithdrawals(result.rows, "monthlySippPension")
+                    )
                   : "n/a",
             ],
             [
@@ -670,7 +736,10 @@ export function buildComparisonDetailedRows(
                 result.scenario.settings.showSipp
                   ? renderComparisonToneCell(
                       formatDepletionAgeOrNa(result.sippDepletedAge),
-                      getPotDepletionTone(result.sippDepletedAge, result.scenario.settings),
+                      getPotDepletionTone(
+                        result.sippDepletedAge,
+                        result.scenario.settings
+                      )
                     )
                   : "n/a",
             ],
@@ -678,7 +747,9 @@ export function buildComparisonDetailedRows(
               "Final SIPP balance",
               (result) =>
                 result.scenario.settings.showSipp
-                  ? formatCurrencyDetailed(getFinalPotBalance(result.rows, "sippPot"))
+                  ? formatCurrencyDetailed(
+                      getFinalPotBalance(result.rows, "sippPot")
+                    )
                   : "n/a",
             ],
           ]),
@@ -690,7 +761,7 @@ export function buildComparisonDetailedRows(
         (result) =>
           formatCurrencyDetailed(
             getTotalWithdrawals(result.rows, "monthlyIsaPension") +
-              getTotalWithdrawals(result.rows, "monthlySippPension"),
+              getTotalWithdrawals(result.rows, "monthlySippPension")
           ),
       ],
       [
@@ -698,57 +769,65 @@ export function buildComparisonDetailedRows(
         (result) =>
           formatCurrencyDetailed(
             getFinalPotBalance(result.rows, "isaPot") +
-              getFinalPotBalance(result.rows, "sippPot"),
+              getFinalPotBalance(result.rows, "sippPot")
           ),
       ],
     ]),
     createComparisonSection("Assumptions details", results, [
       [
         "Inflation assumption",
-        (result) => formatPercent(result.scenario.settings.inflationRateAnnual / 100),
+        (result) =>
+          formatPercent(result.scenario.settings.inflationRateAnnual / 100),
       ],
       [
         "ISA nominal return",
         (result) =>
           formatPercent(
-            deriveInflationAssumptions(result.scenario.settings).isaNominalReturnAnnual,
+            deriveInflationAssumptions(result.scenario.settings)
+              .isaNominalReturnAnnual
           ),
       ],
       [
         "ISA modelled real return",
         (result) =>
           formatPercent(
-            deriveInflationAssumptions(result.scenario.settings).isaModelledReturnAnnual,
+            deriveInflationAssumptions(result.scenario.settings)
+              .isaModelledReturnAnnual
           ),
       ],
       [
         "SIPP nominal return",
         (result) =>
           formatPercent(
-            deriveInflationAssumptions(result.scenario.settings).sippNominalReturnAnnual,
+            deriveInflationAssumptions(result.scenario.settings)
+              .sippNominalReturnAnnual
           ),
       ],
       [
         "SIPP modelled real return",
         (result) =>
           formatPercent(
-            deriveInflationAssumptions(result.scenario.settings).sippModelledReturnAnnual,
+            deriveInflationAssumptions(result.scenario.settings)
+              .sippModelledReturnAnnual
           ),
       ],
       [
         "State Pension growth projected",
-        (result) => formatYesNo(result.scenario.settings.statePensionApplyFutureGrowth),
+        (result) =>
+          formatYesNo(result.scenario.settings.statePensionApplyFutureGrowth),
       ],
       [
         "Taxation enabled",
         (result) => formatYesNo(result.scenario.settings.taxationEnabled),
       ],
     ]),
-  ].flat().filter((row) => !areAllValuesNa(row.values));
+  ]
+    .flat()
+    .filter((row) => !areAllValuesNa(row.values));
 }
 
 export function buildComparisonStatusItems(
-  result: ComparisonResult,
+  result: ComparisonResult
 ): SummaryItemLike[] {
   const overallWorks =
     result.targetMissMonths === 0 &&
@@ -766,15 +845,16 @@ export function buildComparisonStatusItems(
     mainIssue =
       result.bridgeAnalysis.additionalMonthlyContributionRequired > 0
         ? `Bridge still unfunded; estimated extra monthly saving ${formatMonthlyCurrency(
-            result.bridgeAnalysis.additionalMonthlyContributionRequired,
+            result.bridgeAnalysis.additionalMonthlyContributionRequired
           )}`
         : "Bridge still unfunded";
   } else if (result.bridgeAnalysis.fullSecureAnnualGuaranteedSurplus < 0) {
     mainIssue = `Secure pension income is ${formatAnnualCurrency(
-      Math.abs(result.bridgeAnalysis.fullSecureAnnualGuaranteedSurplus),
+      Math.abs(result.bridgeAnalysis.fullSecureAnnualGuaranteedSurplus)
     )} below target once the bridge ends`;
   } else if (result.targetMissMonths > 0) {
-    mainIssue = "Income drops below target before secure pension income is fully in place";
+    mainIssue =
+      "Income drops below target before secure pension income is fully in place";
   }
 
   return [
@@ -795,19 +875,22 @@ export function buildComparisonStatusItems(
 
 export function buildRetirementIncomeItems(
   summary: PensionSummary,
-  display: RetirementIncomeDisplay,
+  display: RetirementIncomeDisplay
 ): SummaryItemLike[] {
   return summary.retirementIncome.sources.map((source) => ({
-    label: display === "monthly" ? `Monthly ${source.label}` : `Annual ${source.label}`,
+    label:
+      display === "monthly"
+        ? `Monthly ${source.label}`
+        : `Annual ${source.label}`,
     value: formatCurrencyDetailed(
-      display === "monthly" ? source.monthlyIncome : source.annualIncome,
+      display === "monthly" ? source.monthlyIncome : source.annualIncome
     ),
   }));
 }
 
 export function getRetirementIncomeTitle(
   taxationEnabled: boolean,
-  display: RetirementIncomeDisplay,
+  display: RetirementIncomeDisplay
 ) {
   if (display === "monthly") {
     return taxationEnabled
@@ -820,7 +903,9 @@ export function getRetirementIncomeTitle(
     : "Annual retirement income before tax";
 }
 
-export function getRetirementIncomeTargetTitle(display: RetirementIncomeDisplay) {
+export function getRetirementIncomeTargetTitle(
+  display: RetirementIncomeDisplay
+) {
   return display === "monthly"
     ? "Monthly target retirement income"
     : "Annual target retirement income";
@@ -828,7 +913,7 @@ export function getRetirementIncomeTargetTitle(display: RetirementIncomeDisplay)
 
 function normalizeStoredComparisonScenario(
   scenario: unknown,
-  index: number,
+  index: number
 ): ComparisonScenario | null {
   if (!scenario || typeof scenario !== "object") {
     return null;
@@ -867,7 +952,9 @@ function normalizeStoredComparisonScenario(
 function createComparisonSection(
   section: string,
   results: ComparisonResult[],
-  rows: Array<[metric: string, getValue: (result: ComparisonResult) => ReactNode]>,
+  rows: Array<
+    [metric: string, getValue: (result: ComparisonResult) => ReactNode]
+  >
 ) {
   const sectionDividerRow: ComparisonTableRow = {
     key: `${section}-divider`,
@@ -903,10 +990,10 @@ function findPotDepletedAge(
   rows: ProjectionRow[],
   potKey: "isaPot" | "sippPot",
   drawAge: number,
-  targetAge: number | null = null,
+  targetAge: number | null = null
 ) {
   const depletionRow = rows.find(
-    (row) => row.age + row.ageMonths / 12 >= drawAge && row[potKey] <= 0,
+    (row) => row.age + row.ageMonths / 12 >= drawAge && row[potKey] <= 0
   );
 
   if (!depletionRow) {
@@ -925,40 +1012,60 @@ function findPotDepletedAge(
 function findAnnualIncomeAtAge(rows: ProjectionRow[], targetAge: number) {
   const row = findRowAtAge(rows, targetAge);
 
-  return (row?.totalMonthlyPensionTakeHomePay ?? 0) * 12;
+  return (row?.totalMonthlyNetIncome ?? 0) * 12;
 }
 
 function findRowAtAge(rows: ProjectionRow[], targetAge: number) {
   return (
-    rows.find((candidate) => candidate.age + candidate.ageMonths / 12 >= targetAge) ??
-    rows.at(-1)
+    rows.find(
+      (candidate) => candidate.age + candidate.ageMonths / 12 >= targetAge
+    ) ?? rows.at(-1)
   );
 }
 
-function getLowestAnnualIncome(rows: ProjectionRow[], settings: PensionSettings) {
+function getLowestAnnualIncome(
+  rows: ProjectionRow[],
+  settings: PensionSettings
+) {
   const incomes = createRetirementIncomeSeries(rows, settings)
     .filter(
       (point) =>
-        point.age >= settings.requirementAge && point.age <= settings.lifeExpectancy,
+        point.age >= settings.requirementAge &&
+        point.age <= settings.lifeExpectancy
     )
     .map((point) => point.assessedIncomeAnnual);
 
   return incomes.length ? Math.min(...incomes) : 0;
 }
 
-function getLargestAnnualShortfall(rows: ProjectionRow[], settings: PensionSettings) {
-  return createRetirementIncomeSeries(rows, settings).reduce((largest, point) => {
-    if (point.age < settings.requirementAge || point.age > settings.lifeExpectancy) {
-      return largest;
-    }
+function getLargestAnnualShortfall(
+  rows: ProjectionRow[],
+  settings: PensionSettings
+) {
+  return createRetirementIncomeSeries(rows, settings).reduce(
+    (largest, point) => {
+      if (
+        point.age < settings.requirementAge ||
+        point.age > settings.lifeExpectancy
+      ) {
+        return largest;
+      }
 
-    return Math.max(largest, point.shortfallAnnual);
-  }, 0);
+      return Math.max(largest, point.shortfallAnnual);
+    },
+    0
+  );
 }
 
-function getTotalLifetimeShortfall(rows: ProjectionRow[], settings: PensionSettings) {
+function getTotalLifetimeShortfall(
+  rows: ProjectionRow[],
+  settings: PensionSettings
+) {
   return createRetirementIncomeSeries(rows, settings).reduce((total, point) => {
-    if (point.age < settings.requirementAge || point.age > settings.lifeExpectancy) {
+    if (
+      point.age < settings.requirementAge ||
+      point.age > settings.lifeExpectancy
+    ) {
       return total;
     }
 
@@ -972,7 +1079,7 @@ function getFinalPotBalance(rows: ProjectionRow[], key: "isaPot" | "sippPot") {
 
 function getTotalWithdrawals(
   rows: ProjectionRow[],
-  key: "monthlyIsaPension" | "monthlySippPension",
+  key: "monthlyIsaPension" | "monthlySippPension"
 ) {
   return rows.reduce((total, row) => total + row[key], 0);
 }
@@ -980,12 +1087,12 @@ function getTotalWithdrawals(
 function getCombinedSecurePensionAtStateAge(result: ComparisonResult) {
   const stateAgeRow = findRowAtAge(
     result.rows,
-    result.summary.calculated.statePensionAge,
+    result.summary.calculated.statePensionAge
   );
 
   return (
-    ((stateAgeRow?.monthlyAlphaPensionTakeHome ?? 0) +
-      (stateAgeRow?.monthlyNuvosPensionTakeHome ?? 0) +
+    ((stateAgeRow?.monthlyAlphaPensionGross ?? 0) +
+      (stateAgeRow?.monthlyNuvosPensionGross ?? 0) +
       (stateAgeRow?.monthlyStatePension ?? 0)) *
     12
   );
@@ -998,7 +1105,7 @@ function findFlexibleAssetsExhaustedAge(result: ComparisonResult) {
       : Number.POSITIVE_INFINITY,
     result.scenario.settings.showSipp
       ? result.scenario.settings.sippDrawAge
-      : Number.POSITIVE_INFINITY,
+      : Number.POSITIVE_INFINITY
   );
 
   if (!Number.isFinite(startAge)) {
@@ -1024,12 +1131,15 @@ function renderComparisonStatusCell(result: ComparisonResult) {
   return renderComparisonToneCell(status, tone);
 }
 
-function countTargetMissMonths(rows: ProjectionRow[], settings: PensionSettings) {
+function countTargetMissMonths(
+  rows: ProjectionRow[],
+  settings: PensionSettings
+) {
   return createRetirementIncomeSeries(rows, settings).filter(
     (point) =>
       point.age >= settings.requirementAge &&
       point.age <= settings.lifeExpectancy &&
-      point.shortfallAnnual > 0,
+      point.shortfallAnnual > 0
   ).length;
 }
 
@@ -1078,12 +1188,12 @@ function formatBridgeSecurePosition(analysis: RetirementBridgeAnalysis) {
     analysis.fullSecureAnnualGuaranteedSurplus >= 0 ? "overshoot" : "shortfall";
 
   return `${formatCurrencyDetailed(amount)} ${annualLabel} per year (${formatCurrencyDetailed(
-    amount / 12,
+    amount / 12
   )} per month)`;
 }
 
 function getBridgeSecurePositionTone(
-  analysis: RetirementBridgeAnalysis,
+  analysis: RetirementBridgeAnalysis
 ): "good" | "caution" | "problem" {
   if (analysis.fullSecureIncomeStartDate === null) {
     return "caution";
@@ -1160,17 +1270,19 @@ function renderFlexibleAssetsExhaustedCell(result: ComparisonResult) {
   }
 
   const tone =
-    exhaustedAge < result.scenario.settings.lifeExpectancy ? "problem" : "caution";
+    exhaustedAge < result.scenario.settings.lifeExpectancy
+      ? "problem"
+      : "caution";
 
   return renderComparisonToneCell(
     `Yes at age ${formatDecimalAge(exhaustedAge)}`,
-    tone,
+    tone
   );
 }
 
 function getPotDepletionTone(
   age: number | null,
-  settings: PensionSettings,
+  settings: PensionSettings
 ): "good" | "caution" | "problem" {
   if (age === null) {
     return "good";
@@ -1181,14 +1293,18 @@ function getPotDepletionTone(
 
 function renderComparisonToneCell(
   value: ReactNode,
-  tone: "good" | "caution" | "problem",
+  tone: "good" | "caution" | "problem"
 ) {
-  return <span className={`comparison-cell comparison-cell--${tone}`}>{value}</span>;
+  return (
+    <span className={`comparison-cell comparison-cell--${tone}`}>{value}</span>
+  );
 }
 
 function getCapitalPreservationScore(result: ComparisonResult) {
-  const isaAge = result.isaDepletedAge ?? result.scenario.settings.lifeExpectancy + 1;
-  const sippAge = result.sippDepletedAge ?? result.scenario.settings.lifeExpectancy + 1;
+  const isaAge =
+    result.isaDepletedAge ?? result.scenario.settings.lifeExpectancy + 1;
+  const sippAge =
+    result.sippDepletedAge ?? result.scenario.settings.lifeExpectancy + 1;
 
   return Math.min(isaAge, sippAge);
 }

@@ -15,8 +15,12 @@ import {
 } from "../settings-shared/date";
 import { calculateNormalPensionAge } from "../settings-shared/state";
 
-export function normalizeAddedPensionFactorType(value: unknown): AddedPensionFactorType {
-  return value === "self_plus_beneficiaries" || value === "self" ? value : "self";
+export function normalizeAddedPensionFactorType(
+  value: unknown
+): AddedPensionFactorType {
+  return value === "self_plus_beneficiaries" || value === "self"
+    ? value
+    : "self";
 }
 
 export function normalizeAlphaPensionBooleanSetting(value: unknown) {
@@ -55,13 +59,19 @@ export function normalizeAlphaAbsYearValue(value: string, fallback: string) {
 
 export function getLatestAlphaAddedPensionPurchaseDate(dateOfBirth: string) {
   return addDaysToIsoDate(
-    addYearsToIsoDate(dateOfBirth, FIRST_UNSUPPORTED_ADDED_PENSION_PURCHASE_AGE),
-    -1,
+    addYearsToIsoDate(
+      dateOfBirth,
+      FIRST_UNSUPPORTED_ADDED_PENSION_PURCHASE_AGE
+    ),
+    -1
   );
 }
 
 function createAddedPensionLumpSumId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
 
@@ -81,12 +91,16 @@ function normalizeWholeCurrency(value: number) {
 
 export function normalizeAddedPensionLumpSum(
   value: AddedPensionLumpSum,
-  options: { includeFactorType?: boolean } = {},
+  options: { includeFactorType?: boolean } = {}
 ) {
-  const startDate = isValidIsoDate(value.startDate) ? value.startDate : getTodayIsoDate();
+  const startDate = isValidIsoDate(value.startDate)
+    ? value.startDate
+    : getTodayIsoDate();
   const amount = normalizeWholeCurrency(value.amount);
   const cadence = value.cadence === "yearly" ? "yearly" : "once";
-  const normalizedEndDate = isValidIsoDate(value.endDate) ? value.endDate : startDate;
+  const normalizedEndDate = isValidIsoDate(value.endDate)
+    ? value.endDate
+    : startDate;
   const endDate = cadence === "once" ? startDate : normalizedEndDate;
 
   return {
@@ -103,7 +117,7 @@ export function normalizeAddedPensionLumpSum(
 
 export function normalizeAddedPensionLumpSums(
   value: AddedPensionLumpSum[],
-  options: { includeFactorType?: boolean } = {},
+  options: { includeFactorType?: boolean } = {}
 ) {
   return value.map((entry) => normalizeAddedPensionLumpSum(entry, options));
 }
@@ -119,7 +133,7 @@ function coerceString(value: unknown) {
 
 function coerceAddedPensionLumpSum(
   value: unknown,
-  options: { includeFactorType?: boolean } = {},
+  options: { includeFactorType?: boolean } = {}
 ) {
   if (!value || typeof value !== "object") {
     return undefined;
@@ -132,7 +146,10 @@ function coerceAddedPensionLumpSum(
     amount: coerceNumber(input.amount) ?? 0,
     startDate: coerceString(input.startDate) ?? getTodayIsoDate(),
     cadence: input.cadence === "yearly" ? "yearly" : "once",
-    endDate: coerceString(input.endDate) ?? coerceString(input.startDate) ?? getTodayIsoDate(),
+    endDate:
+      coerceString(input.endDate) ??
+      coerceString(input.startDate) ??
+      getTodayIsoDate(),
     ...(options.includeFactorType
       ? { factorType: normalizeAddedPensionFactorType(input.factorType) }
       : {}),
@@ -141,7 +158,7 @@ function coerceAddedPensionLumpSum(
 
 export function coerceAddedPensionLumpSums(
   value: unknown,
-  options: { includeFactorType?: boolean } = {},
+  options: { includeFactorType?: boolean } = {}
 ) {
   if (!Array.isArray(value)) {
     return undefined;
@@ -172,7 +189,7 @@ export function coerceLegacySippLumpSum(value: number | undefined) {
 
 export function createDefaultAddedPensionLumpSum(
   startDate = getTodayIsoDate(),
-  factorType?: AddedPensionFactorType,
+  factorType?: AddedPensionFactorType
 ): AddedPensionLumpSum {
   return {
     id: createAddedPensionLumpSumId(),
@@ -187,7 +204,8 @@ export function createDefaultAddedPensionLumpSum(
 export function getAlphaEpaDate(settings: PensionSettings) {
   return addYearsToIsoDate(
     settings.dateOfBirth,
-    calculateNormalPensionAge(settings.dateOfBirth) - settings.alphaEpaYearsBeforeNpa,
+    calculateNormalPensionAge(settings.dateOfBirth) -
+      settings.alphaEpaYearsBeforeNpa
   );
 }
 
@@ -222,10 +240,14 @@ export function validateAlphaPensionRules({
     });
   }
 
-  if (settings.showAlpha && settings.requirementAge > settings.alphaPensionDrawAge) {
+  if (
+    settings.showAlpha &&
+    settings.requirementAge > settings.alphaPensionDrawAge
+  ) {
     issues.push({
       field: "requirementAge",
-      message: "Retirement age must be on or before the Alpha pension draw age.",
+      message:
+        "Retirement age must be on or before the Alpha pension draw age.",
     });
   }
 
@@ -243,14 +265,16 @@ export function validateAlphaPensionRules({
   if (settings.showAlpha && alphaLeaveDate > lifeExpectancyDate) {
     issues.push({
       field: "alphaPensionLeaveAge",
-      message: "Alpha pensionable service leave age must be within life expectancy.",
+      message:
+        "Alpha pensionable service leave age must be within life expectancy.",
     });
   }
 
   if (settings.showAlpha && alphaAbsDate > settings.startDate) {
     issues.push({
       field: "alphaPensionAbsDate",
-      message: "Last Annual Benefits Statement must be on or before the calculation start date.",
+      message:
+        "Last Annual Benefits Statement must be on or before the calculation start date.",
     });
   }
 

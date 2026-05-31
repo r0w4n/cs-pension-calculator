@@ -1,5 +1,8 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { ProjectionTableFrame, ProjectionTableSection } from "./projection-table";
+import {
+  ProjectionTableFrame,
+  ProjectionTableSection,
+} from "./projection-table";
 import { createDefaultSettings } from "../settings";
 import type { ProjectionRow } from "../projection";
 
@@ -16,18 +19,18 @@ const rows: ProjectionRow[] = [
     annualEpaAlphaPension: 0,
     annualAccruedAlphaPension: 1000,
     annualAlphaPensionIncludingReduction: 1000,
-    monthlyAlphaPensionTakeHome: 80,
+    monthlyAlphaPensionGross: 80,
     annualNuvosPension: 0,
     annualNuvosPensionIncludingReduction: 0,
-    monthlyNuvosPensionTakeHome: 0,
+    monthlyNuvosPensionGross: 0,
     monthlyStatePension: 0,
     sippPot: 0,
     monthlySippPension: 0,
     isaPot: 0,
     monthlyIsaPension: 0,
-    totalMonthlyPensionIncomeBeforeTax: 80,
+    totalMonthlyIncomeBeforeTax: 80,
     monthlyIncomeTax: 0,
-    totalMonthlyPensionTakeHomePay: 80,
+    totalMonthlyNetIncome: 80,
   },
 ];
 
@@ -54,21 +57,29 @@ describe("projection-table module", () => {
   it("defers table rendering then displays controls", () => {
     vi.useFakeTimers();
 
-    render(<ProjectionTableSection rows={rows} settings={createDefaultSettings()} />);
+    render(
+      <ProjectionTableSection rows={rows} settings={createDefaultSettings()} />
+    );
 
-    expect(screen.getByText("Preparing projection table...")).toBeInTheDocument();
+    expect(
+      screen.getByText("Preparing projection table...")
+    ).toBeInTheDocument();
 
     act(() => {
       vi.runAllTimers();
     });
 
-    expect(screen.getByRole("button", { name: "Show all rows" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show all rows" })
+    ).toBeInTheDocument();
     vi.useRealTimers();
   });
 
   it("toggles milestone filter", () => {
     vi.useFakeTimers();
-    render(<ProjectionTableSection rows={rows} settings={createDefaultSettings()} />);
+    render(
+      <ProjectionTableSection rows={rows} settings={createDefaultSettings()} />
+    );
 
     act(() => {
       vi.runAllTimers();
@@ -76,7 +87,9 @@ describe("projection-table module", () => {
 
     const button = screen.getByRole("button", { name: "Show all rows" });
     fireEvent.click(button);
-    expect(screen.getByRole("button", { name: "Only show milestone rows" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Only show milestone rows" })
+    ).toBeInTheDocument();
     vi.useRealTimers();
   });
 
@@ -93,12 +106,14 @@ describe("projection-table module", () => {
         emptyMessage="No rows"
         getRowKey={(row) => row.id}
         renderCells={(row) => [row.date, row.income]}
-      />,
+      />
     );
 
     expect(screen.getByText("Date")).toBeInTheDocument();
     expect(screen.getByText("Income")).toBeInTheDocument();
-    expect(document.querySelector(".projection-mobile-cards--active")).not.toBeNull();
+    expect(
+      document.querySelector(".projection-mobile-cards--active")
+    ).not.toBeNull();
     expect(document.querySelector(".table-header-shell")).toBeNull();
     expect(document.querySelector(".table-body-shell")).toBeNull();
   });
@@ -116,10 +131,12 @@ describe("projection-table module", () => {
         emptyMessage="No rows"
         getRowKey={(row) => row.id}
         renderCells={(row) => [row.date, row.income]}
-      />,
+      />
     );
 
-    expect(document.querySelector(".projection-mobile-cards--active")).toBeNull();
+    expect(
+      document.querySelector(".projection-mobile-cards--active")
+    ).toBeNull();
     expect(document.querySelector(".table-header-shell")).not.toBeNull();
     expect(document.querySelector(".table-body-shell")).not.toBeNull();
   });

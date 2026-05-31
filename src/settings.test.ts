@@ -47,9 +47,11 @@ function expectedStoredSettings(overrides: Record<string, unknown> = {}) {
     currentStatePension: defaultSettings.currentStatePension,
     desiredRetirementIncome: defaultSettings.desiredRetirementIncome,
     statePensionDrawDate: defaultSettings.statePensionDrawDate,
-    statePensionApplyFutureGrowth: defaultSettings.statePensionApplyFutureGrowth,
+    statePensionApplyFutureGrowth:
+      defaultSettings.statePensionApplyFutureGrowth,
     statePensionCpiPercent: defaultSettings.statePensionCpiPercent,
-    statePensionWageGrowthPercent: defaultSettings.statePensionWageGrowthPercent,
+    statePensionWageGrowthPercent:
+      defaultSettings.statePensionWageGrowthPercent,
     applyPensionIncreases: defaultSettings.applyPensionIncreases,
     assumedCpiPercent: defaultSettings.assumedCpiPercent,
     alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
@@ -133,7 +135,9 @@ describe("settings unit tests", () => {
   it("normalizes numeric settings to allowed ranges and whole-number steps", () => {
     expect(normalizeSetting("lifeExpectancy", 120)).toBe(100);
     expect(normalizeSetting("projectionBasis", "nominal")).toBe("nominal");
-    expect(normalizeSetting("projectionBasis", "bad-value" as never)).toBe("real");
+    expect(normalizeSetting("projectionBasis", "bad-value" as never)).toBe(
+      "real"
+    );
     expect(normalizeSetting("inflationRateAnnual", 2.34)).toBe(2.34);
     expect(normalizeSetting("inflationRateAnnual", 11)).toBe(10);
     expect(normalizeSetting("currentStatePension", -10)).toBe(0);
@@ -141,10 +145,12 @@ describe("settings unit tests", () => {
     expect(normalizeSetting("desiredRetirementIncome", 250000)).toBe(200000);
     expect(normalizeSetting("desiredRetirementIncome", 43899.6)).toBe(43900);
     expect(normalizeSetting("requirementAge", 60.25)).toBe(60.25);
-    expect(normalizeSetting("alphaAddedPensionFactorType", "self_plus_beneficiaries")).toBe(
-      "self_plus_beneficiaries",
-    );
-    expect(normalizeSetting("alphaAddedPensionFactorType", "bad-value" as never)).toBe("self");
+    expect(
+      normalizeSetting("alphaAddedPensionFactorType", "self_plus_beneficiaries")
+    ).toBe("self_plus_beneficiaries");
+    expect(
+      normalizeSetting("alphaAddedPensionFactorType", "bad-value" as never)
+    ).toBe("self");
     expect(normalizeSetting("statePensionCpiPercent", 2.34)).toBe(2.34);
     expect(normalizeSetting("statePensionWageGrowthPercent", 11)).toBe(10);
     expect(normalizeSetting("partialRetirementStartAge", 75)).toBe(70);
@@ -165,8 +171,12 @@ describe("settings unit tests", () => {
 
   it("normalizes invalid dates back to defaults", () => {
     expect(normalizeSetting("startDate", "not-a-date")).toBe("2026-04-25");
-    expect(normalizeSetting("dateOfBirth", "2026-99-99")).toBe(defaultSettings.dateOfBirth);
-    expect(normalizeSetting("dateOfBirth", "2026-02-31")).toBe(defaultSettings.dateOfBirth);
+    expect(normalizeSetting("dateOfBirth", "2026-99-99")).toBe(
+      defaultSettings.dateOfBirth
+    );
+    expect(normalizeSetting("dateOfBirth", "2026-02-31")).toBe(
+      defaultSettings.dateOfBirth
+    );
   });
 
   it("rejects impossible calendar dates during strict validation", () => {
@@ -192,12 +202,14 @@ describe("settings unit tests", () => {
 
     saveSettings(settings);
 
-    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+    expect(
+      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
+    ).toEqual(
       expectedStoredSettings({
         alphaAddedPensionMonthly: 233,
         alphaAddedPensionFactorType: "self_plus_beneficiaries",
         desiredRetirementIncome: 60600,
-      }),
+      })
     );
   });
 
@@ -228,7 +240,7 @@ describe("settings unit tests", () => {
             endDate: "2020-01-01",
           },
         ],
-      }),
+      })
     );
 
     expect(loadStoredSettings()).toEqual({
@@ -247,14 +259,17 @@ describe("settings unit tests", () => {
       taxationEnabled: defaultSettings.taxationEnabled,
       partialRetirementEnabled: defaultSettings.partialRetirementEnabled,
       partialRetirementStartAge: defaultSettings.partialRetirementStartAge,
-      partialRetirementWorkPercent: defaultSettings.partialRetirementWorkPercent,
+      partialRetirementWorkPercent:
+        defaultSettings.partialRetirementWorkPercent,
       fullSalary: defaultSettings.fullSalary,
       currentStatePension: 0,
       desiredRetirementIncome: 43900,
       statePensionDrawDate: defaultSettings.statePensionDrawDate,
-      statePensionApplyFutureGrowth: defaultSettings.statePensionApplyFutureGrowth,
+      statePensionApplyFutureGrowth:
+        defaultSettings.statePensionApplyFutureGrowth,
       statePensionCpiPercent: defaultSettings.statePensionCpiPercent,
-      statePensionWageGrowthPercent: defaultSettings.statePensionWageGrowthPercent,
+      statePensionWageGrowthPercent:
+        defaultSettings.statePensionWageGrowthPercent,
       applyPensionIncreases: true,
       assumedCpiPercent: 2.34,
       alphaPensionAbsDate: defaultSettings.alphaPensionAbsDate,
@@ -279,7 +294,8 @@ describe("settings unit tests", () => {
         },
       ],
       nuvosPensionAbsDate: defaultSettings.nuvosPensionAbsDate,
-      nuvosAccruedPensionAtLastAbs: defaultSettings.nuvosAccruedPensionAtLastAbs,
+      nuvosAccruedPensionAtLastAbs:
+        defaultSettings.nuvosAccruedPensionAtLastAbs,
       nuvosPensionableEarnings: defaultSettings.nuvosPensionableEarnings,
       nuvosPensionLeaveAge: defaultSettings.nuvosPensionLeaveAge,
       nuvosPensionDrawAge: defaultSettings.nuvosPensionDrawAge,
@@ -342,7 +358,7 @@ describe("settings unit tests", () => {
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
         sippApplyTaxRelief: true,
-      }),
+      })
     );
 
     expect(loadStoredSettings().sippTaxReliefRate).toBe("20");
@@ -351,7 +367,7 @@ describe("settings unit tests", () => {
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
         sippApplyTaxRelief: false,
-      }),
+      })
     );
 
     expect(loadStoredSettings().sippTaxReliefRate).toBe("none");
@@ -365,10 +381,12 @@ describe("settings unit tests", () => {
 
     saveSettings(settings);
 
-    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")).toEqual(
+    expect(
+      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
+    ).toEqual(
       expect.objectContaining({
         statePensionDrawDate: "2056-06-15",
-      }),
+      })
     );
     expect(loadStoredSettings().statePensionDrawDate).toBe("2056-06-15");
   });
@@ -383,16 +401,10 @@ describe("settings unit tests", () => {
     };
 
     expect(
-      getPartialRetirementContributionMultiplier(
-        ageBasedSettings,
-        "2042-06-14",
-      ),
+      getPartialRetirementContributionMultiplier(ageBasedSettings, "2042-06-14")
     ).toBe(1);
     expect(
-      getPartialRetirementContributionMultiplier(
-        ageBasedSettings,
-        "2042-06-15",
-      ),
+      getPartialRetirementContributionMultiplier(ageBasedSettings, "2042-06-15")
     ).toBe(0.6);
   });
 
@@ -411,7 +423,7 @@ describe("settings unit tests", () => {
           message:
             "Partial retirement start age must be before the retirement start age.",
         }),
-        ]),
+      ])
     );
   });
 
@@ -426,14 +438,17 @@ describe("settings unit tests", () => {
       expect.arrayContaining([
         expect.objectContaining({
           field: "requirementAge",
-          message: "Retirement age must be on or before the Alpha pension draw age.",
+          message:
+            "Retirement age must be on or before the Alpha pension draw age.",
         }),
-      ]),
+      ])
     );
   });
 
   it("limits Alpha added pension purchases to supported factor ages", () => {
-    expect(getLatestAlphaAddedPensionPurchaseDate("1987-06-15")).toBe("2055-06-14");
+    expect(getLatestAlphaAddedPensionPurchaseDate("1987-06-15")).toBe(
+      "2055-06-14"
+    );
 
     const issues = validateSettings({
       ...defaultSettings,
@@ -466,7 +481,7 @@ describe("settings unit tests", () => {
           message:
             "Alpha lump sums must fall between the last Annual Benefits Statement and the supported added pension factor ages.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -482,9 +497,10 @@ describe("settings unit tests", () => {
         expect.objectContaining({ field: "startDate" }),
         expect.objectContaining({
           field: "statePensionDrawDate",
-          message: "State Pension start date cannot be before State Pension age.",
+          message:
+            "State Pension start date cannot be before State Pension age.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -501,7 +517,7 @@ describe("settings unit tests", () => {
           field: "dateOfBirth",
           message: "Date of birth must be before the calculation start date.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -524,7 +540,7 @@ describe("settings unit tests", () => {
         expect.objectContaining({ field: "lifeExpectancy" }),
         expect.objectContaining({ field: "sippDrawAge" }),
         expect.objectContaining({ field: "isaDrawAge" }),
-      ]),
+      ])
     );
   });
 
@@ -542,7 +558,7 @@ describe("settings unit tests", () => {
           message:
             "Last Annual Benefits Statement must be on or before the calculation start date.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -562,7 +578,7 @@ describe("settings unit tests", () => {
           field: "alphaEpaStartDate",
           message: "EPA dates must overlap the Alpha accrual period.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -581,13 +597,15 @@ describe("settings unit tests", () => {
       expect.arrayContaining([
         expect.objectContaining({
           field: "sippDrawAge",
-          message: "SIPP draw start age must be after the calculation start date.",
+          message:
+            "SIPP draw start age must be after the calculation start date.",
         }),
         expect.objectContaining({
           field: "isaDrawAge",
-          message: "ISA draw start age must be after the calculation start date.",
+          message:
+            "ISA draw start age must be after the calculation start date.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -606,7 +624,7 @@ describe("settings unit tests", () => {
           message:
             "SIPP draw start age must be at least 57 for access dates on or after 6 April 2028.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -653,7 +671,8 @@ describe("settings unit tests", () => {
         expect.objectContaining({
           field: "sippLumpSums",
           itemId: "sipp-lump",
-          message: "SIPP lump sum repeat-until date must be on or after its start date.",
+          message:
+            "SIPP lump sum repeat-until date must be on or after its start date.",
         }),
         expect.objectContaining({
           field: "isaLumpSums",
@@ -661,7 +680,7 @@ describe("settings unit tests", () => {
           message:
             "ISA lump sums must fall between the calculation start date and the earlier of retirement age and ISA draw start.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -707,7 +726,7 @@ describe("settings unit tests", () => {
           message:
             "ISA lump sums must fall between the calculation start date and the earlier of retirement age and ISA draw start.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -736,7 +755,7 @@ describe("settings unit tests", () => {
           message:
             "Alpha lump sums must be scheduled on or before Alpha pensionable service stops.",
         }),
-      ]),
+      ])
     );
   });
 
@@ -764,8 +783,12 @@ describe("settings unit tests", () => {
     expect(calculateStatePensionDrawDate("1987-06-15")).toBe("2055-06-15");
     expect(calculateDateAge("1977-11-23", "2045-07-06")).toBeCloseTo(67.62, 2);
     expect(calculateMinimumStatePensionDrawAge("1977-11-23")).toBe(67.75);
-    expect(calculateStatePensionDrawAge("1977-11-23", "2045-07-06")).toBe(67.75);
-    expect(calculateStatePensionDrawDateFromAge("1977-11-23", 67.75)).toBe("2045-08-23");
+    expect(calculateStatePensionDrawAge("1977-11-23", "2045-07-06")).toBe(
+      67.75
+    );
+    expect(calculateStatePensionDrawDateFromAge("1977-11-23", 67.75)).toBe(
+      "2045-08-23"
+    );
   });
 
   it("derives the earliest Alpha and SIPP access ages from the 2028 minimum pension age change", () => {
@@ -799,16 +822,16 @@ describe("settings unit tests", () => {
 
   it("allows State Pension deferral dates but clamps them to State Pension age", () => {
     expect(normalizeStatePensionDrawDate("2056-06-15", "1987-06-15")).toBe(
-      "2056-06-15",
+      "2056-06-15"
     );
     expect(normalizeStatePensionDrawDate("2050-06-15", "1987-06-15")).toBe(
-      "2055-06-15",
+      "2055-06-15"
     );
     expect(normalizeStatePensionDrawDate("bad-date", "1987-06-15")).toBe(
-      "2055-06-15",
+      "2055-06-15"
     );
     expect(normalizeStatePensionDrawDate("2045-07-06", "1977-11-23")).toBe(
-      "2045-08-23",
+      "2045-08-23"
     );
   });
 
@@ -823,7 +846,7 @@ describe("settings unit tests", () => {
           endDate: "2030-06-15",
           factorType: "self_plus_beneficiaries",
         },
-      ]),
+      ])
     ).toEqual([
       {
         id: "one-off",

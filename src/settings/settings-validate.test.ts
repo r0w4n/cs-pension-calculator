@@ -19,7 +19,9 @@ describe("settings-validate", () => {
     };
 
     const issues = validateSettings(settings);
-    expect(issues.some((issue) => issue.field === "statePensionDrawDate")).toBe(true);
+    expect(issues.some((issue) => issue.field === "statePensionDrawDate")).toBe(
+      true
+    );
   });
 
   it("returns no issues for defaults", () => {

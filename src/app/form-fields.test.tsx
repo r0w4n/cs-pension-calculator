@@ -10,7 +10,7 @@ describe("form-fields module", () => {
         label="Start"
         initialValue="2026-01-01"
         onCommit={onCommit}
-      />,
+      />
     );
 
     const input = screen.getByLabelText("Start");

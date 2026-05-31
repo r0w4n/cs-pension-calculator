@@ -1,4 +1,7 @@
-import { createDefaultAddedPensionLumpSum, type AddedPensionLumpSum } from "../settings";
+import {
+  createDefaultAddedPensionLumpSum,
+  type AddedPensionLumpSum,
+} from "../settings";
 import { getLumpSumDateYearRange } from "../app-domains";
 import type { AddedPensionLumpSumsEditorProps } from "./form-field-types";
 import { DateSelectField } from "./form-field-dates";
@@ -18,20 +21,16 @@ export function AddedPensionLumpSumsEditor({
   validationIssues = [],
   onChange,
 }: AddedPensionLumpSumsEditorProps) {
-  function updateLumpSum(
-    id: string,
-    patch: Partial<AddedPensionLumpSum>,
-  ) {
+  function updateLumpSum(id: string, patch: Partial<AddedPensionLumpSum>) {
     onChange(
-      lumpSums.map((lumpSum) => (lumpSum.id === id ? { ...lumpSum, ...patch } : lumpSum)),
+      lumpSums.map((lumpSum) =>
+        lumpSum.id === id ? { ...lumpSum, ...patch } : lumpSum
+      )
     );
   }
 
   function addLumpSum() {
-    onChange([
-      ...lumpSums,
-      createDefaultAddedPensionLumpSum(defaultStartDate),
-    ]);
+    onChange([...lumpSums, createDefaultAddedPensionLumpSum(defaultStartDate)]);
   }
 
   function removeLumpSum(id: string) {
@@ -45,12 +44,14 @@ export function AddedPensionLumpSumsEditor({
         <p className="section-copy">{description}</p>
       </div>
 
-      {lumpSums.length === 0 ? <p className="section-copy">{emptyText}</p> : null}
+      {lumpSums.length === 0 ? (
+        <p className="section-copy">{emptyText}</p>
+      ) : null}
 
       <div className="lump-sum-list">
         {lumpSums.map((lumpSum, index) => {
           const lumpSumValidationIssues = validationIssues.filter(
-            (issue) => issue.itemId === lumpSum.id,
+            (issue) => issue.itemId === lumpSum.id
           );
           const validationId =
             lumpSumValidationIssues.length > 0
@@ -79,7 +80,9 @@ export function AddedPensionLumpSumsEditor({
                 aria-invalid={hasValidationIssue || undefined}
                 aria-describedby={validationId}
                 onChange={(event) =>
-                  updateLumpSum(lumpSum.id, { amount: Number(event.target.value) })
+                  updateLumpSum(lumpSum.id, {
+                    amount: Number(event.target.value),
+                  })
                 }
               />
 
@@ -120,7 +123,8 @@ export function AddedPensionLumpSumsEditor({
                 aria-describedby={validationId}
                 onChange={(event) =>
                   updateLumpSum(lumpSum.id, {
-                    cadence: event.target.value as AddedPensionLumpSum["cadence"],
+                    cadence: event.target
+                      .value as AddedPensionLumpSum["cadence"],
                   })
                 }
               >
@@ -139,12 +143,15 @@ export function AddedPensionLumpSumsEditor({
                     aria-describedby={validationId}
                     onChange={(event) =>
                       updateLumpSum(lumpSum.id, {
-                        factorType: event.target.value as AddedPensionLumpSum["factorType"],
+                        factorType: event.target
+                          .value as AddedPensionLumpSum["factorType"],
                       })
                     }
                   >
                     <option value="self">Self only</option>
-                    <option value="self_plus_beneficiaries">Self and dependants</option>
+                    <option value="self_plus_beneficiaries">
+                      Self and dependants
+                    </option>
                   </select>
                 </>
               ) : null}
@@ -174,7 +181,9 @@ export function AddedPensionLumpSumsEditor({
                       aria-invalid={hasValidationIssue || undefined}
                       aria-describedby={validationId}
                       onChange={(event) =>
-                        updateLumpSum(lumpSum.id, { endDate: event.target.value })
+                        updateLumpSum(lumpSum.id, {
+                          endDate: event.target.value,
+                        })
                       }
                     />
                   )}

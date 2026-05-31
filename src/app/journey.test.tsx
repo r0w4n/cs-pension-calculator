@@ -10,7 +10,7 @@ describe("journey module", () => {
     render(
       <JourneySection activeModeRef={ref}>
         <p>Body</p>
-      </JourneySection>,
+      </JourneySection>
     );
 
     expect(screen.getByText("Body")).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe("journey module", () => {
         showGuidanceNotes
         onShowGuidanceNotesChange={vi.fn()}
         renderStepContent={(step) => <p>{step.id}-content</p>}
-      />,
+      />
     );
 
     expect(screen.getByText("one-content")).toBeInTheDocument();

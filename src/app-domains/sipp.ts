@@ -1,13 +1,17 @@
 import type { FieldDefinition, RangeField } from "../fieldDefinitions";
-import { calculateMinimumSippAccessAge, type PensionSettings } from "../settings";
+import {
+  calculateMinimumSippAccessAge,
+  type PensionSettings,
+} from "../settings";
 
 export function shouldRenderSippField(
   fieldId: FieldDefinition["id"],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
   return (
     (fieldId !== "sippWithdrawalPercent" ||
-      (settings.showSipp && settings.sippWithdrawalStrategy === "percentage")) &&
+      (settings.showSipp &&
+        settings.sippWithdrawalStrategy === "percentage")) &&
     (fieldId !== "sippWithdrawalTargetAge" ||
       (settings.showSipp && settings.sippWithdrawalStrategy === "use_by_age"))
   );
@@ -15,7 +19,7 @@ export function shouldRenderSippField(
 
 export function isSippFieldDisabled(
   fieldId: FieldDefinition["id"],
-  settings: PensionSettings,
+  settings: PensionSettings
 ) {
   return (
     (fieldId === "sippWithdrawalPercent" &&
@@ -27,7 +31,7 @@ export function isSippFieldDisabled(
 
 export function getSippEffectiveRangeField(
   field: RangeField,
-  settings: PensionSettings,
+  settings: PensionSettings
 ): RangeField {
   if (field.id === "sippDrawAge") {
     return {
@@ -42,7 +46,7 @@ export function getSippEffectiveRangeField(
       min: settings.sippDrawAge + 0.25,
       max: Math.max(
         settings.sippDrawAge + 0.25,
-        Math.min(field.max, settings.lifeExpectancy),
+        Math.min(field.max, settings.lifeExpectancy)
       ),
     };
   }

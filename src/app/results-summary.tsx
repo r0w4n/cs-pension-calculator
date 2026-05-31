@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
-import { deriveInflationAssumptions, type RetirementIncomeDisplay } from "../projection";
+import {
+  deriveInflationAssumptions,
+  type RetirementIncomeDisplay,
+} from "../projection";
 import type { PensionSettings, PensionValidationIssue } from "../settings";
 import { formatModelledReturn, formatPercent } from "../app-domains";
 import {
@@ -39,7 +42,9 @@ type SummarySectionProps = {
   footer?: ReactNode;
 };
 
-export function ResultsSummarySection({ children }: ResultsSummarySectionProps) {
+export function ResultsSummarySection({
+  children,
+}: ResultsSummarySectionProps) {
   return <>{children}</>;
 }
 
@@ -71,7 +76,10 @@ export function SummarySection({
                 <span className="field-label-group">
                   <span>{label}</span>
                   {infoUrl ? (
-                    <InfoLink href={infoUrl} text={infoLinkText ?? `More about ${label}`} />
+                    <InfoLink
+                      href={infoUrl}
+                      text={infoLinkText ?? `More about ${label}`}
+                    />
                   ) : null}
                 </span>
               </dt>
@@ -95,7 +103,11 @@ export function RetirementIncomeDisplayToggle({
   onChange,
 }: RetirementIncomeDisplayToggleProps) {
   return (
-    <div className="summary-toggle" role="group" aria-label="Pension Summary display">
+    <div
+      className="summary-toggle"
+      role="group"
+      aria-label="Pension Summary display"
+    >
       <button
         type="button"
         className={
@@ -172,7 +184,9 @@ export function ValidationIssuesSection({
 
       <ul className="section-copy">
         {validationIssues.map((issue) => (
-          <li key={`${issue.field}-${issue.itemId ?? "field"}-${issue.message}`}>
+          <li
+            key={`${issue.field}-${issue.itemId ?? "field"}-${issue.message}`}
+          >
             {issue.message}
           </li>
         ))}
@@ -205,7 +219,10 @@ export function ModellerLimitations({
       </button>
 
       {showLimitations ? (
-        <div id="pension-summary-limitations-list" className="limitations-content">
+        <div
+          id="pension-summary-limitations-list"
+          className="limitations-content"
+        >
           <p className="section-copy">
             Important assumptions and omissions to keep in mind:
           </p>
@@ -227,10 +244,12 @@ export function AssumptionsVersionStrip() {
   return (
     <div className="assumptions-version-strip" aria-label="Assumptions version">
       <div className="assumptions-version-strip-copy">
-        <strong>Assumptions version {GOVERNED_ASSUMPTIONS_REGISTRY.version}</strong>
+        <strong>
+          Assumptions version {GOVERNED_ASSUMPTIONS_REGISTRY.version}
+        </strong>
         <span>
-          {GOVERNED_ASSUMPTIONS_REGISTRY.assumptions.length} governed rules. Latest
-          review {latestReviewDate}.
+          {GOVERNED_ASSUMPTIONS_REGISTRY.assumptions.length} governed rules.
+          Latest review {latestReviewDate}.
         </span>
       </div>
       <a
@@ -261,7 +280,9 @@ export function GovernedAssumptionsTable() {
             <tr key={assumption.id}>
               <th scope="row">
                 <div className="assumption-rule-title">{assumption.title}</div>
-                <div className="assumption-rule-summary">{assumption.summary}</div>
+                <div className="assumption-rule-summary">
+                  {assumption.summary}
+                </div>
               </th>
               <td data-label="Source">
                 <a
@@ -303,7 +324,10 @@ export function InflationBasisPanel({
   const rows = buildInflationRows(settings, assumptions, isRealTerms);
 
   return (
-    <section className="panel inflation-panel" aria-labelledby="inflation-summary-title">
+    <section
+      className="panel inflation-panel"
+      aria-labelledby="inflation-summary-title"
+    >
       <div className="panel-heading">
         <h2 id="inflation-summary-title">{basisLabel}</h2>
         <p className="section-copy">{explanation}</p>
@@ -336,7 +360,7 @@ export function InflationBasisPanel({
 function buildInflationRows(
   settings: PensionSettings,
   assumptions: ReturnType<typeof deriveInflationAssumptions>,
-  isRealTerms: boolean,
+  isRealTerms: boolean
 ) {
   const rows = [
     {
@@ -371,8 +395,8 @@ function buildInflationRows(
         true,
         assumptions.sippNominalReturnAnnual,
         assumptions.sippModelledReturnAnnual,
-        settings.projectionBasis,
-      ),
+        settings.projectionBasis
+      )
     );
   }
 
@@ -383,8 +407,8 @@ function buildInflationRows(
         true,
         assumptions.isaNominalReturnAnnual,
         assumptions.isaModelledReturnAnnual,
-        settings.projectionBasis,
-      ),
+        settings.projectionBasis
+      )
     );
   }
 
@@ -407,8 +431,8 @@ function buildInflationRows(
         settings.statePensionApplyFutureGrowth,
         assumptions.statePensionNominalIncreaseAnnual,
         assumptions.statePensionModelledIncreaseAnnual,
-        settings.projectionBasis,
-      ),
+        settings.projectionBasis
+      )
     );
   }
 
@@ -420,7 +444,7 @@ function createReturnRow(
   isApplied: boolean,
   userAnnualRate: number,
   modelledAnnualRate: number,
-  projectionBasis: PensionSettings["projectionBasis"],
+  projectionBasis: PensionSettings["projectionBasis"]
 ) {
   return {
     assumption,

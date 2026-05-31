@@ -4,7 +4,7 @@ import type { PensionValidationIssue } from "../settings";
 export function getFieldCardClassName(
   disabled: boolean,
   hideOnMobile: boolean,
-  hasValidationIssue = false,
+  hasValidationIssue = false
 ) {
   return [
     "field-card",
@@ -91,7 +91,9 @@ export function FieldValidationMessages({
   return (
     <ul id={id} className="field-error-list">
       {issues.map((issue) => (
-        <li key={`${issue.itemId ?? "field"}-${issue.message}`}>{issue.message}</li>
+        <li key={`${issue.itemId ?? "field"}-${issue.message}`}>
+          {issue.message}
+        </li>
       ))}
     </ul>
   );
