@@ -25,6 +25,7 @@ export default defineConfig({
     setupFiles: "./src/test/setup.ts",
     testTimeout: 20000,
     hookTimeout: 20000,
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
