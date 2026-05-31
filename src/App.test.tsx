@@ -1001,6 +1001,9 @@ describe("App settings form", () => {
   it("exports parameters as a JSON download", () => {
     const createObjectURL = vi.fn(() => "blob:mock-export-url");
     const revokeObjectURL = vi.fn();
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
     Object.defineProperty(window.URL, "createObjectURL", {
       configurable: true,
       writable: true,
@@ -1017,6 +1020,8 @@ describe("App settings form", () => {
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-export-url");
+    expect(anchorClick).toHaveBeenCalledTimes(1);
+    anchorClick.mockRestore();
   });
 
   it("orders optional section toggles like the assumptions sections", () => {
