@@ -7,13 +7,14 @@ import {
 } from "./journey-step-content";
 import { JourneyFlow as JourneyFlowFeature, JourneySection } from "./journey";
 
-export type JourneyMode = "bridge" | "simple";
+export type JourneyMode = "bridge" | "simple" | "expert";
 
 type JourneyModeScreenProps = {
   activeModeRef: RefObject<HTMLDivElement | null>;
   mode: JourneyMode;
   journey: JourneyDefinition;
   settings: PensionSettings;
+  settingsFormVersion: number;
   showGuidanceNotes: boolean;
   onShowGuidanceNotesChange: (checked: boolean) => void;
   journeyStepViewModel: JourneyStepViewModel;
@@ -24,6 +25,7 @@ export function JourneyModeScreen({
   mode,
   journey,
   settings,
+  settingsFormVersion,
   showGuidanceNotes,
   onShowGuidanceNotesChange,
   journeyStepViewModel,
@@ -31,7 +33,7 @@ export function JourneyModeScreen({
   return (
     <JourneySection activeModeRef={activeModeRef}>
       <JourneyFlowFeature
-        key={mode}
+        key={`${mode}-${settingsFormVersion}`}
         journey={journey}
         settings={settings}
         showGuidanceNotes={showGuidanceNotes}

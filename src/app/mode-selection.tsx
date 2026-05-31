@@ -15,8 +15,8 @@ export function ModeSelection({
         <h2 id="mode-selection-title">Choose the level of detail</h2>
         <p className="section-copy">
           The simplified journey asks fewer questions and keeps assumptions
-          simple. Switch to expert mode any time if you want every modelling
-          control.
+          simple. Switch to the expert journey any time if you want every
+          modelling control.
         </p>
       </div>
 
@@ -57,11 +57,11 @@ export function ModeSelection({
           aria-pressed={selectedMode === "expert"}
           onClick={() => onSelectMode("expert")}
         >
-          <span className="card-label">Expert mode</span>
-          <strong>Show all settings and unlock full control.</strong>
+          <span className="card-label">Expert journey</span>
+          <strong>Work through every setting with full control.</strong>
           <span>
-            Reveal every assumption, optional section, lump sum, and detailed
-            projection table.
+            Use the full assumption set, then review the detailed chart,
+            scenarios, and projection table in the final step.
           </span>
         </button>
       </div>

@@ -45,15 +45,12 @@ import {
   JOURNEY_DEFINITIONS,
   addYearsToIsoDate,
   buildRetirementIncomeItems,
-  clonePensionSettings,
   createBridgeChartLimits,
   createBridgeChartParameters,
-  createComparisonResult,
   createRetirementIncomeSeries,
   formatCurrencyDetailed,
   getRetirementIncomeTargetTitle,
   getRetirementIncomeTitle,
-  getSettingsSignature,
   loadStoredComparisonScenarios,
   saveStoredComparisonScenarios,
   type ComparisonResultCache,
@@ -63,11 +60,16 @@ import { useMobileDateDropdowns as useMobileDateDropdownsHook } from "./form-fie
 import type { JourneyStepViewModel } from "./journey-step-content";
 import type { JourneyMode } from "./journey-mode-screen";
 
-const [bridgeJourneyDefinition, simpleJourneyDefinition] = JOURNEY_DEFINITIONS;
+const [
+  bridgeJourneyDefinition,
+  simpleJourneyDefinition,
+  expertJourneyDefinition,
+] = JOURNEY_DEFINITIONS;
 
 const JOURNEY_DEFINITION_BY_MODE = {
   bridge: bridgeJourneyDefinition,
   simple: simpleJourneyDefinition,
+  expert: expertJourneyDefinition,
 } satisfies Record<JourneyMode, (typeof JOURNEY_DEFINITIONS)[number]>;
 
 export function useAppController() {
@@ -161,25 +163,7 @@ export function useAppController() {
       ? annualRetirementIncomeTarget / 12
       : annualRetirementIncomeTarget
   );
-  const currentComparisonResult = useMemo(
-    () =>
-      appMode === "expert" && retirementIncomeDisplay
-        ? createComparisonResult(
-            {
-              id: "current-model",
-              name: "Current model",
-              settings: clonePensionSettings(settings),
-              createdAt: "",
-              updatedAt: "",
-            },
-            getSettingsSignature(settings),
-            comparisonResultCache
-          )
-        : null,
-    [appMode, comparisonResultCache, retirementIncomeDisplay, settings]
-  );
-  const activeJourneyMode =
-    appMode === "bridge" || appMode === "simple" ? appMode : null;
+  const activeJourneyMode = appMode;
   const activeJourneyDefinition = activeJourneyMode
     ? JOURNEY_DEFINITION_BY_MODE[activeJourneyMode]
     : null;
@@ -339,6 +323,8 @@ export function useAppController() {
     useDropdownDates,
     onChange: updateSetting,
     onChangeChartParameters: updateBridgeChartParameters,
+    onReset: resetSettings,
+    onExport: exportParameters,
     comparisonScenarios,
     comparisonResultCache,
     onScenariosChange: setComparisonScenarios,
@@ -375,7 +361,6 @@ export function useAppController() {
     bridgeChartParameters,
     comparisonResultCache,
     comparisonScenarios,
-    currentComparisonResult,
     deferredSettings,
     derivedInflationAssumptions,
     exportParameters,

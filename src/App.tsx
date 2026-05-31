@@ -1,27 +1,8 @@
-import {
-  createRetirementIncomeSeries,
-  buildComparisonStatusItems,
-} from "./app-domains";
-import { RetirementIncomeBridgeChart } from "./RetirementIncomeBridgeChart";
+import { createRetirementIncomeSeries } from "./app-domains";
 import { APP_MODE_STORAGE_KEY } from "./app/app-persistence";
 import { ModeSelection } from "./app/mode-selection";
-import { JourneySection } from "./app/journey";
-import {
-  ResultsSummarySection,
-  InflationBasisPanel as InflationBasisPanelFeature,
-} from "./app/results-summary";
-import {
-  ComparisonPanel as ComparisonPanelFeature,
-  ComparisonSection,
-  PensionSummarySection as PensionSummarySectionFeature,
-} from "./app/comparison";
-import {
-  ProjectionTableSection as ProjectionTableSectionFeature,
-  ProjectionTableSectionContainer,
-} from "./app/projection-table";
 import { JourneyModeScreen } from "./app/journey-mode-screen";
 import { useAppController } from "./app/use-app-controller";
-import { SettingsPanel } from "./app/settings-panel";
 import { SiteFooter } from "./app/site-footer";
 
 function App() {
@@ -31,42 +12,14 @@ function App() {
     activeModeRef,
     acknowledgeNotice,
     appMode,
-    bridgeChartLimits,
-    bridgeChartParameters,
-    comparisonResultCache,
-    comparisonScenarios,
-    currentComparisonResult,
-    deferredSettings,
-    derivedInflationAssumptions,
-    exportParameters,
     hasAcknowledgedNotice,
     journeyStepViewModel,
-    loadComparisonScenario,
-    pensionSummary,
-    projectionRows,
-    resetSettings,
-    retirementIncomeDisplay,
-    retirementIncomeItems,
-    retirementIncomeSeries,
-    retirementIncomeTarget,
-    retirementIncomeTargetTitle,
-    retirementIncomeTitle,
-    retirementIncomeTotal,
     selectAppMode,
-    setComparisonScenarios,
-    setRetirementIncomeDisplay,
     setShowGuidanceNotes,
-    settings,
     settingsFormVersion,
     showGuidanceNotes,
-    showLimitations,
     showSavedFeedback,
-    toggleLimitations,
-    updateBridgeChartParameters,
-    updateSetting,
-    useDropdownDates,
-    validationIssues,
-    visibleSettings,
+    settings,
   } = useAppController();
 
   return (
@@ -133,89 +86,12 @@ function App() {
             activeModeRef={activeModeRef}
             mode={activeJourneyMode}
             journey={activeJourneyDefinition}
-            settings={visibleSettings}
+            settings={settings}
+            settingsFormVersion={settingsFormVersion}
             showGuidanceNotes={showGuidanceNotes}
             onShowGuidanceNotesChange={setShowGuidanceNotes}
             journeyStepViewModel={journeyStepViewModel}
           />
-        ) : null}
-
-        {appMode === "expert" ? (
-          <JourneySection activeModeRef={activeModeRef}>
-            <ResultsSummarySection>
-              <PensionSummarySectionFeature
-                activeResult={currentComparisonResult}
-                headingLevel={2}
-                description="This summary is generated from the current calculation result, so the same structure can later support side-by-side scenario comparisons."
-                retirementIncomeDisplay={retirementIncomeDisplay}
-                onRetirementIncomeDisplayChange={setRetirementIncomeDisplay}
-                retirementIncomeItems={retirementIncomeItems}
-                retirementIncomeTitle={retirementIncomeTitle}
-                retirementIncomeTotal={retirementIncomeTotal}
-                retirementIncomeTargetTitle={retirementIncomeTargetTitle}
-                retirementIncomeTarget={retirementIncomeTarget}
-                statusItems={
-                  currentComparisonResult
-                    ? buildComparisonStatusItems(currentComparisonResult)
-                    : []
-                }
-                showLimitations={showLimitations}
-                onToggleLimitations={toggleLimitations}
-              />
-            </ResultsSummarySection>
-
-            <section className="layout">
-              <SettingsPanel
-                settings={settings}
-                settingsFormVersion={settingsFormVersion}
-                validationIssues={validationIssues}
-                onChange={updateSetting}
-                onReset={resetSettings}
-                onExport={exportParameters}
-                showGuidanceNotes={showGuidanceNotes}
-                onShowGuidanceNotesChange={setShowGuidanceNotes}
-                useDropdownDates={useDropdownDates}
-                pensionSummary={pensionSummary}
-              />
-            </section>
-
-            <InflationBasisPanelFeature
-              settings={deferredSettings}
-              assumptions={derivedInflationAssumptions}
-            />
-
-            <RetirementIncomeBridgeChart
-              data={retirementIncomeSeries}
-              alphaLabel="Alpha pension"
-              limits={bridgeChartLimits}
-              statePensionEditable
-              validationIssues={validationIssues}
-              onChangeParameters={updateBridgeChartParameters}
-              {...bridgeChartParameters}
-            />
-          </JourneySection>
-        ) : null}
-
-        {appMode === "expert" ? (
-          <ComparisonSection>
-            <ComparisonPanelFeature
-              settings={settings}
-              validationIssues={validationIssues}
-              scenarios={comparisonScenarios}
-              comparisonResultCache={comparisonResultCache}
-              onScenariosChange={setComparisonScenarios}
-              onLoadScenario={loadComparisonScenario}
-            />
-          </ComparisonSection>
-        ) : null}
-
-        {appMode === "expert" ? (
-          <ProjectionTableSectionContainer>
-            <ProjectionTableSectionFeature
-              rows={projectionRows}
-              settings={settings}
-            />
-          </ProjectionTableSectionContainer>
         ) : null}
 
         <SiteFooter />

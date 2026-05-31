@@ -1,5 +1,11 @@
-import type { FieldDefinition, SettingsKey } from "../fieldDefinitions";
+import {
+  fieldGroups,
+  type FieldDefinition,
+  type FieldGroup,
+  type SettingsKey,
+} from "../fieldDefinitions";
 import type { PensionSettings } from "../settings";
+import { isSettingsGroupVisible } from "./shared";
 
 export const OPTIONAL_SECTION_TOGGLES = [
   {
@@ -64,7 +70,7 @@ export type JourneyStepDefinition =
       eyebrow: string;
       title: string;
       description: string;
-      kind: "optional-sections" | "answer" | "bridge-answer";
+      kind: "optional-sections" | "answer" | "bridge-answer" | "expert-answer";
       showProjectionTable?: boolean;
       toggleKeys?: readonly OptionalSectionToggleKey[];
       visible?: (settings: PensionSettings) => boolean;
@@ -76,6 +82,7 @@ export type JourneyStepDefinition =
       description: string;
       kind: "fields";
       fieldIds: readonly FieldDefinition["id"][];
+      groupId?: FieldGroup["id"];
       fieldLabels?: JourneyFieldLabels;
       visible?: (settings: PensionSettings) => boolean;
     };
@@ -135,6 +142,7 @@ export const JOURNEY_DEFINITIONS = [
         description:
           "Add the Alpha pension you have built up and the age you would prefer to draw it.",
         kind: "fields",
+        groupId: "alpha",
         fieldIds: [
           "alphaPensionDrawAge",
           "alphaPensionAbsDate",
@@ -269,6 +277,7 @@ export const JOURNEY_DEFINITIONS = [
         description:
           "Add any monthly added pension and EPA choices you want reflected in the plan.",
         kind: "fields",
+        groupId: "alpha",
         fieldIds: [
           "alphaAddedPensionMonthly",
           "alphaAddedPensionFactorType",
@@ -353,7 +362,68 @@ export const JOURNEY_DEFINITIONS = [
       },
     ],
   },
+  {
+    id: "expert-journey",
+    title: "Expert journey",
+    description:
+      "Work through the full set of retirement assumptions, then review the detailed chart, comparison tools, and projection table.",
+    steps: createExpertJourneySteps(),
+  },
 ] as const satisfies readonly JourneyDefinition[];
+
+function createExpertJourneySteps(): JourneyStepDefinition[] {
+  return [
+    {
+      id: "optional-sections",
+      eyebrow: "Step 1",
+      title: "Optional sections",
+      description:
+        "Choose which parts of the modeller are in this scenario. Hidden sections keep their saved values, and later stages update automatically when you include or remove a section.",
+      kind: "optional-sections",
+    },
+    ...fieldGroups.map(createExpertJourneyFieldStep),
+    {
+      id: "answer",
+      eyebrow: "Result",
+      title: "Your results",
+      description:
+        "Review your projected income, bridge funding, saved scenarios, and the full month-by-month projection table.",
+      kind: "expert-answer",
+    },
+  ];
+}
+
+function createExpertJourneyFieldStep(
+  group: FieldGroup
+): JourneyStepDefinition {
+  return {
+    id: `expert-${group.id}`,
+    eyebrow: group.eyebrow,
+    title: group.title,
+    description: group.description,
+    kind: "fields",
+    groupId: group.id,
+    fieldIds: group.fields.map((field) => field.id),
+    visible: isExpertJourneyGroupVisible(group.id),
+  };
+}
+
+function isExpertJourneyGroupVisible(groupId: string) {
+  if (
+    groupId === "alpha" ||
+    groupId === "nuvos" ||
+    groupId === "state" ||
+    groupId === "sipp" ||
+    groupId === "isa" ||
+    groupId === "tax" ||
+    groupId === "partial-retirement"
+  ) {
+    return (settings: PensionSettings) =>
+      isSettingsGroupVisible(groupId, settings);
+  }
+
+  return undefined;
+}
 
 export function applyBridgeJourneyDefaults(
   settings: PensionSettings

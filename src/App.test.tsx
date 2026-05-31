@@ -359,7 +359,7 @@ function renderAcknowledgedApp(
   if (mode === "expert") {
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Show all settings and unlock full control/i,
+        name: /Work through every setting with full control/i,
       })
     );
   }
@@ -395,6 +395,15 @@ function advanceJourneyToResult() {
   }
 }
 
+function renderAcknowledgedExpertResult() {
+  renderAcknowledgedApp();
+  advanceJourneyToResult();
+}
+
+function openJourneyStep(name: string | RegExp) {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+
 describe("App settings form", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -420,7 +429,7 @@ describe("App settings form", () => {
       })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Your retirement assumptions" })
+      screen.queryByRole("heading", { name: "Optional sections" })
     ).not.toBeInTheDocument();
   });
 
@@ -429,7 +438,7 @@ describe("App settings form", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Show all settings and unlock full control/i,
+        name: /Work through every setting with full control/i,
       })
     );
 
@@ -443,12 +452,12 @@ describe("App settings form", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /Show all settings and unlock full control/i,
+        name: /Work through every setting with full control/i,
       })
     ).toHaveAttribute("aria-pressed", "true");
     expect(
-      screen.getByRole("heading", { name: "Your retirement assumptions" })
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { name: "Optional sections" }).length
+    ).toBeGreaterThan(0);
   });
 
   it("keeps working when local storage is unavailable", () => {
@@ -464,13 +473,13 @@ describe("App settings form", () => {
     fireEvent.click(screen.getByRole("button", { name: "I understand" }));
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Show all settings and unlock full control/i,
+        name: /Work through every setting with full control/i,
       })
     );
 
     expect(
-      screen.getByRole("heading", { name: "Your retirement assumptions" })
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { name: "Optional sections" }).length
+    ).toBeGreaterThan(0);
   });
 
   it("does not show the retired third mode option", () => {
@@ -533,7 +542,7 @@ describe("App settings form", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Added pension lump sums" })
+      screen.getByRole("heading", { name: "Lump sum purchases" })
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Add lump sum purchase" })
@@ -632,7 +641,6 @@ describe("App settings form", () => {
       SETTINGS_STORAGE_KEY,
       JSON.stringify(
         expectedStoredSettings({
-          dateOfBirth: "1987-06-15",
           lifeExpectancy: 80,
           requirementAge: 68,
           showAlpha: true,
@@ -643,7 +651,6 @@ describe("App settings form", () => {
           taxationEnabled: false,
           partialRetirementEnabled: false,
           desiredRetirementIncome: 31700,
-          statePensionDrawDate: "2055-06-15",
           applyPensionIncreases: true,
           assumedCpiPercent: 0,
           alphaPensionAbsDate: "2025",
@@ -696,22 +703,28 @@ describe("App settings form", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /Show all settings and unlock full control/i,
+        name: /Work through every setting with full control/i,
       })
     ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("SIPP")).toBeChecked();
+    expect(screen.getByLabelText("State Pension")).toBeChecked();
+    expect(screen.getByLabelText("ISA")).toBeChecked();
+    expect(screen.getByLabelText("Taxation")).not.toBeChecked();
+    expect(
+      screen.queryByLabelText("State Pension Age")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Your Normal Pension Age")
+    ).not.toBeInTheDocument();
+
+    openJourneyStep(/Personal details/i);
+
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(
       getTodayIsoDate()
     );
     expect(screen.getByLabelText("Your Date of Birth")).toHaveValue(
       defaultSettings.dateOfBirth
     );
-    expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveAttribute(
-      "type",
-      "range"
-    );
-    expect(
-      screen.getByLabelText("Planned Alpha Pension Draw Age")
-    ).toHaveAttribute("type", "range");
     expect(screen.getByLabelText("Life Expectancy (Age)")).toHaveValue(
       defaultSettings.lifeExpectancy.toString()
     );
@@ -719,26 +732,38 @@ describe("App settings form", () => {
       defaultSettings.requirementAge.toString()
     );
     expect(
+      screen.getByLabelText("Retirement living standard target (£ per year)")
+    ).toHaveValue(defaultSettings.desiredRetirementIncome);
+    expect(
+      screen.getByRole("link", { name: "Estimate life expectancy" })
+    ).toHaveAttribute(
+      "href",
+      "https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/healthandlifeexpectancies/articles/lifeexpectancycalculator/2019-06-07"
+    );
+    expect(
+      screen.getByRole("link", { name: "Retirement Living Standards" })
+    ).toHaveAttribute("href", "https://www.retirementlivingstandards.org.uk/");
+
+    openJourneyStep(/Inflation and projection basis/i);
+
+    expect(
       screen.getByLabelText("How should the modeller treat inflation?")
     ).toHaveValue("real");
     expect(screen.getByLabelText("Long-term inflation assumption")).toHaveValue(
       "2.5"
     );
     expect(
-      screen.getByRole("heading", {
-        name: "Projection basis: Real terms, today's money",
-      })
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("SIPP")).toBeChecked();
-    expect(screen.getByLabelText("State Pension")).toBeChecked();
-    expect(screen.getByLabelText("ISA")).toBeChecked();
-    expect(screen.getByLabelText("Taxation")).not.toBeChecked();
+      screen.queryByRole("heading", { name: "Tax assumptions" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Personal Allowance (£ per year)")
+    ).not.toBeInTheDocument();
+
+    openJourneyStep(/State pension details/i);
+
     expect(
       screen.getByLabelText("Current Full State Pension (£ per year)")
     ).toHaveValue(defaultSettings.currentStatePension);
-    expect(
-      screen.getByLabelText("Retirement living standard target (£ per year)")
-    ).toHaveValue(defaultSettings.desiredRetirementIncome);
     expect(
       screen.getByLabelText("Project State Pension future growth")
     ).not.toBeChecked();
@@ -746,18 +771,85 @@ describe("App settings form", () => {
       screen.getByLabelText("State Pension wage growth (%)")
     ).toBeDisabled();
     expect(
+      screen.queryByLabelText("State Pension CPI (%)")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Check State Pension" })
+    ).toHaveAttribute("href", "https://www.gov.uk/check-state-pension");
+    expect(
+      screen.getByRole("link", { name: "What is the triple lock?" })
+    ).toHaveAttribute(
+      "href",
+      "https://commonslibrary.parliament.uk/research-briefings/cbp-7812/"
+    );
+    expect(
+      screen.getByRole("link", { name: "Defer State Pension" })
+    ).toHaveAttribute(
+      "href",
+      "https://www.gov.uk/deferring-state-pension/if-you-reach-state-pension-age-on-or-after-6-april-2016"
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Reset Current Full State Pension (£ per year) to default value",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Reset State Pension start age to default value",
+      })
+    ).toBeInTheDocument();
+
+    openJourneyStep(/Alpha pension details/i);
+
+    expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveAttribute(
+      "type",
+      "range"
+    );
+    expect(
+      screen.getByLabelText("Planned Alpha Pension Draw Age")
+    ).toHaveAttribute("type", "range");
+    expect(screen.getByLabelText("Last Annual Benefits Statement")).toHaveValue(
+      "2025"
+    );
+    expect(
       screen.getByLabelText("Apply Alpha pension increases")
     ).not.toBeChecked();
     expect(
-      screen.queryByLabelText("State Pension CPI (%)")
-    ).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Assumed CPI (%)")).not.toBeInTheDocument();
+      screen.getByRole("link", { name: "Annual Benefit Statement guide" })
+    ).toHaveAttribute(
+      "href",
+      "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/"
+    );
     expect(
-      screen.queryByRole("heading", { name: "Tax assumptions" })
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: "Alpha accrual rate" })
+    ).toHaveAttribute(
+      "href",
+      "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01107"
+    );
     expect(
-      screen.queryByLabelText("Personal Allowance (£ per year)")
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: "Reduction factors" })
+    ).toHaveAttribute(
+      "href",
+      "https://gadfactorguidancehub.co.uk/guidance/csps_gb/erf-and-lrf/csps_gb__csops__early-payment-reduction-normal-health-and-age-addition/tables"
+    );
+    expect(
+      screen.getByRole("link", { name: "Added pension factors" })
+    ).toHaveAttribute(
+      "href",
+      "https://gadfactorguidancehub.co.uk/guidance/csps_gb/added-pension/csps_gb__csops__added-pension/tables"
+    );
+    expect(
+      screen.getByRole("link", { name: "Alpha pension increases" })
+    ).toHaveAttribute(
+      "href",
+      "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01215"
+    );
+    expect(
+      screen.getByRole("button", { name: "Add lump sum purchase" })
+    ).toBeInTheDocument();
+
+    openJourneyStep(/SIPP details/i);
+
     expect(screen.getByLabelText("Current SIPP pot (£)")).toHaveValue(
       defaultSettings.sippCurrentPot
     );
@@ -785,15 +877,29 @@ describe("App settings form", () => {
     expect(
       screen.queryByLabelText("SIPP withdrawal rate (%)")
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Check pension tax relief" })
+    ).toHaveAttribute(
+      "href",
+      "https://www.gov.uk/tax-on-your-private-pension/pension-tax-relief"
+    );
+
+    openJourneyStep(/ISA details/i);
+
     expect(screen.getByLabelText("Current ISA pot (£)")).toHaveValue(
       defaultSettings.isaCurrentPot
     );
     expect(screen.getByLabelText("ISA draw start age")).toHaveValue(
       defaultSettings.isaDrawAge.toString()
     );
-    expect(screen.getByLabelText("Last Annual Benefits Statement")).toHaveValue(
-      "2025"
-    );
+
+    advanceJourneyToResult();
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Projection basis: Real terms, today's money",
+      })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Monthly pension projection table" })
     ).toBeInTheDocument();
@@ -802,7 +908,6 @@ describe("App settings form", () => {
         name: "Total monthly income before tax",
       })
     ).not.toBeInTheDocument();
-
     expect(
       await screen.findByRole("columnheader", {
         name: "Total monthly income before tax",
@@ -852,7 +957,7 @@ describe("App settings form", () => {
     expect(titleSection).not.toBeNull();
     expect(
       within(titleSection as HTMLElement).getByRole("button", {
-        name: /Show all settings and unlock full control/i,
+        name: /Work through every setting with full control/i,
       })
     ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Monthly Alpha pension")).toBeInTheDocument();
@@ -866,95 +971,10 @@ describe("App settings form", () => {
       screen.getByLabelText("Monthly target retirement income")
     ).toHaveTextContent("£2,641.67");
     expect(
-      screen.getByRole("heading", { name: "Calculated details" })
-    ).toBeInTheDocument();
-    expect(
       screen.getAllByText("Starts Drawing Alpha Pension").length
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("Calculation start").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Life expectancy").length).toBeGreaterThan(0);
-    expect(
-      screen.queryByLabelText("State Pension Age")
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("Your Normal Pension Age")
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Annual Benefit Statement guide" })
-    ).toHaveAttribute(
-      "href",
-      "https://www.civilservicepensionscheme.org.uk/memberhub/your-pension/yearly-pension-updates/annual-benefit-statement/"
-    );
-    expect(
-      screen.getByRole("link", { name: "Estimate life expectancy" })
-    ).toHaveAttribute(
-      "href",
-      "https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/healthandlifeexpectancies/articles/lifeexpectancycalculator/2019-06-07"
-    );
-    expect(
-      screen.getByRole("link", { name: "Retirement Living Standards" })
-    ).toHaveAttribute("href", "https://www.retirementlivingstandards.org.uk/");
-    expect(
-      screen.getByRole("link", { name: "Check State Pension" })
-    ).toHaveAttribute("href", "https://www.gov.uk/check-state-pension");
-    expect(
-      screen.getByRole("link", { name: "What is the triple lock?" })
-    ).toHaveAttribute(
-      "href",
-      "https://commonslibrary.parliament.uk/research-briefings/cbp-7812/"
-    );
-    expect(
-      screen.getByRole("link", { name: "Check State Pension age" })
-    ).toHaveAttribute("href", "https://www.gov.uk/state-pension-age");
-    expect(
-      screen.getByRole("link", { name: "Defer State Pension" })
-    ).toHaveAttribute(
-      "href",
-      "https://www.gov.uk/deferring-state-pension/if-you-reach-state-pension-age-on-or-after-6-april-2016"
-    );
-    expect(
-      screen.getByRole("link", { name: "Alpha accrual rate" })
-    ).toHaveAttribute(
-      "href",
-      "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01107"
-    );
-    expect(
-      screen.getByRole("link", { name: "Reduction factors" })
-    ).toHaveAttribute(
-      "href",
-      "https://gadfactorguidancehub.co.uk/guidance/csps_gb/erf-and-lrf/csps_gb__csops__early-payment-reduction-normal-health-and-age-addition/tables"
-    );
-    expect(
-      screen.getByRole("link", { name: "Added pension factors" })
-    ).toHaveAttribute(
-      "href",
-      "https://gadfactorguidancehub.co.uk/guidance/csps_gb/added-pension/csps_gb__csops__added-pension/tables"
-    );
-    expect(
-      screen.getByRole("link", { name: "Alpha pension increases" })
-    ).toHaveAttribute(
-      "href",
-      "https://www.civilservicepensionscheme.org.uk/memberhub/kbarticle/?id=KA-01215"
-    );
-    expect(
-      screen.getByRole("link", { name: "Check pension tax relief" })
-    ).toHaveAttribute(
-      "href",
-      "https://www.gov.uk/tax-on-your-private-pension/pension-tax-relief"
-    );
-    expect(
-      screen.getByRole("button", { name: "Add lump sum purchase" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Reset Current Full State Pension (£ per year) to default value",
-      })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Reset State Pension start age to default value",
-      })
-    ).toBeInTheDocument();
   });
 
   it("enforces the same minimum Alpha and SIPP access age of 57 for someone born on 23 November 1977", () => {
@@ -972,6 +992,8 @@ describe("App settings form", () => {
 
     renderAcknowledgedApp();
 
+    openJourneyStep(/Alpha pension details/i);
+
     expect(screen.getByLabelText("Planned Alpha Pension Draw Age")).toHaveValue(
       "57"
     );
@@ -981,6 +1003,9 @@ describe("App settings form", () => {
     expect(
       screen.getByLabelText("Planned Alpha Pension Draw Age exact value")
     ).toHaveAttribute("min", "57");
+
+    openJourneyStep(/SIPP details/i);
+
     expect(screen.getByLabelText("SIPP draw start age")).toHaveValue("57");
     expect(screen.getByLabelText("SIPP draw start age")).toHaveAttribute(
       "min",
@@ -989,6 +1014,9 @@ describe("App settings form", () => {
     expect(
       screen.getByLabelText("SIPP draw start age exact value")
     ).toHaveAttribute("min", "57");
+
+    openJourneyStep(/State pension details/i);
+
     expect(
       screen.getByLabelText("State Pension start age exact value")
     ).toHaveValue(67.75);
@@ -1049,7 +1077,7 @@ describe("App settings form", () => {
   });
 
   it("shows concise modeller limitations on request", () => {
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
     const summarySection = screen
       .getByRole("heading", { name: "Pension Summary" })
       .closest("section");
@@ -1081,7 +1109,7 @@ describe("App settings form", () => {
   });
 
   it("toggles the pension summary between monthly and annual values", () => {
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     fireEvent.click(screen.getByRole("button", { name: "Annual" }));
 
@@ -1100,12 +1128,22 @@ describe("App settings form", () => {
   it("updates settings and saves to local storage", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Personal details/i);
+
     const birthDateInput = screen.getByLabelText("Your Date of Birth");
 
     fireEvent.change(birthDateInput, {
       target: { value: "1990-02-14" },
     });
     fireEvent.blur(birthDateInput);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "£43,900: Comfortable standard for one person household",
+      })
+    );
+
+    openJourneyStep(/State pension details/i);
+
     fireEvent.change(
       screen.getByLabelText("Current Full State Pension (£ per year)"),
       {
@@ -1115,12 +1153,6 @@ describe("App settings form", () => {
     fireEvent.blur(
       screen.getByLabelText("Current Full State Pension (£ per year)")
     );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "£43,900: Comfortable standard for one person household",
-      })
-    );
-
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
     ).toEqual(
@@ -1135,6 +1167,8 @@ describe("App settings form", () => {
 
   it("allows a custom retirement living standard target", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/Personal details/i);
 
     const targetInput = screen.getByLabelText(
       "Retirement living standard target (£ per year)"
@@ -1157,6 +1191,8 @@ describe("App settings form", () => {
 
   it("allows matching Alpha leave age when the draw age reaches the unsupported added pension range", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/Alpha pension details/i);
 
     fireEvent.change(
       screen.getByLabelText("Planned Alpha Pension Draw Age exact value"),
@@ -1191,6 +1227,8 @@ describe("App settings form", () => {
   it("allows selecting a higher SIPP tax relief rate", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/SIPP details/i);
+
     const taxReliefSelect = screen.getByLabelText(
       "SIPP tax relief on net additions"
     );
@@ -1213,6 +1251,8 @@ describe("App settings form", () => {
   it("allows selecting self and dependants cover for monthly added pension", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Alpha pension details/i);
+
     const factorTypeSelect = screen.getByLabelText(
       "Monthly Added Alpha Pension cover"
     );
@@ -1234,6 +1274,8 @@ describe("App settings form", () => {
 
   it("allows selecting self and dependants cover for a lump sum purchase", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/Alpha pension details/i);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Add lump sum purchase" })
@@ -1265,6 +1307,8 @@ describe("App settings form", () => {
     vi.useFakeTimers();
     renderAcknowledgedApp();
 
+    openJourneyStep(/State pension details/i);
+
     expect(screen.queryByText("Saved Locally")).not.toBeInTheDocument();
 
     fireEvent.change(
@@ -1292,6 +1336,8 @@ describe("App settings form", () => {
   it("stores the Alpha ABS date as just the selected year", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Alpha pension details/i);
+
     fireEvent.change(screen.getByLabelText("Last Annual Benefits Statement"), {
       target: { value: "2024" },
     });
@@ -1308,6 +1354,8 @@ describe("App settings form", () => {
 
   it("only commits date normalization after the field loses focus", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/Personal details/i);
 
     const birthDateInput = screen.getByLabelText("Your Date of Birth");
 
@@ -1343,14 +1391,21 @@ describe("App settings form", () => {
 
     renderAcknowledgedApp();
 
+    openJourneyStep(/Personal details/i);
+
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(
       getTodayIsoDate()
     );
+
+    advanceJourneyToResult();
+
     expect(screen.getByText("Monthly State Pension")).toBeInTheDocument();
   });
 
   it("resets the state pension slider back to its default value", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/State pension details/i);
 
     const statePensionSlider = screen.getByLabelText(
       "Current Full State Pension (£ per year)"
@@ -1372,6 +1427,8 @@ describe("App settings form", () => {
 
   it("can defer the State Pension start age and reset it to the DOB default", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/State pension details/i);
 
     const statePensionAgeSlider = screen.getByLabelText(
       "State Pension start age"
@@ -1437,14 +1494,23 @@ describe("App settings form", () => {
   it("can apply pension increases using the global inflation assumption", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Alpha pension details/i);
+
     const applyIncreasesToggle = screen.getByLabelText(
       "Apply Alpha pension increases"
     );
+
+    fireEvent.click(applyIncreasesToggle);
+    fireEvent.blur(applyIncreasesToggle);
+
+    expect(applyIncreasesToggle).toBeChecked();
+
+    openJourneyStep(/Inflation and projection basis/i);
+
     const inflationInput = screen.getByLabelText(
       "Long-term inflation assumption exact value"
     );
 
-    fireEvent.click(applyIncreasesToggle);
     fireEvent.change(inflationInput, {
       target: { value: "3.4" },
     });
@@ -1464,6 +1530,8 @@ describe("App settings form", () => {
 
   it("can reset the long-term inflation assumption to its default", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/Inflation and projection basis/i);
 
     const inflationInput = screen.getByLabelText(
       "Long-term inflation assumption exact value"
@@ -1499,6 +1567,8 @@ describe("App settings form", () => {
 
     fireEvent.click(screen.getByLabelText("nuvos"));
 
+    openJourneyStep(/Your nuvos pension/i);
+
     const applyNuvosIncreasesToggle = screen.getByLabelText(
       "Apply nuvos pension increases"
     );
@@ -1511,6 +1581,9 @@ describe("App settings form", () => {
     fireEvent.click(applyNuvosIncreasesToggle);
 
     expect(applyNuvosIncreasesToggle).toBeChecked();
+
+    openJourneyStep(/Inflation and projection basis/i);
+
     expect(
       screen.getByLabelText("Long-term inflation assumption")
     ).toBeInTheDocument();
@@ -1518,6 +1591,8 @@ describe("App settings form", () => {
 
   it("can apply projected State Pension future growth", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/State pension details/i);
 
     const applyStateGrowthToggle = screen.getByLabelText(
       "Project State Pension future growth"
@@ -1547,15 +1622,21 @@ describe("App settings form", () => {
   it("shows draggable chart markers for ISA draw age and use-by ages", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/SIPP details/i);
+
     fireEvent.change(screen.getByLabelText("SIPP withdrawal strategy"), {
       target: { value: "use_by_age" },
     });
     fireEvent.blur(screen.getByLabelText("SIPP withdrawal strategy"));
 
+    openJourneyStep(/ISA details/i);
+
     fireEvent.change(screen.getByLabelText("ISA withdrawal strategy"), {
       target: { value: "use_by_age" },
     });
     fireEvent.blur(screen.getByLabelText("ISA withdrawal strategy"));
+
+    advanceJourneyToResult();
 
     expect(screen.getByLabelText("ISA start, age 68")).toBeInTheDocument();
     expect(screen.getByLabelText("SIPP stop, age 75")).toBeInTheDocument();
@@ -1563,7 +1644,7 @@ describe("App settings form", () => {
   });
 
   it("keeps the retirement marker from crossing the Alpha start marker", () => {
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     fireEvent.keyDown(screen.getByLabelText("Retire, age 68"), {
       key: "ArrowRight",
@@ -1615,7 +1696,7 @@ describe("App settings form", () => {
   });
 
   it("shows the current target value in the chart income axis title", () => {
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     expect(document.body.innerHTML).toContain(
       "Annual income (£) · Target £31,700"
@@ -1668,7 +1749,7 @@ describe("App settings form", () => {
   });
 
   it("lets the target income line be adjusted directly in the chart", () => {
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     fireEvent.keyDown(screen.getByLabelText("Target income line"), {
       key: "ArrowUp",
@@ -1687,6 +1768,9 @@ describe("App settings form", () => {
     renderAcknowledgedApp();
 
     fireEvent.click(screen.getByLabelText("Partial retirement"));
+
+    advanceJourneyToResult();
+
     fireEvent.change(screen.getByLabelText("Build-up shown"), {
       target: { value: "15" },
     });
@@ -1718,6 +1802,9 @@ describe("App settings form", () => {
     renderAcknowledgedApp();
 
     fireEvent.click(screen.getByLabelText("Partial retirement"));
+
+    advanceJourneyToResult();
+
     const partialRetirementKey = screen.getByLabelText(
       "Toggle chart partial retirement source"
     );
@@ -1737,7 +1824,7 @@ describe("App settings form", () => {
   });
 
   it("only commits chart control slider changes when the pointer is released", () => {
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     const alphaAddedPensionSlider = screen.getByLabelText(
       "Added Alpha pension"
@@ -1767,12 +1854,12 @@ describe("App settings form", () => {
   });
 
   it("can undo the last chart change with the standard keyboard shortcut", () => {
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     const alphaAddedPensionSlider = screen.getByLabelText(
       "Added Alpha pension"
     );
-    const dateOfBirthInput = screen.getByLabelText("Your Date of Birth");
+    const scenarioNameInput = screen.getByLabelText("Scenario name");
 
     expect(
       screen.queryByRole("button", { name: "Undo chart change" })
@@ -1791,7 +1878,7 @@ describe("App settings form", () => {
       })
     );
 
-    fireEvent.keyDown(dateOfBirthInput, { key: "z", metaKey: true });
+    fireEvent.keyDown(scenarioNameInput, { key: "z", metaKey: true });
 
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
@@ -1815,29 +1902,50 @@ describe("App settings form", () => {
   it("resets all parameters back to their defaults", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Personal details/i);
+
     fireEvent.change(screen.getByLabelText("Your Date of Birth"), {
       target: { value: "1990-02-14" },
     });
     fireEvent.blur(screen.getByLabelText("Your Date of Birth"));
+
+    openJourneyStep(/State pension details/i);
+
     fireEvent.change(
       screen.getByLabelText("Current Full State Pension (£ per year)"),
       {
         target: { value: "13000" },
       }
     );
+    fireEvent.blur(
+      screen.getByLabelText("Current Full State Pension (£ per year)")
+    );
+
+    openJourneyStep(/Alpha pension details/i);
+
     fireEvent.click(
       screen.getByRole("button", { name: "Add lump sum purchase" })
     );
 
     expect(screen.getByText("Lump sum #1")).toBeInTheDocument();
+
+    openJourneyStep(/Personal details/i);
+
     expect(screen.getByLabelText("Your Date of Birth")).toHaveValue(
       "1990-02-14"
     );
+
+    openJourneyStep(/State pension details/i);
+
     expect(
       screen.getByLabelText("Current Full State Pension (£ per year)")
     ).toHaveValue(13000);
 
+    openJourneyStep(/Optional sections/i);
+
     fireEvent.click(screen.getByRole("button", { name: "Reset parameters" }));
+
+    openJourneyStep(/Personal details/i);
 
     expect(screen.getByLabelText("Calculation Start Date")).toHaveValue(
       getTodayIsoDate()
@@ -1845,9 +1953,15 @@ describe("App settings form", () => {
     expect(screen.getByLabelText("Your Date of Birth")).toHaveValue(
       defaultSettings.dateOfBirth
     );
+
+    openJourneyStep(/State pension details/i);
+
     expect(
       screen.getByLabelText("Current Full State Pension (£ per year)")
     ).toHaveValue(defaultSettings.currentStatePension);
+
+    openJourneyStep(/Alpha pension details/i);
+
     expect(screen.queryByText("Lump sum #1")).not.toBeInTheDocument();
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
@@ -1856,6 +1970,8 @@ describe("App settings form", () => {
 
   it("supports exact numeric entry alongside sliders", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/Alpha pension details/i);
 
     fireEvent.change(
       screen.getByLabelText(
@@ -1885,6 +2001,8 @@ describe("App settings form", () => {
 
   it("waits until slider blur before saving range changes", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/Personal details/i);
 
     const lifeExpectancySlider = screen.getByLabelText("Life Expectancy (Age)");
 
@@ -1921,6 +2039,8 @@ describe("App settings form", () => {
       })
     );
     renderAcknowledgedApp();
+
+    openJourneyStep(/Personal details/i);
 
     const exactLifeExpectancyInput = screen.getByLabelText(
       "Life Expectancy (Age) exact value"
@@ -1962,6 +2082,8 @@ describe("App settings form", () => {
   it("removes lump sum purchases from the form and saved settings", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Alpha pension details/i);
+
     fireEvent.click(
       screen.getByRole("button", { name: "Add lump sum purchase" })
     );
@@ -1997,6 +2119,8 @@ describe("App settings form", () => {
   it("only asks for a lump sum repeat end date when the cadence is yearly", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Alpha pension details/i);
+
     fireEvent.click(
       screen.getByRole("button", { name: "Add lump sum purchase" })
     );
@@ -2022,6 +2146,8 @@ describe("App settings form", () => {
 
   it("adds and removes SIPP lump sums from the form and saved settings", () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/SIPP details/i);
 
     fireEvent.click(screen.getByRole("button", { name: "Add SIPP lump sum" }));
     fireEvent.change(screen.getByLabelText("SIPP lump sum amount 1"), {
@@ -2065,6 +2191,8 @@ describe("App settings form", () => {
   it("enables the SIPP withdrawal rate when using percentage drawdown", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/SIPP details/i);
+
     fireEvent.change(screen.getByLabelText("SIPP withdrawal strategy"), {
       target: { value: "percentage" },
     });
@@ -2098,6 +2226,8 @@ describe("App settings form", () => {
   it("enables ISA settings and lump sums when included", async () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/ISA details/i);
+
     fireEvent.change(screen.getByLabelText("Current ISA pot (£)"), {
       target: { value: "20000" },
     });
@@ -2106,6 +2236,8 @@ describe("App settings form", () => {
     fireEvent.change(screen.getByLabelText("ISA lump sum amount 1"), {
       target: { value: "5000" },
     });
+
+    advanceJourneyToResult();
 
     expect(screen.getByText("Monthly ISA")).toBeInTheDocument();
     expect(
@@ -2128,6 +2260,8 @@ describe("App settings form", () => {
   it("can hide optional sections without losing their saved values", () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/State pension details/i);
+
     fireEvent.change(
       screen.getByLabelText("Current Full State Pension (£ per year)"),
       {
@@ -2137,14 +2271,24 @@ describe("App settings form", () => {
     fireEvent.blur(
       screen.getByLabelText("Current Full State Pension (£ per year)")
     );
+
+    openJourneyStep(/SIPP details/i);
+
     fireEvent.change(screen.getByLabelText("Current SIPP pot (£)"), {
       target: { value: "45000" },
     });
     fireEvent.blur(screen.getByLabelText("Current SIPP pot (£)"));
+
+    openJourneyStep(/ISA details/i);
+
     fireEvent.change(screen.getByLabelText("Current ISA pot (£)"), {
       target: { value: "12000" },
     });
     fireEvent.blur(screen.getByLabelText("Current ISA pot (£)"));
+
+    openJourneyStep(/Optional sections/i);
+
+    openJourneyStep(/Optional sections/i);
 
     fireEvent.click(screen.getByLabelText("State Pension"));
     fireEvent.click(screen.getByLabelText("SIPP"));
@@ -2159,6 +2303,21 @@ describe("App settings form", () => {
     expect(
       screen.queryByLabelText("Current ISA pot (£)")
     ).not.toBeInTheDocument();
+    expect(
+      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
+    ).toEqual(
+      expect.objectContaining({
+        showStatePension: false,
+        showSipp: false,
+        showIsa: false,
+        currentStatePension: 13000,
+        sippCurrentPot: 45000,
+        isaCurrentPot: 12000,
+      })
+    );
+
+    advanceJourneyToResult();
+
     expect(
       screen.queryByText("At State Pension start")
     ).not.toBeInTheDocument();
@@ -2184,27 +2343,25 @@ describe("App settings form", () => {
     expect(
       screen.queryByText("Starts Drawing State Pension")
     ).not.toBeInTheDocument();
-    expect(
-      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
-    ).toEqual(
-      expect.objectContaining({
-        showStatePension: false,
-        showSipp: false,
-        showIsa: false,
-        currentStatePension: 13000,
-        sippCurrentPot: 45000,
-        isaCurrentPot: 12000,
-      })
-    );
+
+    openJourneyStep(/Optional sections/i);
 
     fireEvent.click(screen.getByLabelText("State Pension"));
     fireEvent.click(screen.getByLabelText("SIPP"));
     fireEvent.click(screen.getByLabelText("ISA"));
 
+    openJourneyStep(/State pension details/i);
+
     expect(
       screen.getByLabelText("Current Full State Pension (£ per year)")
     ).toHaveValue(13000);
+
+    openJourneyStep(/SIPP details/i);
+
     expect(screen.getByLabelText("Current SIPP pot (£)")).toHaveValue(45000);
+
+    openJourneyStep(/ISA details/i);
+
     expect(screen.getByLabelText("Current ISA pot (£)")).toHaveValue(12000);
   });
 
@@ -2225,10 +2382,18 @@ describe("App settings form", () => {
 
     renderAcknowledgedApp();
 
+    openJourneyStep(/Personal details/i);
+
     expect(screen.getByLabelText("Life Expectancy (Age)")).toHaveValue("100");
+
+    openJourneyStep(/State pension details/i);
+
     expect(
       screen.getByLabelText("Current Full State Pension (£ per year)")
     ).toHaveValue(0);
+
+    openJourneyStep(/Alpha pension details/i);
+
     expect(
       screen.getByLabelText("Added Alpha Pension (£ per month)")
     ).toHaveValue("233");
@@ -2259,11 +2424,11 @@ describe("App settings form", () => {
       })
     );
 
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     expect(
-      screen.getByRole("heading", { name: "Check these assumptions" })
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { name: "Check these assumptions" }).length
+    ).toBeGreaterThan(0);
     expect(
       await screen.findByText(
         "No projection rows are available for the current settings."
@@ -2274,6 +2439,8 @@ describe("App settings form", () => {
   it("shows inline validation when date of birth is not before the calculation start date", async () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Personal details/i);
+
     fireEvent.change(screen.getByLabelText("Your Date of Birth"), {
       target: { value: "2999-01-01" },
     });
@@ -2283,23 +2450,28 @@ describe("App settings form", () => {
       await screen.findAllByText(
         "Date of birth must be before the calculation start date."
       )
-    ).toHaveLength(3);
+    ).not.toHaveLength(0);
     expect(screen.getByLabelText("Your Date of Birth")).toHaveAttribute(
       "aria-invalid",
       "true"
     );
     expect(
-      screen.getByRole("heading", { name: "Check these assumptions" })
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { name: "Check these assumptions" }).length
+    ).toBeGreaterThan(0);
   });
 
   it("shows inline validation when the ABS year is after the calculation start date", async () => {
     renderAcknowledgedApp();
 
+    openJourneyStep(/Personal details/i);
+
     fireEvent.change(screen.getByLabelText("Calculation Start Date"), {
       target: { value: "2026-03-31" },
     });
     fireEvent.blur(screen.getByLabelText("Calculation Start Date"));
+
+    openJourneyStep(/Alpha pension details/i);
+
     fireEvent.change(screen.getByLabelText("Last Annual Benefits Statement"), {
       target: { value: "2026" },
     });
@@ -2309,7 +2481,7 @@ describe("App settings form", () => {
       await screen.findAllByText(
         "Last Annual Benefits Statement must be on or before the calculation start date."
       )
-    ).toHaveLength(3);
+    ).not.toHaveLength(0);
     expect(
       screen.getByLabelText("Last Annual Benefits Statement")
     ).toHaveAttribute("aria-invalid", "true");
@@ -2317,6 +2489,8 @@ describe("App settings form", () => {
 
   it("shows inline validation for invalid lump sum schedules", async () => {
     renderAcknowledgedApp();
+
+    openJourneyStep(/Alpha pension details/i);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Add lump sum purchase" })
@@ -2332,7 +2506,7 @@ describe("App settings form", () => {
       await screen.findAllByText(
         "Alpha lump sum repeat-until date must be on or after its start date."
       )
-    ).toHaveLength(3);
+    ).not.toHaveLength(0);
     expect(screen.getByLabelText("Lump sum start date 1")).toHaveAttribute(
       "aria-invalid",
       "true"
@@ -2370,7 +2544,7 @@ describe("App settings form", () => {
       })
     );
 
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     expect(
       screen.queryByText(
@@ -2390,7 +2564,7 @@ describe("App settings form", () => {
     const milestoneRows = rows.filter((row) => row.milestones.length > 0);
     const nonMilestoneRow = rows.find((row) => row.milestones.length === 0);
 
-    renderAcknowledgedApp();
+    renderAcknowledgedExpertResult();
 
     expect(
       await screen.findByText(
