@@ -14,6 +14,53 @@ The modeller models:
 
 It presents the result as both a summary and a month-by-month projection table, with milestone rows highlighted for key pension events.
 
+## Architecture
+
+The app is organised around a small set of layers:
+
+- `src/main.tsx` boots the React app and renders `App`.
+- `src/App.tsx` composes the main screens and feature sections for journey, expert, comparison, chart, and projection-table views.
+- `src/app/use-app-controller.ts` is the main orchestration layer. It owns UI state, persistence hooks, derived view models, and the connection between settings and projection results.
+- `src/settings/` contains defaults, normalization, validation, and browser-storage compatibility logic.
+- `src/projection-core.ts`, `src/row-assembly.ts`, and `src/projection-domains/` contain the pension modelling engine.
+- `src/app-domains/` adapts raw projection results into UI-facing structures such as journey definitions, comparison summaries, and retirement-income series for charts.
+
+```mermaid
+flowchart TD
+    A["src/main.tsx<br/>React entrypoint"] --> B["src/App.tsx<br/>top-level composition"]
+    B --> C["src/app/use-app-controller.ts<br/>app orchestration"]
+
+    C --> D["src/settings/<br/>defaults, normalization, validation, storage"]
+    C --> E["src/projection-core.ts<br/>projection pipeline"]
+    C --> F["src/app-domains/<br/>UI-specific derived data"]
+
+    E --> G["src/derive-inputs.ts<br/>runtime dates and derived inputs"]
+    E --> H["src/row-engine-base.ts /<br/>src/row-engine-with-pension-increases.ts"]
+    H --> I["src/row-assembly.ts<br/>build row values"]
+    I --> J["src/projection-domains/<br/>alpha, nuvos, state-pension, sipp, isa, tax, inflation"]
+
+    D --> K["window.localStorage"]
+    F --> L["Charts, summaries, comparison views"]
+    E --> M["Projection rows and pension summary"]
+    C --> N["Journey mode / expert mode UI"]
+```
+
+The main runtime data flow looks like this:
+
+```mermaid
+flowchart LR
+    A["User inputs<br/>forms, journey steps, chart controls"] --> B["Settings state<br/>useAppController"]
+    B --> C["Normalization + validation<br/>src/settings/"]
+    C --> D["Derived dates and assumptions<br/>src/derive-inputs.ts"]
+    D --> E["Projection engine<br/>monthly row generation"]
+    E --> F["Projection rows"]
+    F --> G["Summary generation<br/>src/summary.ts"]
+    F --> H["App-domain adapters<br/>comparison, chart, journey helpers"]
+    G --> I["Results summary UI"]
+    H --> J["Bridge chart, comparison panel,<br/>projection table, journey screens"]
+    B --> K["Local persistence<br/>window.localStorage"]
+```
+
 ## What The App Does
 
 The app takes a set of pension assumptions and builds a monthly projection from the chosen calculation start date through the selected life expectancy date.
@@ -73,11 +120,17 @@ Some important current assumptions in the projection logic:
 
 ## Project Structure
 
-- [src/App.tsx](src/App.tsx) contains the main UI and projection table.
-- [src/settings.ts](src/settings.ts) defines defaults, normalization, validation, and persistence.
-- [src/projection.ts](src/projection.ts) contains the projection and pension calculation logic.
-- [src/data/alpha_pension_added_pension_factors.json](src/data/alpha_pension_added_pension_factors.json) stores age-based added pension purchase factors.
-- [src/data/alpha_pension_reduction_factors.json](src/data/alpha_pension_reduction_factors.json) stores early-retirement reduction factors.
+- [src/main.tsx](/Users/rowan/Documents/github/cs-pension-calculator/src/main.tsx) boots the client app.
+- [src/App.tsx](/Users/rowan/Documents/github/cs-pension-calculator/src/App.tsx) composes the main screens and feature sections.
+- [src/app/use-app-controller.ts](/Users/rowan/Documents/github/cs-pension-calculator/src/app/use-app-controller.ts) orchestrates application state, persistence, and derived results.
+- [src/settings.ts](/Users/rowan/Documents/github/cs-pension-calculator/src/settings.ts) re-exports the settings API.
+- [src/settings/](/Users/rowan/Documents/github/cs-pension-calculator/src/settings) holds defaults, types, normalization, validation, and storage helpers.
+- [src/projection.ts](/Users/rowan/Documents/github/cs-pension-calculator/src/projection.ts) re-exports the projection API.
+- [src/projection-core.ts](/Users/rowan/Documents/github/cs-pension-calculator/src/projection-core.ts) defines the projection pipeline and core result types.
+- [src/projection-domains/](/Users/rowan/Documents/github/cs-pension-calculator/src/projection-domains) contains domain-specific calculations for Alpha, Nuvos, State Pension, SIPP, ISA, tax, inflation, and bridge analysis.
+- [src/app-domains/](/Users/rowan/Documents/github/cs-pension-calculator/src/app-domains) contains UI-facing adapters for journeys, forms, comparison views, and retirement-income charts.
+- [src/data/alpha_pension_added_pension_factors.json](/Users/rowan/Documents/github/cs-pension-calculator/src/data/alpha_pension_added_pension_factors.json) stores age-based added pension purchase factors.
+- [src/data/alpha_pension_reduction_factors.json](/Users/rowan/Documents/github/cs-pension-calculator/src/data/alpha_pension_reduction_factors.json) stores early-retirement reduction factors.
 
 Tests are colocated with the code in `src/*.test.ts` and `src/*.test.tsx`.
 
