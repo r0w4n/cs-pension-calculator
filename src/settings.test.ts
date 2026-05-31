@@ -631,6 +631,9 @@ describe("settings unit tests", () => {
   it("reports lump sum schedules outside their valid contribution windows", () => {
     const issues = validateSettings({
       ...createDefaultSettings(),
+      requirementAge: 60,
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
       alphaAddedPensionLumpSums: [
         {
           id: "alpha-lump",

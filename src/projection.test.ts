@@ -338,6 +338,7 @@ describe("projection calculations", () => {
   it("does not reduce nuvos pension drawn at age 65", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      requirementAge: 65,
       showNuvos: true,
       showStatePension: false,
       showSipp: false,
@@ -365,6 +366,7 @@ describe("projection calculations", () => {
   it("actuarially reduces nuvos pension drawn before age 65", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      requirementAge: 60,
       showNuvos: true,
       showStatePension: false,
       showSipp: false,
@@ -524,6 +526,7 @@ describe("projection calculations", () => {
   it("carries regular monthly added pension purchases into accrued Alpha pension", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      requirementAge: 60,
       startDate: "2047-04-01",
       dateOfBirth: "1987-04-01",
       alphaPensionDrawAge: 60,
@@ -556,6 +559,7 @@ describe("projection calculations", () => {
   it("uses the selected added pension factor in projected monthly purchases", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      requirementAge: 60,
       startDate: "2047-04-01",
       dateOfBirth: "1987-04-01",
       alphaPensionDrawAge: 60,
@@ -585,6 +589,7 @@ describe("projection calculations", () => {
   it("revalues regular monthly added pension purchases when pension increases are enabled", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      requirementAge: 60,
       applyPensionIncreases: true,
       assumedCpiPercent: 2,
       startDate: "2047-04-01",
@@ -651,6 +656,7 @@ describe("projection calculations", () => {
   it("uses a lump sum's own added pension factor independently from monthly purchases", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      requirementAge: 60,
       startDate: "2047-04-01",
       dateOfBirth: "1987-04-01",
       alphaPensionDrawAge: 60,
@@ -775,7 +781,15 @@ describe("projection calculations", () => {
   });
 
   it("derives projection inputs from valid settings", () => {
-    expect(deriveProjectionInputs(defaultSettings)).toMatchObject({
+    expect(
+      deriveProjectionInputs({
+        ...defaultSettings,
+        lifeExpectancy: 88,
+        requirementAge: 60,
+        alphaPensionDrawAge: 60,
+        alphaPensionLeaveAge: 60,
+      })
+    ).toMatchObject({
       endDate: "2075-06-15",
       drawDate: "2047-06-15",
       alphaStopDate: "2047-06-15",
@@ -792,6 +806,7 @@ describe("projection calculations", () => {
       startDate: "2025-04-01",
       dateOfBirth: "1960-04-06",
       lifeExpectancy: 90,
+      requirementAge: 60,
       alphaPensionAbsDate: "2025",
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 60,
@@ -928,8 +943,10 @@ describe("projection calculations", () => {
   it("applies partial retirement to regular SIPP contributions but not lump sums", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      projectionBasis: "nominal",
       startDate: "2026-01-01",
       dateOfBirth: "1986-01-01",
+      sippRealInterestPercent: 0,
       sippCurrentPot: 0,
       sippMonthlyContribution: 100,
       sippLumpSums: [
@@ -959,8 +976,10 @@ describe("projection calculations", () => {
   it("applies partial retirement to regular ISA contributions but not lump sums", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      projectionBasis: "nominal",
       startDate: "2026-01-01",
       dateOfBirth: "1986-01-01",
+      isaRealInterestPercent: 0,
       isaCurrentPot: 0,
       isaMonthlyContribution: 100,
       isaLumpSums: [
@@ -993,6 +1012,7 @@ describe("projection calculations", () => {
       startDate: "2026-01-01",
       dateOfBirth: "1986-01-01",
       requirementAge: 41,
+      sippRealInterestPercent: 0,
       sippCurrentPot: 0,
       sippMonthlyContribution: 100,
       sippLumpSums: [
@@ -1013,6 +1033,7 @@ describe("projection calculations", () => {
       ],
       sippDrawAge: 45,
       sippTaxReliefRate: "20",
+      isaRealInterestPercent: 0,
       isaCurrentPot: 0,
       isaMonthlyContribution: 100,
       isaLumpSums: [
@@ -1053,10 +1074,12 @@ describe("projection calculations", () => {
   it("projects yearly SIPP lump sums on their scheduled dates", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      projectionBasis: "nominal",
       startDate: "2026-01-01",
       dateOfBirth: "1986-01-01",
       alphaPensionDrawAge: 42,
       lifeExpectancy: 75,
+      sippRealInterestPercent: 0,
       sippCurrentPot: 0,
       sippMonthlyContribution: 0,
       sippLumpSums: [
@@ -1090,10 +1113,12 @@ describe("projection calculations", () => {
   it("can apply higher-rate SIPP tax relief", () => {
     const settings: PensionSettings = {
       ...defaultSettings,
+      projectionBasis: "nominal",
       startDate: "2026-01-01",
       dateOfBirth: "1986-01-01",
       alphaPensionDrawAge: 40,
       lifeExpectancy: 75,
+      sippRealInterestPercent: 0,
       sippCurrentPot: 10000,
       sippMonthlyContribution: 100,
       sippLumpSums: [
@@ -1128,11 +1153,13 @@ describe("projection calculations", () => {
       alphaPensionDrawAge: 40,
       alphaPensionLeaveAge: 40,
       showStatePension: false,
+      sippRealInterestPercent: 0,
       sippCurrentPot: 60000,
       sippMonthlyContribution: 0,
       sippDrawAge: 40,
       sippWithdrawalStrategy: "use_by_age",
       sippWithdrawalTargetAge: 45,
+      isaRealInterestPercent: 0,
       isaCurrentPot: 30000,
       isaMonthlyContribution: 0,
       isaDrawAge: 40,
@@ -1335,6 +1362,7 @@ describe("projection calculations", () => {
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 60,
       showStatePension: false,
+      sippRealInterestPercent: 0,
       sippCurrentPot: 0,
       sippMonthlyContribution: 100,
       sippTaxReliefRate: "none",
@@ -1349,6 +1377,7 @@ describe("projection calculations", () => {
           endDate: "2047-06-15",
         },
       ],
+      isaRealInterestPercent: 0,
       isaCurrentPot: 0,
       isaMonthlyContribution: 100,
       isaDrawAge: 60,
@@ -1420,6 +1449,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-05-15",
       dateOfBirth: "1987-06-15",
+      requirementAge: 60,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 60,
       lifeExpectancy: 66,
@@ -1453,6 +1483,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-05-15",
       dateOfBirth: "1987-06-15",
+      requirementAge: 60,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 61,
       lifeExpectancy: 61,
@@ -1496,6 +1527,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-05-15",
       dateOfBirth: "1987-06-15",
+      requirementAge: 60,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 61,
       lifeExpectancy: 61,
@@ -1528,6 +1560,7 @@ describe("projection calculations", () => {
       assumedCpiPercent: 2,
       startDate: "2025-04-01",
       dateOfBirth: "1987-04-01",
+      requirementAge: 39,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 39,
       lifeExpectancy: 70,
@@ -1555,6 +1588,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-05-15",
       dateOfBirth: "1987-06-15",
+      requirementAge: 65,
       alphaPensionAbsDate: "2047",
       accruedPensionAtLastAbs: 0,
       pensionableEarnings: 42000,
@@ -1583,6 +1617,7 @@ describe("projection calculations", () => {
   it("still projects rows when EPA is enabled before the EPA age", () => {
     const rows = createProjectionTable({
       ...defaultSettings,
+      requirementAge: 60,
       alphaEpaEnabled: true,
       alphaEpaYearsBeforeNpa: 3,
       alphaPensionDrawAge: 60,
@@ -1598,6 +1633,7 @@ describe("projection calculations", () => {
       startDate: "2026-05-02",
       dateOfBirth: "1977-11-23",
       lifeExpectancy: 90,
+      requirementAge: 67,
       currentStatePension: 12547.6,
       applyPensionIncreases: false,
       assumedCpiPercent: 3.2,
@@ -1634,6 +1670,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-05-15",
       dateOfBirth: "1987-06-15",
+      requirementAge: 60,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 60,
       lifeExpectancy: 61,
@@ -1990,6 +2027,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-04-15",
       dateOfBirth: "1987-06-20",
+      requirementAge: 60,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 60,
       statePensionDrawDate: "2055-06-20",
@@ -2023,6 +2061,9 @@ describe("projection calculations", () => {
       startDate: "2047-04-15",
       dateOfBirth: "1987-06-20",
       lifeExpectancy: 61,
+      requirementAge: 60,
+      alphaPensionDrawAge: 60,
+      alphaPensionLeaveAge: 60,
       showStatePension: false,
       showSipp: false,
       showIsa: false,
@@ -2042,8 +2083,10 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-04-15",
       dateOfBirth: "1987-06-20",
+      requirementAge: 60,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 60,
+      statePensionDrawDate: "2055-06-20",
       lifeExpectancy: 61,
     };
 
@@ -2084,6 +2127,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2047-05-15",
       dateOfBirth: "1987-06-15",
+      requirementAge: 60,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 61,
       lifeExpectancy: 61,
@@ -2170,6 +2214,7 @@ describe("projection calculations", () => {
       startDate: "2025-04-01",
       dateOfBirth: "1960-04-01",
       lifeExpectancy: 66,
+      requirementAge: 65,
       alphaPensionAbsDate: "2025",
       alphaPensionDrawAge: 65,
       alphaPensionLeaveAge: 65,
@@ -2205,6 +2250,7 @@ describe("projection calculations", () => {
     const updatedSettings: PensionSettings = {
       ...defaultSettings,
       currentStatePension: 12000,
+      requirementAge: 61,
       alphaPensionDrawAge: 61,
       alphaPensionLeaveAge: 61,
     };
@@ -2225,6 +2271,7 @@ describe("projection calculations", () => {
       ...defaultSettings,
       startDate: "2055-04-15",
       dateOfBirth: "1987-06-15",
+      requirementAge: 60,
       alphaPensionDrawAge: 60,
       alphaPensionLeaveAge: 60,
       statePensionDrawDate: "2055-06-15",

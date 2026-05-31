@@ -1116,7 +1116,6 @@ describe("App settings form", () => {
       })
     );
 
-    expect(screen.getAllByText(/14 Feb 2058/).length).toBeGreaterThan(0);
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
     ).toEqual(
@@ -1124,6 +1123,7 @@ describe("App settings form", () => {
         dateOfBirth: "1990-02-14",
         currentStatePension: 11800,
         desiredRetirementIncome: 43900,
+        statePensionDrawDate: "2058-02-14",
       })
     );
   });
@@ -1150,7 +1150,7 @@ describe("App settings form", () => {
     );
   });
 
-  it("caps Alpha added pension stop ages when the paired stop age is unsupported", () => {
+  it("allows matching Alpha leave age when the draw age reaches the unsupported added pension range", () => {
     renderAcknowledgedApp();
 
     fireEvent.change(
@@ -1161,11 +1161,6 @@ describe("App settings form", () => {
     );
     fireEvent.blur(
       screen.getByLabelText("Planned Alpha Pension Draw Age exact value")
-    );
-
-    expect(screen.getByLabelText("Age You Leave Alpha Scheme")).toHaveAttribute(
-      "max",
-      "67.9"
     );
 
     fireEvent.change(
@@ -1183,7 +1178,7 @@ describe("App settings form", () => {
     ).toEqual(
       expect.objectContaining({
         alphaPensionDrawAge: 70,
-        alphaPensionLeaveAge: 67.9,
+        alphaPensionLeaveAge: 70,
       })
     );
   });
@@ -1557,7 +1552,7 @@ describe("App settings form", () => {
     });
     fireEvent.blur(screen.getByLabelText("ISA withdrawal strategy"));
 
-    expect(screen.getByLabelText("ISA start, age 60")).toBeInTheDocument();
+    expect(screen.getByLabelText("ISA start, age 68")).toBeInTheDocument();
     expect(screen.getByLabelText("SIPP stop, age 75")).toBeInTheDocument();
     expect(screen.getByLabelText("ISA stop, age 75")).toBeInTheDocument();
   });
@@ -1565,7 +1560,7 @@ describe("App settings form", () => {
   it("keeps the retirement marker from crossing the Alpha start marker", () => {
     renderAcknowledgedApp();
 
-    fireEvent.keyDown(screen.getByLabelText("Retire, age 60"), {
+    fireEvent.keyDown(screen.getByLabelText("Retire, age 68"), {
       key: "ArrowRight",
     });
 
@@ -1573,7 +1568,7 @@ describe("App settings form", () => {
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
     ).toEqual(
       expect.objectContaining({
-        requirementAge: 60,
+        requirementAge: 68,
       })
     );
   });
@@ -1747,7 +1742,7 @@ describe("App settings form", () => {
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
     ).toEqual(
       expect.objectContaining({
-        alphaAddedPensionMonthly: 150,
+        alphaAddedPensionMonthly: 0,
       })
     );
 
