@@ -1543,19 +1543,25 @@ h3 {
 .assumptions-version-strip-copy {
   display: grid;
   gap: 0.2rem;
+  flex: 1 1 18rem;
+  min-width: 0;
 }
 
-.assumptions-version-strip-copy strong {
+.assumptions-version-strip-copy h3 {
+  margin: 0;
   font-size: var(--font-size-body);
 }
 
-.assumptions-version-strip-copy span {
+.assumptions-version-strip-copy p {
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--font-size-body-sm);
+  line-height: 1.45;
 }
 
 .assumptions-version-link {
   margin-top: 0;
+  flex-shrink: 0;
 }
 
 .assumption-rule-title {

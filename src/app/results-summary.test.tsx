@@ -46,12 +46,18 @@ describe("results-summary module", () => {
   it("renders the assumptions version strip", () => {
     render(<AssumptionsVersionStrip />);
 
-    expect(screen.getByLabelText("Assumptions version")).toHaveTextContent(
-      "Assumptions version 2026.05"
+    expect(
+      screen.getByRole("heading", { name: "Planning tool only" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Planning and privacy disclaimer")
+    ).toHaveTextContent(
+      "This modeller is for illustration, not financial advice."
     );
     expect(
       screen.getByRole("link", { name: "View methodology" })
     ).toHaveAttribute("href", "./methodology/index.html");
+    expect(screen.queryByText(/Assumptions version/i)).not.toBeInTheDocument();
   });
 
   it("renders the governed assumptions table", () => {

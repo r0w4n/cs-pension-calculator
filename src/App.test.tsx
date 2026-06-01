@@ -608,9 +608,15 @@ describe("App settings form", () => {
         "This summary uses your current journey assumptions and shows your projected annual income before tax."
       )
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Assumptions version")).toHaveTextContent(
-      "Assumptions version 2026.05"
+    expect(
+      screen.getByRole("heading", { name: "Planning tool only" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Planning and privacy disclaimer")
+    ).toHaveTextContent(
+      "Results depend on your inputs, so check important decisions against your official pension statement"
     );
+    expect(screen.queryByText(/Assumptions version/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", {
         name: "Monthly pension projection table",

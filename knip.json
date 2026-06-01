@@ -1,9 +1,9 @@
 {
   "$schema": "./node_modules/knip/schema.json",
-  "ignoreFiles": [
+  "entry": [
     "src/pages/about.tsx",
     "src/pages/methodology.tsx",
-    "src/pages/privacy.tsx",
-    "src/pages/static-page-layout.tsx"
-  ]
+    "src/pages/privacy.tsx"
+  ],
+  "ignoreFiles": []
 }

@@ -243,13 +243,20 @@ async function assertStaticPage(
   pageName: "About" | "Methodology" | "Privacy",
   sectionHeading: string
 ) {
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  await page
+  const path = `/${pageName.toLowerCase()}/`;
+  const link = page
     .getByRole("contentinfo")
-    .getByRole("link", { name: pageName })
-    .click();
+    .getByRole("link", { name: pageName });
 
-  await expect(page).toHaveURL(new RegExp(`/${pageName.toLowerCase()}/$`));
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(link).toHaveAttribute(
+    "href",
+    new RegExp(`${pageName.toLowerCase()}/$`)
+  );
+  await Promise.all([page.waitForURL(new RegExp(`${path}$`)), link.click()]);
+  await page.waitForLoadState("domcontentloaded");
+
+  await expect(page).toHaveURL(new RegExp(`${path}$`));
   await expect(
     page.getByRole("heading", { level: 1, name: pageName })
   ).toBeVisible();

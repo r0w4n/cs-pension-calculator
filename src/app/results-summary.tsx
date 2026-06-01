@@ -8,7 +8,6 @@ import { formatModelledReturn, formatPercent } from "../app-domains";
 import {
   GOVERNED_ASSUMPTIONS_REGISTRY,
   getAffectedFieldLabels,
-  getGovernedAssumptionsLatestReviewDate,
 } from "../assumptions-registry";
 import { resolveAppBaseHref } from "./app-base";
 
@@ -239,18 +238,21 @@ export function ModellerLimitations({
 
 export function AssumptionsVersionStrip() {
   const appBaseHref = resolveAppBaseHref();
-  const latestReviewDate = getGovernedAssumptionsLatestReviewDate();
 
   return (
-    <div className="assumptions-version-strip" aria-label="Assumptions version">
+    <section
+      className="assumptions-version-strip"
+      aria-label="Planning and privacy disclaimer"
+    >
       <div className="assumptions-version-strip-copy">
-        <strong>
-          Assumptions version {GOVERNED_ASSUMPTIONS_REGISTRY.version}
-        </strong>
-        <span>
-          {GOVERNED_ASSUMPTIONS_REGISTRY.assumptions.length} governed rules.
-          Latest review {latestReviewDate}.
-        </span>
+        <h3>Planning tool only</h3>
+        <p>
+          This modeller is for illustration, not financial advice. It is
+          independent of the Civil Service Pension Scheme, Capita, the Cabinet
+          Office and Alpha. Results depend on your inputs, so check important
+          decisions against your official pension statement and, where
+          appropriate, a regulated financial adviser.
+        </p>
       </div>
       <a
         className="static-backlink assumptions-version-link"
@@ -258,7 +260,7 @@ export function AssumptionsVersionStrip() {
       >
         View methodology
       </a>
-    </div>
+    </section>
   );
 }
 
