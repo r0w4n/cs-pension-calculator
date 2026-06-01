@@ -73,15 +73,21 @@ export function JourneyFlow({
   );
   const isFirstStep = activeStepIndex === 0;
   const isLastStep = activeStepIndex === visibleSteps.length - 1;
-  const stepperRef = useRef<HTMLElement | null>(null);
+  const topBookmarkRef = useRef<HTMLDivElement | null>(null);
+  const hasMountedRef = useRef(false);
 
   useEffect(() => {
     if (!activeStep) {
       return;
     }
 
-    if (typeof stepperRef.current?.scrollIntoView === "function") {
-      stepperRef.current.scrollIntoView({ block: "start" });
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+
+    if (typeof topBookmarkRef.current?.scrollIntoView === "function") {
+      topBookmarkRef.current.scrollIntoView({ block: "start" });
     }
   }, [activeStep]);
 
@@ -108,6 +114,7 @@ export function JourneyFlow({
 
   return (
     <section className="panel journey-panel" aria-labelledby="journey-title">
+      <div ref={topBookmarkRef} id="journey-top-bookmark" />
       <div className="journey-heading">
         <div>
           <p className="eyebrow">Journey</p>
@@ -125,11 +132,7 @@ export function JourneyFlow({
         </div>
       </div>
 
-      <nav
-        ref={stepperRef}
-        className="journey-stepper"
-        aria-label="Journey steps"
-      >
+      <nav className="journey-stepper" aria-label="Journey steps">
         {visibleSteps.map((step, index) => {
           const stepState = getStepState(index);
 
