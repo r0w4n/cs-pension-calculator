@@ -131,8 +131,7 @@ export function ComparisonBuilder({
       </div>
       {!actions.currentScenarioIsValid ? (
         <p className="table-status">
-          Fix the current validation issues before adding or replacing a
-          scenario.
+          Fix the current validation issues before adding a scenario.
         </p>
       ) : null}
       {actions.comparisonLimitReached ? (
@@ -268,24 +267,6 @@ export function ComparisonPanel({
     onScenariosChange(scenarios.filter((scenario) => scenario.id !== id));
   }
 
-  function replaceScenario(id: string) {
-    if (!currentScenarioIsValid) {
-      return;
-    }
-
-    onScenariosChange(
-      scenarios.map((scenario) =>
-        scenario.id === id
-          ? {
-              ...scenario,
-              settings: clonePensionSettings(settings),
-              updatedAt: new Date().toISOString(),
-            }
-          : scenario
-      )
-    );
-  }
-
   return (
     <section className="panel comparison-panel" aria-label="Comparison results">
       <ComparisonPensionSummary
@@ -336,11 +317,9 @@ export function ComparisonPanel({
         <SavedScenariosSection
           scenarios={scenarios}
           savedResults={savedResults}
-          currentScenarioIsValid={currentScenarioIsValid}
           maxScenarios={MAX_COMPARISON_SCENARIOS}
           onLoadScenario={onLoadScenario}
           renameScenario={renameScenario}
-          replaceScenario={replaceScenario}
           removeScenario={removeScenario}
         />
       </DeferredBelowFold>

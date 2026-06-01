@@ -8,20 +8,16 @@ import {
 export function SavedScenariosSection({
   scenarios,
   savedResults,
-  currentScenarioIsValid,
   maxScenarios,
   onLoadScenario,
   renameScenario,
-  replaceScenario,
   removeScenario,
 }: {
   scenarios: ComparisonScenario[];
   savedResults: ComparisonResult[];
-  currentScenarioIsValid: boolean;
   maxScenarios: number;
   onLoadScenario: (settings: PensionSettings) => void;
   renameScenario: (id: string, name: string) => void;
-  replaceScenario: (id: string) => void;
   removeScenario: (id: string) => void;
 }) {
   return (
@@ -74,14 +70,6 @@ export function SavedScenariosSection({
                   onClick={() => onLoadScenario(result.scenario.settings)}
                 >
                   Load this scenario
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={!currentScenarioIsValid}
-                  onClick={() => replaceScenario(result.scenario.id)}
-                >
-                  Replace with current
                 </button>
                 <button
                   type="button"
