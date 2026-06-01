@@ -18,15 +18,7 @@ export function saveAcknowledgementState() {
 }
 
 export function loadStoredAppMode(): AppMode | null {
-  const storedMode = readStorageItem(APP_MODE_STORAGE_KEY);
-
-  return storedMode === "bridge" ||
-    storedMode === "simple" ||
-    storedMode === "expert"
-    ? storedMode
-    : storedMode === "journey"
-      ? "simple"
-      : null;
+  return null;
 }
 
 export function saveStoredAppMode(mode: AppMode) {

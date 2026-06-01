@@ -445,7 +445,7 @@ describe("App settings form", () => {
     expect(window.localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe("expert");
   });
 
-  it("starts in the previously selected expert mode", () => {
+  it("does not restore a previously selected mode on reload", () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, "expert");
 
     renderAcknowledgedApp({ mode: null });
@@ -454,10 +454,28 @@ describe("App settings form", () => {
       screen.getByRole("button", {
         name: /Work through every setting with full control/i,
       })
-    ).toHaveAttribute("aria-pressed", "true");
+    ).toHaveAttribute("aria-pressed", "false");
     expect(
-      screen.getAllByRole("heading", { name: "Optional sections" }).length
-    ).toBeGreaterThan(0);
+      screen.getByRole("heading", { name: "Choose the level of detail" })
+    ).toBeInTheDocument();
+  });
+
+  it("does not auto-open a journey for legacy journey mode values", () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, "journey");
+
+    renderAcknowledgedApp({ mode: null });
+
+    expect(
+      screen.getByRole("heading", { name: "Choose the level of detail" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Simplified retirement journey" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Work out what I need to retire early",
+      })
+    ).not.toBeInTheDocument();
   });
 
   it("keeps working when local storage is unavailable", () => {
